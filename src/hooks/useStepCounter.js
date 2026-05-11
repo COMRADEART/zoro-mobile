@@ -1,0 +1,67 @@
+import { useState, useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
+import { Pedometer } from 'expo-sensors';
+
+export default function useStepCounter() {
+  const [steps, setSteps]       = useState(0);
+  const [goal, setGoal]         = useState(10000);
+  const [isAvailable, setAvailable] = useState(false);
+  const [error, setError]      = useState(null);
+  const [isPaceActive, setPaceActive] = useState(false);
+  const subscriptionRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const check = async () => {
+      try {
+        const available = await Pedometer.isAvailableAsync();
+        if (!mounted) return;
+        setAvailable(available);
+
+        if (!available) {
+          setError('Pedometer not available on this device');
+          return;
+        }
+
+        // Get steps from start of today
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const end = new Date();
+
+        const result = await Pedometer.getStepCountAsync(start, end);
+        if (!mounted) return;
+        if (result) {
+          setSteps(result.steps);
+        }
+
+        // Start live subscription
+        subscriptionRef.current = Pedometer.watchStepCount(result => {
+          if (!mounted) return;
+          setSteps(prev => prev + result.steps);
+          setPaceActive(result.steps > 0);
+        });
+      } catch (e) {
+        if (!mounted) return;
+        setError(e.message || 'Step counter error');
+      }
+    };
+
+    check();
+    return () => {
+      mounted = false;
+      if (subscriptionRef.current) {
+        subscriptionRef.current.remove();
+      }
+    };
+  }, []);
+
+  const requestPermission = async () => {
+    if (Platform.OS === 'android') return true;
+    // iOS permissions are requested implicitly on first getStepCountAsync call
+    const available = await Pedometer.isAvailableAsync();
+    return available;
+  };
+
+  return { steps, goal, setGoal, isAvailable, error, isPaceActive, requestPermission };
+}

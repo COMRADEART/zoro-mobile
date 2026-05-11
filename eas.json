@@ -1,0 +1,27 @@
+{
+  "cli": {
+    "version": ">= 13.0.0"
+  },
+  "build": {
+    "release": {
+      "android": {
+        "buildType": "app-bundle",
+        "image": "latest"
+      }
+    },
+    "development": {
+      "android": {
+        "buildType": "debug",
+        "image": "latest"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./path-to-service-account.json",
+        "track": "production"
+      }
+    }
+  }
+}
