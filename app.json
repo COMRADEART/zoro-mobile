@@ -23,6 +23,7 @@
       "edgeToEdgeEnabled": true,
       "package": "com.santoryu.fitness",
       "versionCode": 1,
+      "allowBackup": true,
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
