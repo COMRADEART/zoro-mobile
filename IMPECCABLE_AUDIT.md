@@ -24,36 +24,42 @@ The refresh is sound and on-brand. No revert. Build on it; close the gaps below.
 Status legend: `[done]` `[ ]`
 
 ### Design / PRODUCT.md
-- `[ ]` **D1** Emoji-as-iconography: `✕ ★ ✓` in `ProfileScreen`, `✓` in
-  `TrainingArcsScreen`, 1 in `SkillScreen` → replace with line-icon (extend
-  `TabIcons.js`) or kanji. No banned pictographs (🔥👣🌙💀👑) remain.
-- `[ ]` **D2** Repeated hero-metric template in `HomeScreen` `heroBand`
-  (two giant serif numbers) → demote "today" to inline stat.
-- `[ ]` **D3** Section-head inconsistency: `HomeScreen` reimplements its own
-  `SectionHead` while `SectionLabel.js` exists → converge on one primitive.
-- `[ ]` **D4** `letterSpacing` overrides fighting `DS.type` (`Dojo.loadingLabel`,
-  `BreathingGuide.phaseSub`, `RankUpModal.rankUpEye`) → normalize.
+- `[done]` **D1** Emoji-as-iconography → added check/close/star glyphs +
+  `Icon` export to `TabIcons.js`; ProfileScreen/SkillScreen/TrainingArcs now
+  use line-icons; save buttons drop the redundant glyph (kanji states it).
+- `[done]` **D2** Repeated hero-metric template in `HomeScreen` `heroBand`
+  → single Sword Sharpness focal; "today" demoted to a supporting clause.
+- `[done]` **D3** Section-head inconsistency → `SectionLabel` extended with a
+  `right` slot; `HomeScreen` converged. TrainScreen's ceremonial divider is
+  intentionally distinct (left as-is).
+- `[done]` **D4** `letterSpacing` overrides fighting `DS.type`
+  (`Dojo.loadingLabel`, `BreathingGuide.phaseSub`, `RankUpModal.rankUpEye`)
+  → normalized.
 
 ### Accessibility (WCAG AA)
-- `[ ]` **A1** No reduced-motion support; infinite loops in `AmbientBG`,
+- `[done]` **A1** No reduced-motion support; infinite loops in `AmbientBG`,
   `BreathingOrb`, `BreathingGuide`, `RankUpModal`, `BossHintModal` → shared
   `useReducedMotion` hook gating every auto/loop animation. (Keystone.)
-- `[ ]` **A2** Sparse a11y semantics on most `Pressable`s → propagate
-  `role/label/state` (pattern: `DojoTabBar`, `HomeScreen` header).
-- `[ ]` **A3** Touch targets < 44pt (`ProfileScreen` star/close ≈ 30pt) →
-  enforce 44pt minimum.
-- `[ ]` **A4** Accent-as-text contrast (confirmed): sandai `#E52030` on
-  `#0c0808` = **4.35:1**, fails AA for normal text, used at 11–12pt on the
-  default theme's Home. wado `#D4A853` = 9.1:1 (passes). → audit 6 themes; fix
-  accent text < 14pt-bold.
+- `[done]` **A2** Sparse a11y semantics → swept all screens + `GlassCard`
+  centrally; role/label/state on every interactive element.
+- `[done]` **A3** Touch targets < 44pt → small switches/chips/icons given
+  44pt hit areas (min sizing or `hitSlop`).
+- `[done]` **A4** Audited all 6 theme accents vs their bg: only **sandai**
+  failed (#E52030 = 4.35:1; wado 9.07, shusui 8.16, hollow 5.02, solar 9.08,
+  abyss 5.45 — all pass). Fixed at the single source: `THEMES.sandai.accent`
+  → `#EE3A33` (5.02:1, same crimson), so every accent-text usage on the
+  default theme now clears AA with zero call-site churn.
+  Known follow-up (out of A4's named scope, not a blanket rework): the
+  *sandai discipline* sword color (`SWORDS`/`'#DC143C'`-family) used as small
+  text in SkillScreen/Profile is a separate, broader contrast item.
 
 ### Performance
 - `[ ]` **P1** `HomeScreen` ~8 derived selectors recompute every render; effect
   deps on whole `progress` → `useMemo` + narrow dep.
-- `[ ]` **P2** `AmbientBG` particle loops on JS driver (`useNativeDriver:false`)
-  → native driver, gate by A1, cap particle count.
-- `[ ]` **P3** `DojoTabBar.scaleAnim` / `Dojo.tabAnim` transforms on JS driver
-  → native.
+- `[done]` **P2** `AmbientBG` particle loops on JS driver
+  (`useNativeDriver:false`) → native driver, gated by A1, capped at 16.
+- `[done]` **P3** `DojoTabBar.scaleAnim` / `Dojo.tabAnim` transforms on JS
+  driver → native.
 - `[ ]` **P4** `HomeScreen` recomputes `maxVol` inside the 7× week `.map` →
   hoist out.
 
