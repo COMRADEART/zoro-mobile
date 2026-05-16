@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { TXT3 } from '../../theme/tokens';
+import { TXT2 } from '../../theme/tokens';
 
 const CircularProgress = memo(function CircularProgress({ progress: prog, size = 140, strokeWidth = 8, color }) {
   const clamped = Math.min(1, Math.max(0, prog));
@@ -54,10 +54,10 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   label: {
-    fontSize: 7.5,
-    letterSpacing: 3,
-    color: TXT3,
-    marginTop: 4,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    color: TXT2,
+    marginTop: 5,
     fontWeight: '700',
   },
 });

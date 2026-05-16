@@ -2,8 +2,9 @@ import React, { useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import SectionLabel from '../components/shared/SectionLabel';
+import GlassCard from '../components/shared/GlassCard';
 import { THEMES, THEME_KEYS, DEFAULT_THEME } from '../theme/themes';
-import { TXT1, TXT3, BORD, SB_H } from '../theme/tokens';
+import { TXT1, TXT2, TXT3, BORD, SB_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import { lightImpact, setHapticsEnabled } from '../utils/haptics';
 import { getUnlockedThemes, THEME_UNLOCK_HINTS } from '../storage/progressStore';
@@ -12,17 +13,8 @@ import { scheduleTrainingReminder, cancelAllReminders } from '../services/notifi
 
 const { width: W } = Dimensions.get('window');
 
-function HeroCard({ accent, children, style }) {
-  return (
-    <View style={[s.heroCard, { borderColor: accent + '30' }, style]}>
-      <View style={[s.heroGlow, { backgroundColor: accent }]} />
-      {children}
-    </View>
-  );
-}
-
 export default function ConfigScreen() {
-  const { progress, theme, handleUpdate, onReset } = useProgress();
+  const { progress, theme, handleUpdate, onReset, setTab } = useProgress();
   const settings = progress.settings || {};
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
 
@@ -47,8 +39,26 @@ export default function ConfigScreen() {
         </View>
       </View>
 
-      <SectionLabel label="APPEARANCE · 外観" style={{ marginBottom: 10 }} />
-      <HeroCard accent={t.accent} style={{ marginBottom: 10 }}>
+      <SectionLabel label="ACCOUNT · 士" style={{ marginBottom: 10 }} />
+      <GlassCard
+        accent={t.accent}
+        style={{ marginBottom: 10 }}
+        onPress={() => { lightImpact(); setTab('profile'); }}
+      >
+        <View style={s.navRow}>
+          <View style={[s.navKanjiBox, { backgroundColor: t.accent + '18', borderColor: t.accent + '38' }]}>
+            <Text style={[s.navKanji, { color: t.accent }]}>士</Text>
+          </View>
+          <View style={s.navInfo}>
+            <Text style={s.navTitle}>PROFILE</Text>
+            <Text style={s.navSub}>Stats, body, sleep, recovery &amp; chronicles</Text>
+          </View>
+          <Text style={[s.navArrow, { color: t.accent }]}>›</Text>
+        </View>
+      </GlassCard>
+
+      <SectionLabel label="APPEARANCE · 外観" style={{ marginTop: 20, marginBottom: 10 }} />
+      <GlassCard accent={t.accent} style={{ marginBottom: 10 }}>
         <View style={s.settingHeader}>
           <Text style={s.settingTitle}>THEME</Text>
           <View style={[s.currentBadge, { backgroundColor: t.accent + '15', borderColor: t.accent + '30' }]}>
@@ -73,7 +83,7 @@ export default function ConfigScreen() {
                 {active && !isLocked && <View style={[s.themeActivePip, { backgroundColor: tc.accent }]} />}
                 <View style={[s.themeCircle, { backgroundColor: tc.accent + '20', borderColor: tc.accent }]}>
                   {isLocked
-                    ? <Text style={s.lockIcon}>🔒</Text>
+                    ? <Text style={[s.lockIcon, { color: TXT3 }]}>封</Text>
                     : <View style={[s.themeDot, { backgroundColor: tc.accent }]} />}
                 </View>
                 <Text style={[s.themeTileName, { color: active && !isLocked ? tc.accent : TXT3 }]}>{tc.name.split('·')[0].trim()}</Text>
@@ -84,9 +94,9 @@ export default function ConfigScreen() {
             );
           })}
         </View>
-      </HeroCard>
+      </GlassCard>
 
-      <HeroCard accent="#3B82F6" style={{ marginBottom: 10 }}>
+      <GlassCard accent="#3B82F6" style={{ marginBottom: 10 }}>
         <View style={s.toggleRow}>
           <View style={{ flex: 1 }}>
             <View style={s.toggleLabelRow}>
@@ -102,10 +112,10 @@ export default function ConfigScreen() {
             <View style={[s.toggleThumb, settings.autoTheme && { alignSelf: 'flex-end' }]} />
           </Pressable>
         </View>
-      </HeroCard>
+      </GlassCard>
 
       <SectionLabel label="TRAINING · 訓練" style={{ marginTop: 20, marginBottom: 10 }} />
-      <HeroCard accent={t.accent} style={{ marginBottom: 10 }}>
+      <GlassCard accent={t.accent} style={{ marginBottom: 10 }}>
         <Text style={s.settingTitle}>DEFAULT INTENSITY · 強度</Text>
         <Text style={s.settingDesc}>Default training intensity level</Text>
         <View style={[s.intensityBtns, { marginTop: 14 }]}>
@@ -125,9 +135,9 @@ export default function ConfigScreen() {
             </Pressable>
           ))}
         </View>
-      </HeroCard>
+      </GlassCard>
 
-      <HeroCard accent="#FB7185" style={{ marginBottom: 10 }}>
+      <GlassCard accent="#FB7185" style={{ marginBottom: 10 }}>
         <Text style={s.settingTitle}>DAILY STEP GOAL · 歩数目標</Text>
         <Text style={s.settingDesc}>Target steps per day</Text>
         <View style={[s.intensityBtns, { marginTop: 14 }]}>
@@ -147,13 +157,13 @@ export default function ConfigScreen() {
             </Pressable>
           ))}
         </View>
-      </HeroCard>
+      </GlassCard>
 
       {[
         { key: 'soundEnabled', label: 'SOUND EFFECTS', desc: 'Completion chimes · 完了音', color: '#9B59B6' },
         { key: 'hapticsEnabled', label: 'HAPTIC FEEDBACK', desc: 'Vibration on log · 振動', color: '#F39C12' },
       ].map(item => (
-        <HeroCard key={item.key} accent={item.color} style={{ marginBottom: 10 }}>
+        <GlassCard key={item.key} accent={item.color} style={{ marginBottom: 10 }}>
           <View style={s.toggleRow}>
             <View style={{ flex: 1 }}>
               <Text style={s.settingTitle}>{item.label}</Text>
@@ -172,11 +182,11 @@ export default function ConfigScreen() {
               <View style={[s.toggleThumb, (settings[item.key] !== false) && { alignSelf: 'flex-end' }]} />
             </Pressable>
           </View>
-        </HeroCard>
+        </GlassCard>
       ))}
 
       <SectionLabel label="REMINDERS · リマインダー" style={{ marginTop: 20, marginBottom: 10 }} />
-      <HeroCard accent="#27AE60" style={{ marginBottom: 10 }}>
+      <GlassCard accent="#27AE60" style={{ marginBottom: 10 }}>
         <View style={s.toggleRow}>
           <View style={{ flex: 1 }}>
             <View style={s.toggleLabelRow}>
@@ -203,7 +213,7 @@ export default function ConfigScreen() {
         </View>
         {settings.morningReminder && (
           <View style={[s.toggleRow, { marginTop: 16 }]}>
-            <Text style={[s.settingTitle, { fontSize: 10 }]}>TIME · 時間</Text>
+            <Text style={s.settingTitle}>TIME · 時間</Text>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {['6:00', '7:00', '8:00'].map(time => (
                 <Pressable key={time} style={[s.timeBtn, settings.reminderTime === time && { backgroundColor: '#27AE60', borderColor: '#27AE60' }]} onPress={async () => {
@@ -217,26 +227,26 @@ export default function ConfigScreen() {
             </View>
           </View>
         )}
-      </HeroCard>
+      </GlassCard>
 
       <SectionLabel label="DATA · データ" style={{ marginTop: 20, marginBottom: 10 }} />
-      <HeroCard accent="#E74C3C" style={{ marginBottom: 10 }}>
+      <GlassCard accent="#E74C3C" style={{ marginBottom: 10 }}>
         <View style={s.dangerHeader}>
           <View>
             <Text style={s.settingTitle}>RESET PROGRESS</Text>
             <Text style={s.settingDesc}>Start over from East Blue Rookie</Text>
           </View>
-          <View style={[s.dangerBadge, { backgroundColor: '#E74C3C15', borderColor: '#E74C3C30' }]}>
-            <Text style={s.dangerBadgeText}>⚠</Text>
+          <View style={[s.dangerBadge, { backgroundColor: '#E74C3C18', borderColor: '#E74C3C45' }]}>
+            <Text style={s.dangerBadgeText}>危</Text>
           </View>
         </View>
         <Pressable style={s.dangerBtn} onPress={() => { lightImpact(); onReset(); }}>
           <Text style={s.dangerBtnTxt}>RESET ALL PROGRESS · 全てリセット</Text>
         </Pressable>
-      </HeroCard>
+      </GlassCard>
 
       <SectionLabel label="ABOUT · 概要" style={{ marginTop: 20, marginBottom: 10 }} />
-      <HeroCard accent={t.accent} style={{ marginBottom: 40 }}>
+      <GlassCard accent={t.accent} style={{ marginBottom: 40 }}>
         <View style={s.aboutRow}>
           <View style={[s.logoBadge, { backgroundColor: t.accent + '15', borderColor: t.accent + '30' }]}>
             <Text style={s.logoKanji}>三刀流</Text>
@@ -249,37 +259,42 @@ export default function ConfigScreen() {
         </View>
         <View style={s.aboutDivider} />
         <Text style={s.aboutTagline}>{'"'}I will never lose again.{'"'} — Roronoa Zoro</Text>
-      </HeroCard>
+      </GlassCard>
     </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 32 },
-  heroCard: { backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderRadius: DS.radius.xl, padding: DS.space.lg, position: 'relative', overflow: 'hidden' },
-  heroGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, opacity: 0.4 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  screenTitle: { fontSize: 9, fontWeight: '700', letterSpacing: 5, color: TXT3 },
-  screenSub: { fontSize: 11, color: TXT3, marginTop: 4, letterSpacing: 0.5 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  screenTitle: { ...DS.type.screenTitle, color: TXT1 },
+  screenSub: { ...DS.type.caption, color: TXT3, marginTop: 5, letterSpacing: 0.5 },
   kanjiBadge: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   kanjiBadgeText: { fontSize: 20, fontWeight: '900' },
+  navRow: { flexDirection: 'row', alignItems: 'center', gap: DS.space.md },
+  navKanjiBox: { width: 48, height: 48, borderRadius: DS.radius.md, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  navKanji: { fontSize: 24, fontWeight: '900' },
+  navInfo: { flex: 1 },
+  navTitle: { ...DS.type.cardTitle, fontSize: 16, color: TXT1 },
+  navSub: { ...DS.type.caption, color: TXT2, marginTop: 4 },
+  navArrow: { fontSize: 28, fontWeight: '300' },
   settingHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
-  settingTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 1.5, color: TXT1 },
-  settingJapanese: { fontSize: 10, fontWeight: '800', color: TXT3, letterSpacing: 1 },
-  settingDesc: { fontSize: 11, color: TXT3, marginTop: 3 },
+  settingTitle: { fontSize: 13, fontWeight: '700', letterSpacing: 1, color: TXT1 },
+  settingJapanese: { fontSize: 12, fontWeight: '800', color: TXT3, letterSpacing: 1 },
+  settingDesc: { ...DS.type.caption, color: TXT2, marginTop: 4 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   toggleLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   toggle: { width: 46, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', padding: 3 },
   toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: TXT1 },
   currentBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
-  currentBadgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 1.5 },
+  currentBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   themeTile: { width: (W - 32 - 24 - 8) / 3, padding: 12, paddingTop: 10, borderWidth: 1.5, borderRadius: 14, alignItems: 'center', gap: 6, position: 'relative', overflow: 'hidden' },
-  themeCircle: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  themeCircle: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   themeDot: { width: 12, height: 12, borderRadius: 6 },
-  lockIcon: { fontSize: 14 },
-  themeTileName: { fontSize: 9, fontWeight: '700', letterSpacing: 1, textAlign: 'center', marginTop: 2 },
-  themeTileDesc: { fontSize: 7, letterSpacing: 0.5, textAlign: 'center' },
+  lockIcon: { fontSize: 15, fontWeight: '900' },
+  themeTileName: { fontSize: 12, fontWeight: '700', letterSpacing: 0.4, textAlign: 'center', marginTop: 4 },
+  themeTileDesc: { fontSize: 11, lineHeight: 15, letterSpacing: 0.2, textAlign: 'center' },
   themeActivePip: { position: 'absolute', top: 0, left: 0, right: 0, height: 2.5, borderRadius: 1 },
   intensityBtns: { flexDirection: 'row', gap: 12 },
   intBtn: { width: 46, height: 46, borderRadius: 23, borderWidth: 1.5, borderColor: BORD, alignItems: 'center', justifyContent: 'center' },
@@ -288,16 +303,16 @@ const s = StyleSheet.create({
   timeBtnTxt: { fontSize: 11, fontWeight: '700', color: TXT3 },
   dangerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   dangerBadge: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  dangerBadgeText: { fontSize: 18 },
+  dangerBadgeText: { fontSize: 18, fontWeight: '900', color: '#E74C3C' },
   dangerBtn: { marginTop: 16, paddingVertical: 14, borderRadius: 100, borderWidth: 1.5, borderColor: '#E74C3C', alignItems: 'center', backgroundColor: 'rgba(231,76,60,0.08)' },
   dangerBtnTxt: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: '#E74C3C' },
   aboutRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   logoBadge: { width: 64, height: 64, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   logoKanji: { fontSize: 24, fontWeight: '900', color: TXT1 },
   aboutInfo: { flex: 1 },
-  aboutTitle: { color: TXT1, fontWeight: '800', fontSize: 17 },
-  aboutVersion: { color: TXT3, fontSize: 11, marginTop: 4 },
-  aboutJapanese: { color: TXT3, fontSize: 10, marginTop: 3 },
-  aboutDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 16 },
-  aboutTagline: { color: TXT3, fontSize: 11, fontStyle: 'italic', textAlign: 'center' },
+  aboutTitle: { color: TXT1, fontWeight: '800', fontSize: 18 },
+  aboutVersion: { color: TXT2, fontSize: 12, marginTop: 5 },
+  aboutJapanese: { color: TXT3, fontSize: 12, marginTop: 4 },
+  aboutDivider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.10)', marginVertical: 16 },
+  aboutTagline: { color: TXT2, fontSize: 13, fontFamily: DS.font.display, fontStyle: 'italic', textAlign: 'center', lineHeight: 19 },
 });

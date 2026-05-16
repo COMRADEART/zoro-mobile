@@ -1,7 +1,7 @@
-import React, { memo, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import React, { memo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { TXT1, TXT3 } from '../../theme/tokens';
+import { TXT1, TXT2, TXT3 } from '../../theme/tokens';
 
 const RING_META = [
   { key: 'shusui', radius: 68, color: '#8EAABE', label: '秋水', discipline: 'SPIRIT', kanji: '魂' },
@@ -13,16 +13,6 @@ const ThreeSwordRings = memo(function ThreeSwordRings({ rings, size = 160 }) {
   const cx = size / 2;
   const cy = size / 2;
   const strokeWidth = 9;
-  const pulseAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1, duration: 3000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 0, duration: 3000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    ).start();
-  }, [pulseAnim]);
 
   return (
     <View style={{ alignItems: 'center' }}>
@@ -65,12 +55,10 @@ const ThreeSwordRings = memo(function ThreeSwordRings({ rings, size = 160 }) {
             );
           })}
         </Svg>
-        <Animated.View style={[styles.center, {
-          opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }),
-        }]}>
+        <View style={styles.center}>
           <Text style={styles.centerKanji}>三刀流</Text>
           <Text style={styles.centerSub}>SANTORYU</Text>
-        </Animated.View>
+        </View>
 
         {RING_META.map(({ key, radius, color, kanji }) => {
           const pct = rings[key]?.pct ?? 0;
@@ -128,7 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   centerKanji: { fontSize: 24, fontWeight: '900', color: TXT1, letterSpacing: 1 },
-  centerSub: { fontSize: 6, fontWeight: '800', color: TXT3, letterSpacing: 3, marginTop: 2 },
+  centerSub: { fontSize: 11, fontWeight: '800', color: TXT2, letterSpacing: 1.5, marginTop: 3 },
   statsRow: { flexDirection: 'row', gap: 12, marginTop: 18 },
   statItem: {
     alignItems: 'center',
@@ -147,10 +135,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statKanji: { fontSize: 14, fontWeight: '900' },
-  statLabel: { fontSize: 8, fontWeight: '700', letterSpacing: 1 },
-  statValue: { fontSize: 17, fontWeight: '900', color: TXT1, marginTop: 2 },
+  statLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginTop: 2 },
+  statValue: { fontSize: 17, fontWeight: '900', color: TXT1, marginTop: 3 },
   statUnit: { fontSize: 11, color: TXT3 },
-  statPct: { fontSize: 9, fontWeight: '800', letterSpacing: 1, marginTop: 1 },
+  statPct: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5, marginTop: 2 },
   progressIndicator: {
     position: 'absolute',
     width: 8,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Pressable, Modal, Animated, StyleSheet, Easing } from 'react-native';
-import { TXT1, TXT3 } from '../../theme/tokens';
+import { TXT1, TXT2, TXT3 } from '../../theme/tokens';
+import { DS } from '../../theme/designSystem';
 
 const PHASE_LABELS = {
   inhale: { text: '吸う', sub: 'BREATHE IN', color: '#4A9EFF' },
@@ -158,8 +159,8 @@ const s = StyleSheet.create({
   container: { width: '90%', alignItems: 'center', gap: 10 },
   headerSection: { alignItems: 'center', marginBottom: 8 },
   programKanji: { fontSize: 44, fontWeight: '900', color: TXT1 },
-  programName: { fontSize: 10, fontWeight: '700', letterSpacing: 4, color: TXT3, marginTop: 6 },
-  programDuration: { fontSize: 9, fontWeight: '600', color: TXT3, letterSpacing: 2, marginTop: 4 },
+  programName: { ...DS.type.label, color: TXT2, letterSpacing: 2.5, marginTop: 8 },
+  programDuration: { ...DS.type.caption, fontWeight: '600', color: TXT3, letterSpacing: 1, marginTop: 5 },
   orbWrap: { width: 220, height: 220, alignItems: 'center', justifyContent: 'center', marginVertical: 24, position: 'relative' },
   orbGlowOuter: { position: 'absolute', width: 220, height: 220, borderRadius: 110 },
   orbGlowMid: { position: 'absolute', width: 200, height: 200, borderRadius: 100 },
@@ -171,11 +172,11 @@ const s = StyleSheet.create({
   countdownNum: { fontSize: 56, fontWeight: '900', letterSpacing: -2 },
   phaseSection: { alignItems: 'center', marginBottom: 8 },
   phaseLabel: { fontSize: 22, fontWeight: '900', letterSpacing: 2 },
-  phaseSub: { fontSize: 9, fontWeight: '700', letterSpacing: 4, color: TXT3, marginTop: 4 },
+  phaseSub: { ...DS.type.label, color: TXT2, letterSpacing: 3, marginTop: 6 },
   cycleRow: { marginBottom: 10 },
-  cycleText: { fontSize: 9, fontWeight: '700', letterSpacing: 3.5, color: TXT3 },
+  cycleText: { ...DS.type.micro, fontWeight: '700', letterSpacing: 2, color: TXT2 },
   cycleBar: { width: '85%', height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', marginBottom: 32 },
   cycleBarFill: { height: 4, borderRadius: 2 },
   dismissBtn: { paddingHorizontal: 36, paddingVertical: 14, borderRadius: 100, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)' },
-  dismissTxt: { fontSize: 10, fontWeight: '800', letterSpacing: 3, color: TXT3 },
+  dismissTxt: { ...DS.type.label, fontWeight: '800', letterSpacing: 2, color: TXT2 },
 });

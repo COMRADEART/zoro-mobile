@@ -1,7 +1,7 @@
-import React, { memo, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import React, { memo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { TXT1, TXT3 } from '../../theme/tokens';
+import { TXT1, TXT2, TXT3 } from '../../theme/tokens';
 
 const RING_META = [
   { key: 'move', label: 'MOVE', color: '#FB7185', kanji: '動', radius: 74, unit: 'kcal' },
@@ -13,16 +13,6 @@ const ActivityRings = memo(function ActivityRings({ rings, size = 180, showLabel
   const cx = size / 2;
   const cy = size / 2;
   const strokeWidth = 10;
-  const pulseAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1, duration: 3000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 0, duration: 3000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    ).start();
-  }, [pulseAnim]);
 
   return (
     <View style={{ alignItems: 'center' }}>
@@ -65,14 +55,12 @@ const ActivityRings = memo(function ActivityRings({ rings, size = 180, showLabel
           })}
         </Svg>
 
-        <Animated.View style={[styles.center, {
-          opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }),
-        }]}>
+        <View style={styles.center}>
           <View style={styles.centerBadge}>
             <Text style={styles.centerIcon}>三</Text>
           </View>
           <Text style={styles.centerLabel}>RINGS</Text>
-        </Animated.View>
+        </View>
 
         {RING_META.map(({ key, radius, color }) => {
           const pct = rings?.[key]?.pct ?? 0;
@@ -143,7 +131,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   centerIcon: { fontSize: 22, fontWeight: '900', color: TXT1 },
-  centerLabel: { fontSize: 7, fontWeight: '800', letterSpacing: 3.5, color: TXT3, marginTop: 2 },
+  centerLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 2, color: TXT2, marginTop: 3 },
   progressIndicator: {
     position: 'absolute',
     width: 10,
@@ -163,8 +151,8 @@ const styles = StyleSheet.create({
   labelDot: { width: 6, height: 6, borderRadius: 3 },
   labelContent: { alignItems: 'center', gap: 2 },
   labelKanji: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  labelKanjiText: { fontSize: 12, fontWeight: '900' },
-  labelText: { fontSize: 6.5, fontWeight: '800', letterSpacing: 2 },
-  labelValue: { fontSize: 12, fontWeight: '900', color: TXT1, marginTop: 2 },
-  labelUnit: { fontSize: 8, color: TXT3, fontWeight: '600' },
+  labelKanjiText: { fontSize: 13, fontWeight: '900' },
+  labelText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5, marginTop: 3 },
+  labelValue: { fontSize: 13, fontWeight: '900', color: TXT1, marginTop: 3 },
+  labelUnit: { fontSize: 11, color: TXT3, fontWeight: '600' },
 });

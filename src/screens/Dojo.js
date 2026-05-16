@@ -227,5 +227,5 @@ const s = StyleSheet.create({
   root: { flex: 1 },
   loading: { flex: 1, backgroundColor: '#060303', alignItems: 'center', justifyContent: 'center', gap: 16 },
   loadingKanji: { color: '#E52030', fontSize: 60, fontWeight: '900', letterSpacing: 2 },
-  loadingLabel: { color: TXT3, fontSize: 9, letterSpacing: 6, fontWeight: '700' },
+  loadingLabel: { color: TXT3, fontSize: 11, letterSpacing: 4, fontWeight: '700' },
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { TXT3 } from '../../../theme/tokens';
+import { TXT2, TXT3 } from '../../../theme/tokens';
 
 const STAGE_COLORS = {
   deep: '#7C3AED',
@@ -131,15 +131,15 @@ const styles = StyleSheet.create({
   labels: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   labelItem: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.2)' },
   dot: { width: 7, height: 7, borderRadius: 3.5 },
-  labelText: { fontSize: 7.5, fontWeight: '700', letterSpacing: 1, color: TXT3 },
-  labelHours: { fontSize: 10, fontWeight: '800' },
+  labelText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, color: TXT2 },
+  labelHours: { fontSize: 12, fontWeight: '800' },
   weekWrapper: { gap: 10 },
   weekBars: { flexDirection: 'row', gap: 5 },
   weekDay: { flex: 1, alignItems: 'center', gap: 5 },
   weekBar: { width: '100%', height: 36, borderRadius: 6, overflow: 'hidden', flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.04)' },
-  weekLabel: { fontSize: 9, fontWeight: '700', color: TXT3 },
+  weekLabel: { fontSize: 11, fontWeight: '700', color: TXT3 },
   weekLegend: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 10 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  legendText: { fontSize: 7.5, fontWeight: '700', letterSpacing: 0.5, color: TXT3 },
+  legendText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3, color: TXT2 },
   emptyText: { fontSize: 11, color: TXT3, fontStyle: 'italic', textAlign: 'center', paddingVertical: 16 },
 });

@@ -4,7 +4,7 @@ import { useProgress } from '../context/ProgressContext';
 import SectionLabel from '../components/shared/SectionLabel';
 import { SleepStagesWeek } from '../components/shared/charts/SleepStagesChart';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
-import { TXT1, TXT2, TXT3, BORD, SB_H, TAB_BAR_H } from '../theme/tokens';
+import { SURF, TXT1, TXT2, TXT3, BORD, SB_H, TAB_BAR_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import {
   updateRecoveryFromSleep, updateMood, updateBodyStats,
@@ -17,8 +17,7 @@ import { playClick } from '../services/audioService';
 
 function HeroCard({ accent, children, style }) {
   return (
-    <View style={[s.heroCard, { borderColor: accent + '30' }, style]}>
-      <View style={[s.heroGlow, { backgroundColor: accent }]} />
+    <View style={[s.heroCard, { borderColor: accent + '38' }, style]}>
       {children}
     </View>
   );
@@ -96,7 +95,9 @@ export default function ProfileScreen() {
           { label: 'TOTAL XP', value: progress.totalXP.toLocaleString(), color: '#B967FF', kanji: '力' },
         ].map(item => (
           <HeroCard key={item.label} accent={item.color} style={s.allTimeCard}>
-            <View style={[s.cardTopAccent, { backgroundColor: item.color }]} />
+            <View style={[s.allTimeKanjiBox, { borderColor: item.color + '40' }]}>
+              <Text style={[s.allTimeKanji, { color: item.color }]}>{item.kanji}</Text>
+            </View>
             <Text style={[s.allTimeNum, { color: item.color }]}>{item.value}</Text>
             <Text style={s.allTimeLabel}>{item.label}</Text>
           </HeroCard>
@@ -246,7 +247,7 @@ export default function ProfileScreen() {
               <Text style={[s.inputLbl, { width: 70 }]}>{item.label}</Text>
               <View style={{ flexDirection: 'row', gap: 5, flex: 1 }}>
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => (
-                  <Pressable key={v} onPress={() => item.set(v)} hitSlop={4}>
+                  <Pressable key={v} onPress={() => item.set(v)} hitSlop={4} style={s.moodPipTouch}>
                     <View style={[s.moodPip, { backgroundColor: v <= item.val ? item.color : 'rgba(255,255,255,0.1)' }]} />
                   </Pressable>
                 ))}
@@ -301,7 +302,7 @@ export default function ProfileScreen() {
                 onPress={() => handleUpdate({ ...progress, hydrationLog: { ...progress.hydrationLog, [today]: { cups: todayCups === v ? v - 1 : v } } })}
                 hitSlop={8}
               >
-                <Text style={[s.cupIcon, { opacity: v <= todayCups ? 1 : 0.25 }]}>🍶</Text>
+                <Text style={[s.cupIcon, { color: '#38bdf8', opacity: v <= todayCups ? 1 : 0.22 }]}>水</Text>
               </Pressable>
             ))}
           </View>
@@ -400,7 +401,7 @@ export default function ProfileScreen() {
               <View key={c.monthKey} style={s.chronicleEntry}>
                 <View style={s.chronicleHeader}>
                   <Text style={s.chronicleMonth}>{c.monthKey}</Text>
-                  <Text style={s.chronicleKanji}>⚓</Text>
+                  <Text style={[s.chronicleKanji, { color: '#B967FF' }]}>航</Text>
                 </View>
                 <Text style={s.chronicleNarrative}>{c.narrative}</Text>
                 <Text style={s.chronicleStats}>
@@ -520,25 +521,25 @@ export default function ProfileScreen() {
 
 const s = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
-  heroCard: { backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderRadius: DS.radius.xl, padding: DS.space.lg, position: 'relative', overflow: 'hidden' },
-  heroGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, opacity: 0.4 },
+  heroCard: { backgroundColor: SURF, borderWidth: StyleSheet.hairlineWidth, borderRadius: DS.radius.lg, padding: DS.space.lg },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  screenTitle: { fontSize: 9, fontWeight: '700', letterSpacing: 5, color: TXT3 },
-  screenSub: { fontSize: 11, color: TXT3, marginTop: 4, letterSpacing: 0.5 },
-  kanjiBadge: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  screenTitle: { ...DS.type.screenTitle, color: TXT1 },
+  screenSub: { ...DS.type.caption, color: TXT3, marginTop: 5, letterSpacing: 0.5 },
+  kanjiBadge: { width: 38, height: 38, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
   kanjiBadgeText: { fontSize: 20, fontWeight: '900' },
   allTimeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  allTimeCard: { flex: 1, alignItems: 'center', paddingVertical: 20, marginBottom: 0 },
-  cardTopAccent: { position: 'absolute', top: 0, left: '25%', right: '25%', height: 2, borderRadius: 1 },
-  allTimeNum: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5, marginTop: 8 },
-  allTimeLabel: { fontSize: 7.5, fontWeight: '700', letterSpacing: 2, color: TXT3, marginTop: 6 },
+  allTimeCard: { flex: 1, alignItems: 'center', paddingVertical: 18, marginBottom: 0 },
+  allTimeKanjiBox: { width: 30, height: 30, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  allTimeKanji: { fontSize: 15, fontWeight: '900' },
+  allTimeNum: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  allTimeLabel: { ...DS.type.micro, color: TXT3, marginTop: 6, letterSpacing: 1.2 },
   recoveryCard: { marginBottom: 10 },
   recoveryTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
   recoveryHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   recoveryScore: { fontSize: 52, fontWeight: '900', letterSpacing: -2 },
   recoveryBadge: { width: 32, height: 32, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   recoveryBadgeText: { fontSize: 16, fontWeight: '900' },
-  recoveryLabel: { fontSize: 8, letterSpacing: 2.5, color: TXT3, fontWeight: '700', marginTop: 4 },
+  recoveryLabel: { ...DS.type.label, color: TXT2, marginTop: 5 },
   statusPill: { borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
   statusPillTxt: { fontSize: 13, fontWeight: '900', letterSpacing: 2 },
   recoveryBar: { height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' },
@@ -546,53 +547,54 @@ const s = StyleSheet.create({
   inputCard: { marginBottom: 10 },
   inputLabelGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   inputRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
-  inputLbl: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: TXT2 },
-  inputUnit: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  inputLbl: { fontSize: 12, fontWeight: '700', letterSpacing: 1, color: TXT2 },
+  inputUnit: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   numInput: { borderWidth: 1.5, width: 90, textAlign: 'center', paddingVertical: 10, borderRadius: 12, fontSize: 18, fontWeight: '800', backgroundColor: 'rgba(0,0,0,0.2)' },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: BORD },
   saveBtn: { marginTop: 16, paddingVertical: 14, borderRadius: 100, alignItems: 'center' },
-  saveBtnTxt: { fontSize: 11, fontWeight: '900', letterSpacing: 3, color: TXT1 },
+  saveBtnTxt: { fontSize: 13, fontWeight: '900', letterSpacing: 2, color: TXT1 },
   starRow: { flexDirection: 'row', gap: 12, paddingVertical: 10 },
   star: { fontSize: 30 },
   sleepHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   sleepKanjiBox: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#D4A85315', alignItems: 'center', justifyContent: 'center' },
   sleepKanjiText: { fontSize: 18, fontWeight: '900', color: '#D4A853' },
   moodRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 10 },
-  moodPip: { width: 22, height: 12, borderRadius: 4 },
+  moodPipTouch: { flex: 1 },
+  moodPip: { width: '100%', height: 14, borderRadius: 4 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
   accordionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, marginTop: 8 },
   accordionLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  accordionAccent: { width: 3, height: 16, borderRadius: 2 },
-  accordionTitle: { fontSize: 8.5, fontWeight: '800', letterSpacing: 3, color: TXT3 },
-  accordionSub: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  accordionAccent: { width: 2.5, height: 15, borderRadius: 1.5 },
+  accordionTitle: { ...DS.type.label, color: TXT1, letterSpacing: 1.5 },
+  accordionSub: { ...DS.type.caption, fontWeight: '700', letterSpacing: 0.5 },
   vitalsRow: { gap: 14 },
   vitalsField: { marginBottom: 14 },
-  vitalsLabel: { fontSize: 8, fontWeight: '700', letterSpacing: 2, color: TXT3, marginBottom: 6 },
-  vitalsUnit: { fontSize: 10, color: TXT3, fontWeight: '600' },
+  vitalsLabel: { ...DS.type.micro, color: TXT2, marginBottom: 7 },
+  vitalsUnit: { fontSize: 12, color: TXT3, fontWeight: '600' },
   numInputWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 12, backgroundColor: 'rgba(0,0,0,0.3)' },
   archetypeRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   archetypeIcon: { fontSize: 44 },
   archetypeName: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
   archetypeDesc: { fontSize: 13, color: TXT2, lineHeight: 21, marginTop: 5 },
   cupsRow: { flexDirection: 'row', gap: 10, justifyContent: 'center', marginTop: 14, marginBottom: 10 },
-  cupIcon: { fontSize: 30 },
+  cupIcon: { fontSize: 26, fontWeight: '900' },
   cupsBar: { height: 5, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginTop: 10 },
   cupsBarFill: { height: 5, borderRadius: 3 },
   macroRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
   macroItem: { alignItems: 'center', gap: 4 },
   macroVal: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
-  macroLabel: { fontSize: 7.5, fontWeight: '700', letterSpacing: 2, color: TXT3 },
+  macroLabel: { ...DS.type.micro, color: TXT3, letterSpacing: 1.2, marginTop: 3 },
   mealsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
-  mealPill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.3)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', gap: 3 },
+  mealPill: { paddingHorizontal: 14, paddingVertical: 11, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', gap: 5 },
   mealKanji: { fontSize: 20, fontWeight: '900', color: TXT1 },
-  mealName: { fontSize: 7.5, fontWeight: '700', color: TXT3, letterSpacing: 1, maxWidth: 60 },
+  mealName: { ...DS.type.micro, color: TXT2, letterSpacing: 0.5, maxWidth: 64 },
   loggedMealRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   loggedMealName: { flex: 1, fontSize: 14, color: TXT1, fontWeight: '600' },
   loggedMealKcal: { fontSize: 14, fontWeight: '700' },
-  chronicleEntry: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.08)', paddingTop: 14 },
+  chronicleEntry: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.10)', paddingTop: 14 },
   chronicleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  chronicleMonth: { fontSize: 8, fontWeight: '700', letterSpacing: 3, color: TXT3 },
-  chronicleKanji: { fontSize: 26, fontWeight: '900' },
-  chronicleNarrative: { fontSize: 14, color: TXT2, lineHeight: 22, fontStyle: 'italic', marginBottom: 10 },
-  chronicleStats: { fontSize: 10, color: TXT3, fontWeight: '600' },
+  chronicleMonth: { ...DS.type.label, color: TXT2, letterSpacing: 2 },
+  chronicleKanji: { fontSize: 24, fontWeight: '900' },
+  chronicleNarrative: { fontSize: 14, color: TXT2, fontFamily: DS.font.display, lineHeight: 23, fontStyle: 'italic', marginBottom: 10 },
+  chronicleStats: { ...DS.type.caption, color: TXT3, fontWeight: '600' },
 });

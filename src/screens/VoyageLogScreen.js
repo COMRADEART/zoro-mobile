@@ -6,7 +6,7 @@ import BarChart from '../components/shared/charts/BarChart';
 import LineChart from '../components/shared/charts/LineChart';
 import SparkLine from '../components/shared/charts/SparkLine';
 import { SleepStagesWeek } from '../components/shared/charts/SleepStagesChart';
-import { TXT1, TXT2, TXT3, SB_H } from '../theme/tokens';
+import { SURF, TXT1, TXT2, TXT3, SB_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import {
   computeRingProgress,
@@ -61,8 +61,7 @@ function shortDate(dateKey) {
 
 function HeroCard({ accent, children, style }) {
   return (
-    <View style={[s.heroCard, { borderColor: accent + '30' }, style]}>
-      <View style={[s.heroGlow, { backgroundColor: accent }]} />
+    <View style={[s.heroCard, { borderColor: accent + '38' }, style]}>
       {children}
     </View>
   );
@@ -256,7 +255,9 @@ const [view, setView] = useState('weekly');
                   { label: 'KCAL', value: Math.round((progress.sessions || []).filter(s => weekDays.includes(toDateKey(new Date(s.endedAt)))).reduce((a, s) => a + (s.calories || 0), 0)), color: '#F59E0B', kanji: '火' },
                 ].map(item => (
                   <HeroCard key={item.label} accent={item.color} style={s.statCard}>
-                    <View style={[s.statTopAccent, { backgroundColor: item.color }]} />
+                    <View style={[s.statKanjiBox, { borderColor: item.color + '40' }]}>
+                      <Text style={[s.statKanji, { color: item.color }]}>{item.kanji}</Text>
+                    </View>
                     <Text style={[s.statNum, { color: item.color }]}>{item.value.toLocaleString()}</Text>
                     <Text style={s.statLbl}>{item.label}</Text>
                   </HeroCard>
@@ -392,7 +393,7 @@ const [view, setView] = useState('weekly');
                 <HeroCard accent="#B967FF" style={{ marginBottom: 10 }}>
                   <View style={s.chronicleHeader}>
                     <Text style={s.chronicleMonth}>{existingChronicle.monthKey}</Text>
-                    <Text style={s.chronicleKanji}>⚓</Text>
+                    <Text style={[s.chronicleKanji, { color: '#B967FF' }]}>航</Text>
                   </View>
                   <Text style={s.chronicleNarrative}>{existingChronicle.narrative}</Text>
                   <Text style={s.chronicleStatTxt}>
@@ -427,7 +428,9 @@ const [view, setView] = useState('weekly');
               { label: 'AVG SHARP', value: Math.round(trendSharp.filter(v => v != null).reduce((a, v, _, arr) => a + v / arr.length, 0)) || '—', color: '#4A9EFF', kanji: '鋭' },
             ].map(item => (
               <HeroCard key={item.label} accent={item.color} style={s.statCard}>
-                <View style={[s.statTopAccent, { backgroundColor: item.color }]} />
+                <View style={[s.statKanjiBox, { borderColor: item.color + '40' }]}>
+                  <Text style={[s.statKanji, { color: item.color }]}>{item.kanji}</Text>
+                </View>
                 <Text style={[s.statNum, { color: item.color }]}>{item.value}</Text>
                 <Text style={s.statLbl}>{item.label}</Text>
               </HeroCard>
@@ -549,80 +552,80 @@ const [view, setView] = useState('weekly');
 
 const s = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 48 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  screenTitle: { fontSize: 9, fontWeight: '700', letterSpacing: 5, color: TXT3 },
-  screenSub: { fontSize: 11, color: TXT3, marginTop: 4, letterSpacing: 0.5 },
-  kanjiBadge: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  screenTitle: { ...DS.type.screenTitle, color: TXT1 },
+  screenSub: { ...DS.type.caption, color: TXT3, marginTop: 5, letterSpacing: 0.5 },
+  kanjiBadge: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   kanjiBadgeText: { fontSize: 20, fontWeight: '900' },
 
-  heroCard: { backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderRadius: DS.radius.xl, padding: DS.space.lg, position: 'relative', overflow: 'hidden' },
-  heroGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, opacity: 0.4 },
+  heroCard: { backgroundColor: SURF, borderWidth: StyleSheet.hairlineWidth, borderRadius: DS.radius.lg, padding: DS.space.lg },
 
-  toggleRow: { flexDirection: 'row', gap: 8, marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 11, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
+  toggleRow: { flexDirection: 'row', gap: 8, marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.10)' },
+  toggleBtn: { flex: 1, paddingVertical: 11, borderRadius: 11, alignItems: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: 'transparent' },
   toggleActive: {},
-  toggleTxt: { fontSize: 9, fontWeight: '800', letterSpacing: 2, color: TXT3 },
-  toggleKanji: { fontSize: 11, fontWeight: '900', color: TXT3, marginTop: 1 },
+  toggleTxt: { ...DS.type.label, color: TXT3, letterSpacing: 1.5 },
+  toggleKanji: { fontSize: 12, fontWeight: '900', color: TXT3, marginTop: 2 },
   toggleActiveTxt: { color: TXT1 },
 
   subToggleRow: { flexDirection: 'row', gap: 8, marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3 },
-  subToggleBtn: { flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: 'center' },
+  subToggleBtn: { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center' },
   subToggleActive: {},
-  subToggleTxt: { fontSize: 8, fontWeight: '800', letterSpacing: 2, color: TXT3 },
+  subToggleTxt: { ...DS.type.micro, fontWeight: '800', letterSpacing: 1.5, color: TXT3 },
   subToggleActiveTxt: { color: TXT1 },
 
   statRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
   statCard: { flex: 1, alignItems: 'center', paddingVertical: 16, marginBottom: 0 },
-  statTopAccent: { position: 'absolute', top: 0, left: '25%', right: '25%', height: 2, borderRadius: 1 },
-  statNum: { fontSize: 18, fontWeight: '900', letterSpacing: -0.5, marginTop: 6 },
-  statLbl: { fontSize: 7, fontWeight: '700', letterSpacing: 2, color: TXT3, marginTop: 4 },
+  statKanjiBox: { width: 28, height: 28, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  statKanji: { fontSize: 14, fontWeight: '900' },
+  statNum: { fontSize: 18, fontWeight: '900', letterSpacing: -0.5 },
+  statLbl: { ...DS.type.micro, color: TXT3, marginTop: 5, letterSpacing: 1 },
 
   sparkLabels: { flexDirection: 'row', width: '100%', marginTop: 8 },
-  sparkLabel: { flex: 1, textAlign: 'center', fontSize: 8, color: TXT3, fontWeight: '700' },
+  sparkLabel: { flex: 1, textAlign: 'center', fontSize: 11, color: TXT3, fontWeight: '700' },
 
   ringRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  ringLabelBox: { width: 44, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  ringLabel: { fontSize: 7.5, fontWeight: '800', letterSpacing: 1 },
+  ringLabelBox: { width: 56, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  ringLabel: { ...DS.type.micro, fontWeight: '800', letterSpacing: 0.5 },
   ringDots: { flexDirection: 'row', gap: 6, flex: 1 },
   ringDot: { width: 20, height: 20, borderRadius: 10 },
 
-  sleepBars: { flexDirection: 'row', gap: 6, justifyContent: 'space-around', height: 80, alignItems: 'flex-end' },
-  sleepBarWrap: { alignItems: 'center', gap: 4, flex: 1 },
+  sleepBars: { flexDirection: 'row', gap: 6, justifyContent: 'space-around', height: 88, alignItems: 'flex-end' },
+  sleepBarWrap: { alignItems: 'center', gap: 5, flex: 1 },
   sleepBarTrack: { width: 16, height: 60, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 8, overflow: 'hidden', justifyContent: 'flex-end' },
   sleepBarFill: { width: '100%', borderRadius: 8 },
-  sleepBarLabel: { fontSize: 8, color: TXT3, fontWeight: '700' },
-  sleepHours: { fontSize: 7, color: TXT3 },
+  sleepBarLabel: { ...DS.type.micro, color: TXT3, fontWeight: '700' },
+  sleepHours: { fontSize: 11, color: TXT3 },
 
-  narrativeTxt: { fontSize: 13, color: TXT2, lineHeight: 22, fontStyle: 'italic' },
+  narrativeTxt: { fontSize: 14, color: TXT2, fontFamily: DS.font.display, lineHeight: 23, fontStyle: 'italic' },
 
   monthSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   monthArrow: { padding: 12 },
   monthArrowTxt: { fontSize: 20, color: TXT1, fontWeight: '700' },
   monthLabelWrap: { alignItems: 'center' },
-  monthLabel: { fontSize: 15, fontWeight: '800', color: TXT1 },
+  monthLabel: { fontSize: 16, fontWeight: '800', color: TXT1 },
 
-  dominantLabel: { fontSize: 8, fontWeight: '700', letterSpacing: 3, marginBottom: 4 },
-  dominantVal: { fontSize: 30, fontWeight: '900', letterSpacing: -0.5 },
+  dominantLabel: { ...DS.type.label, marginBottom: 6 },
+  dominantVal: { ...DS.type.displayLg, fontSize: 30 },
 
   heatDot: { width: 20, height: 20, borderRadius: 4, margin: 2 },
 
   chronicleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  chronicleMonth: { fontSize: 8, fontWeight: '700', letterSpacing: 3, color: TXT3 },
+  chronicleMonth: { ...DS.type.label, color: TXT2, letterSpacing: 2 },
   chronicleKanji: { fontSize: 24, fontWeight: '900' },
-  chronicleNarrative: { fontSize: 14, color: TXT2, lineHeight: 22, fontStyle: 'italic', marginBottom: 10 },
-  chronicleStatTxt: { fontSize: 10, color: TXT3, fontWeight: '600' },
+  chronicleNarrative: { fontSize: 14, color: TXT2, fontFamily: DS.font.display, lineHeight: 23, fontStyle: 'italic', marginBottom: 10 },
+  chronicleStatTxt: { ...DS.type.caption, color: TXT3, fontWeight: '600' },
 
-  generateBtn: { paddingVertical: 16, borderRadius: 100, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)' },
-  generateBtnTxt: { fontSize: 10, fontWeight: '800', letterSpacing: 3, color: TXT3 },
+  generateBtn: { paddingVertical: 16, borderRadius: 100, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)' },
+  generateBtnTxt: { fontSize: 13, fontWeight: '800', letterSpacing: 2, color: TXT2 },
 
-  chartSubText: { fontSize: 10, color: TXT3, marginTop: 8, fontWeight: '600' },
-  miniStat: { fontSize: 10, color: TXT3, fontWeight: '700' },
-  emptyText: { fontSize: 11, color: TXT3, fontStyle: 'italic', textAlign: 'center', paddingVertical: 16 },
+  chartSubText: { ...DS.type.caption, color: TXT3, marginTop: 10, fontWeight: '600' },
+  miniStat: { fontSize: 12, color: TXT3, fontWeight: '700' },
+  emptyText: { ...DS.type.bodySm, color: TXT3, fontStyle: 'italic', textAlign: 'center', paddingVertical: 16 },
 
   ringTrendRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  ringTrendLabelBox: { width: 60, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  ringTrendLabel: { fontSize: 8, fontWeight: '800', letterSpacing: 1.5 },
+  ringTrendLabelBox: { width: 64, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  ringTrendLabel: { ...DS.type.micro, fontWeight: '800', letterSpacing: 0.5 },
   ringTrendBar: { flex: 1, height: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' },
   ringTrendFill: { height: 6, borderRadius: 3 },
-  ringTrendVal: { fontSize: 10, fontWeight: '800', color: TXT1, width: 36, textAlign: 'right' },
+  ringTrendVal: { fontSize: 12, fontWeight: '800', color: TXT1, width: 38, textAlign: 'right' },
 });

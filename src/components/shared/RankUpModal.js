@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Modal, Pressable, Animated, Easing, StyleSheet } from 'react-native';
-import { TXT3 } from '../../theme/tokens';
+import { TXT2, TXT3 } from '../../theme/tokens';
+import { DS } from '../../theme/designSystem';
 
 export default function RankUpModal({ rank, visible, onDismiss }) {
   const scale = useRef(new Animated.Value(0)).current;
@@ -39,7 +40,7 @@ export default function RankUpModal({ rank, visible, onDismiss }) {
           <View style={[styles.topAccent, { backgroundColor: rank.color }]} />
 
           <View style={styles.rankBadge}>
-            <Text style={[styles.rankBadgeKanji, { color: rank.color }]}>{rank.kanji || '⚔'}</Text>
+            <Text style={[styles.rankBadgeKanji, { color: rank.color }]}>{rank.kanji || '刀'}</Text>
           </View>
 
           <Text style={styles.rankUpEye}>— RANK ACHIEVED —</Text>
@@ -59,7 +60,7 @@ export default function RankUpModal({ rank, visible, onDismiss }) {
             <Text style={styles.japaneseSub}>You have mastered a rank</Text>
           </View>
 
-          <Text style={styles.rankUpHint}>tap to continue · tap to continue</Text>
+          <Text style={styles.rankUpHint}>TAP TO CONTINUE</Text>
         </Animated.View>
       </Pressable>
     </Modal>
@@ -92,12 +93,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   rankBadgeKanji: { fontSize: 36, fontWeight: '900' },
-  rankUpEye: { fontSize: 8, fontWeight: '800', letterSpacing: 6, color: TXT3 },
-  rankUpDivider: { height: 1, width: 100, marginVertical: 20 },
-  rankUpName: { fontSize: 36, fontWeight: '900', letterSpacing: -1, textAlign: 'center' },
-  rankUpXP: { fontSize: 11, color: TXT3, marginTop: 8, letterSpacing: 1 },
+  rankUpEye: { ...DS.type.label, letterSpacing: 3, color: TXT2 },
+  rankUpDivider: { height: StyleSheet.hairlineWidth, width: 100, marginVertical: 20 },
+  rankUpName: { ...DS.type.displayLg, fontSize: 36, textAlign: 'center' },
+  rankUpXP: { fontSize: 12, color: TXT2, marginTop: 8, letterSpacing: 0.5 },
   japaneseText: { alignItems: 'center', marginVertical: 8 },
   japaneseTitle: { fontSize: 20, fontWeight: '900', letterSpacing: 2 },
-  japaneseSub: { fontSize: 10, color: TXT3, marginTop: 4, letterSpacing: 1 },
-  rankUpHint: { fontSize: 9, color: TXT3, letterSpacing: 2.5, marginTop: 16 },
+  japaneseSub: { fontSize: 12, color: TXT3, marginTop: 5, letterSpacing: 0.5 },
+  rankUpHint: { ...DS.type.micro, color: TXT2, letterSpacing: 2, marginTop: 16 },
 });
