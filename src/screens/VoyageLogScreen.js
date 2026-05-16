@@ -224,6 +224,10 @@ const [view, setView] = useState('weekly');
             key={v.key}
             style={[s.toggleBtn, tab === v.key && { backgroundColor: t.accent + '15', borderColor: t.accent + '40' }]}
             onPress={() => setTab(v.key)}
+            accessibilityRole="button"
+            accessibilityLabel={v.label}
+            accessibilityState={{ selected: tab === v.key }}
+            hitSlop={{ top: 6, bottom: 6 }}
           >
             <Text style={[s.toggleTxt, tab === v.key && { color: t.accent }]}>{v.label}</Text>
             <Text style={[s.toggleKanji, tab === v.key && { color: t.accent }]}>{v.kanji}</Text>
@@ -239,6 +243,10 @@ const [view, setView] = useState('weekly');
                 key={v.key}
                 style={[s.subToggleBtn, view === v.key && { backgroundColor: 'rgba(255,255,255,0.1)' }]}
                 onPress={() => setView(v.key)}
+                accessibilityRole="button"
+                accessibilityLabel={v.label}
+                accessibilityState={{ selected: view === v.key }}
+                hitSlop={{ top: 8, bottom: 8 }}
               >
                 <Text style={[s.subToggleTxt, view === v.key && s.subToggleActiveTxt]}>{v.label}</Text>
               </Pressable>
@@ -331,7 +339,12 @@ const [view, setView] = useState('weekly');
           {view === 'monthly' && (
             <>
               <View style={s.monthSelector}>
-                <Pressable onPress={() => setMonthOffset(o => o - 1)} style={s.monthArrow}>
+                <Pressable
+                  onPress={() => setMonthOffset(o => o - 1)}
+                  style={s.monthArrow}
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous month"
+                >
                   <Text style={s.monthArrowTxt}>←</Text>
                 </Pressable>
                 <View style={s.monthLabelWrap}>
@@ -341,6 +354,9 @@ const [view, setView] = useState('weekly');
                   onPress={() => setMonthOffset(o => Math.min(o + 1, 0))}
                   style={[s.monthArrow, monthOffset >= 0 && { opacity: 0.3 }]}
                   disabled={monthOffset >= 0}
+                  accessibilityRole="button"
+                  accessibilityLabel="Next month"
+                  accessibilityState={{ disabled: monthOffset >= 0 }}
                 >
                   <Text style={s.monthArrowTxt}>→</Text>
                 </Pressable>
@@ -401,7 +417,12 @@ const [view, setView] = useState('weekly');
                   </Text>
                 </HeroCard>
               ) : (
-                <Pressable onPress={generateChronicle} style={s.generateBtn}>
+                <Pressable
+                  onPress={generateChronicle}
+                  style={s.generateBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Generate chronicle"
+                >
                   <Text style={s.generateBtnTxt}>GENERATE CHRONICLE · 記録を生成</Text>
                 </Pressable>
               )}
@@ -415,7 +436,15 @@ const [view, setView] = useState('weekly');
         <>
           <View style={s.subToggleRow}>
             {[['7d', '7 DAYS'], ['30d', '30 DAYS'], ['90d', '90 DAYS']].map(([key, label]) => (
-              <Pressable key={key} style={[s.subToggleBtn, trendRange === key && { backgroundColor: 'rgba(255,255,255,0.1)' }]} onPress={() => setTrendRange(key)}>
+              <Pressable
+                key={key}
+                style={[s.subToggleBtn, trendRange === key && { backgroundColor: 'rgba(255,255,255,0.1)' }]}
+                onPress={() => setTrendRange(key)}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                accessibilityState={{ selected: trendRange === key }}
+                hitSlop={{ top: 8, bottom: 8 }}
+              >
                 <Text style={[s.subToggleTxt, trendRange === key && s.subToggleActiveTxt]}>{label}</Text>
               </Pressable>
             ))}

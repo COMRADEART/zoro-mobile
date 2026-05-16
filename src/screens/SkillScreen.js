@@ -128,6 +128,9 @@ export default function SkillScreen() {
                                 backgroundColor: isUnlocked ? sw.accent + '15' : 'rgba(0,0,0,0.4)',
                               }]}
                               onPress={() => { playClick(); }}
+                              accessibilityRole="button"
+                              accessibilityLabel={`${unlock.name}, ${unlock.xp.toLocaleString()} XP, ${isUnlocked ? 'unlocked' : canUnlock ? 'available to unlock' : 'locked'}`}
+                              accessibilityState={{ selected: isUnlocked }}
                             >
                               <Text style={[s.treeNodeXP, { color: canUnlock || isUnlocked ? sw.accent : TXT3 }]}>
                                 {unlock.xp.toLocaleString()} XP

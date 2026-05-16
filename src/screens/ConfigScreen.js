@@ -13,6 +13,9 @@ import { scheduleTrainingReminder, cancelAllReminders } from '../services/notifi
 
 const { width: W } = Dimensions.get('window');
 
+// Expands the 26pt switch / ~28pt time chip to a >=44pt touch target (A11y).
+const TOGGLE_HIT = { top: 10, bottom: 10, left: 10, right: 10 };
+
 export default function ConfigScreen() {
   const { progress, theme, handleUpdate, onReset, setTab } = useProgress();
   const settings = progress.settings || {};
@@ -44,6 +47,7 @@ export default function ConfigScreen() {
         accent={t.accent}
         style={{ marginBottom: 10 }}
         onPress={() => { lightImpact(); setTab('profile'); }}
+        accessibilityLabel="Profile. Stats, body, sleep, recovery and chronicles"
       >
         <View style={s.navRow}>
           <View style={[s.navKanjiBox, { backgroundColor: t.accent + '18', borderColor: t.accent + '38' }]}>
@@ -79,6 +83,9 @@ export default function ConfigScreen() {
                   opacity: isLocked ? 0.38 : 1,
                 }]}
                 onPress={() => { if (!isLocked) set('theme', key); }}
+                accessibilityRole="button"
+                accessibilityLabel={isLocked ? `${tc.name}, locked. ${THEME_UNLOCK_HINTS[key] ?? tc.desc}` : `${tc.name} theme`}
+                accessibilityState={{ selected: active, disabled: isLocked }}
               >
                 {active && !isLocked && <View style={[s.themeActivePip, { backgroundColor: tc.accent }]} />}
                 <View style={[s.themeCircle, { backgroundColor: tc.accent + '20', borderColor: tc.accent }]}>
@@ -108,6 +115,10 @@ export default function ConfigScreen() {
           <Pressable
             style={[s.toggle, settings.autoTheme && { backgroundColor: '#3B82F6' }]}
             onPress={() => { set('autoTheme', !settings.autoTheme); lightImpact(); }}
+            accessibilityRole="switch"
+            accessibilityLabel="Auto theme"
+            accessibilityState={{ checked: !!settings.autoTheme }}
+            hitSlop={TOGGLE_HIT}
           >
             <View style={[s.toggleThumb, settings.autoTheme && { alignSelf: 'flex-end' }]} />
           </Pressable>
@@ -130,6 +141,9 @@ export default function ConfigScreen() {
                 shadowRadius: 8,
               }]}
               onPress={() => set('defaultIntensity', v)}
+              accessibilityRole="button"
+              accessibilityLabel={`Default intensity ${v}`}
+              accessibilityState={{ selected: settings.defaultIntensity === v }}
             >
               <Text style={[s.intBtnTxt, settings.defaultIntensity === v && { color: t.accent }]}>{v}</Text>
             </Pressable>
@@ -152,6 +166,9 @@ export default function ConfigScreen() {
                 shadowRadius: 8,
               }]}
               onPress={() => set('stepGoal', v)}
+              accessibilityRole="button"
+              accessibilityLabel={`Daily step goal ${v}`}
+              accessibilityState={{ selected: settings.stepGoal === v }}
             >
               <Text style={[s.intBtnTxt, settings.stepGoal === v && { color: '#FB7185' }]}>{v >= 10000 ? `${v / 1000}K` : v}</Text>
             </Pressable>
@@ -178,6 +195,10 @@ export default function ConfigScreen() {
                 if (item.key === 'soundEnabled') setSoundEnabled(next);
                 lightImpact();
               }}
+              accessibilityRole="switch"
+              accessibilityLabel={item.label}
+              accessibilityState={{ checked: settings[item.key] !== false }}
+              hitSlop={TOGGLE_HIT}
             >
               <View style={[s.toggleThumb, (settings[item.key] !== false) && { alignSelf: 'flex-end' }]} />
             </Pressable>
@@ -207,6 +228,10 @@ export default function ConfigScreen() {
               }
               lightImpact();
             }}
+            accessibilityRole="switch"
+            accessibilityLabel="Morning reminder"
+            accessibilityState={{ checked: !!settings.morningReminder }}
+            hitSlop={TOGGLE_HIT}
           >
             <View style={[s.toggleThumb, settings.morningReminder && { alignSelf: 'flex-end' }]} />
           </Pressable>
@@ -216,11 +241,19 @@ export default function ConfigScreen() {
             <Text style={s.settingTitle}>TIME · 時間</Text>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {['6:00', '7:00', '8:00'].map(time => (
-                <Pressable key={time} style={[s.timeBtn, settings.reminderTime === time && { backgroundColor: '#27AE60', borderColor: '#27AE60' }]} onPress={async () => {
-                  set('reminderTime', time);
-                  await scheduleTrainingReminder(time);
-                  lightImpact();
-                }}>
+                <Pressable
+                  key={time}
+                  style={[s.timeBtn, settings.reminderTime === time && { backgroundColor: '#27AE60', borderColor: '#27AE60' }]}
+                  onPress={async () => {
+                    set('reminderTime', time);
+                    await scheduleTrainingReminder(time);
+                    lightImpact();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Reminder time ${time}`}
+                  accessibilityState={{ selected: settings.reminderTime === time }}
+                  hitSlop={TOGGLE_HIT}
+                >
                   <Text style={[s.timeBtnTxt, settings.reminderTime === time && { color: '#000' }]}>{time}</Text>
                 </Pressable>
               ))}
@@ -240,7 +273,12 @@ export default function ConfigScreen() {
             <Text style={s.dangerBadgeText}>危</Text>
           </View>
         </View>
-        <Pressable style={s.dangerBtn} onPress={() => { lightImpact(); onReset(); }}>
+        <Pressable
+          style={s.dangerBtn}
+          onPress={() => { lightImpact(); onReset(); }}
+          accessibilityRole="button"
+          accessibilityLabel="Reset all progress"
+        >
           <Text style={s.dangerBtnTxt}>RESET ALL PROGRESS · 全てリセット</Text>
         </Pressable>
       </GlassCard>

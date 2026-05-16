@@ -158,6 +158,7 @@ export default function HomeScreen() {
           accent={SWORDS[rec.discipline]?.accent || t.accent}
           elevation="medium"
           onPress={() => onStartSession(rec.discipline)}
+          accessibilityLabel={`Recommended today: ${SWORDS[rec.discipline]?.name}. Start session`}
         >
           <View style={s.recRow}>
             <View style={[s.recKanjiBox, { backgroundColor: (SWORDS[rec.discipline]?.accent || t.accent) + '18' }]}>

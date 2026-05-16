@@ -142,10 +142,15 @@ export default function ProfileScreen() {
           </View>
           <TextInput style={[s.numInput, { borderColor: '#DC143C55', color: TXT1 }]} value={height} onChangeText={setHeight} keyboardType="numeric" placeholderTextColor={TXT3} />
         </View>
-        <Pressable style={[s.saveBtn, { backgroundColor: '#DC143C' }]} onPress={() => {
-          const { progress: next } = updateBodyStats(progress, { weight: parseFloat(weight) || 70, height: parseFloat(height) || 175 });
-          handleUpdate(next); flash(setSavedBody);
-        }}>
+        <Pressable
+          style={[s.saveBtn, { backgroundColor: '#DC143C' }]}
+          accessibilityRole="button"
+          accessibilityLabel="Save body stats"
+          onPress={() => {
+            const { progress: next } = updateBodyStats(progress, { weight: parseFloat(weight) || 70, height: parseFloat(height) || 175 });
+            handleUpdate(next); flash(setSavedBody);
+          }}
+        >
           <Text style={s.saveBtnTxt}>{savedBody ? '保存完了' : 'SAVE 保存'}</Text>
         </Pressable>
       </HeroCard>
@@ -181,7 +186,7 @@ export default function ProfileScreen() {
           <TextInput style={[s.numInput, { borderColor: '#D4A85355', color: TXT1 }]} value={sleepH} onChangeText={setSleepH} keyboardType="numeric" placeholderTextColor={TXT3} />
         </View>
         <View style={s.divider} />
-        <Pressable style={s.toggleRow} onPress={() => setShowSleepStages(v => !v)}>
+        <Pressable style={s.toggleRow} onPress={() => setShowSleepStages(v => !v)} accessibilityRole="button" accessibilityLabel="Sleep stages" accessibilityState={{ expanded: showSleepStages }}>
           <Text style={s.inputLbl}>SLEEP STAGES</Text>
           <Text style={{ color: '#D4A853', fontSize: 14, fontWeight: '800' }}>{showSleepStages ? '−' : '+'}</Text>
         </Pressable>
@@ -223,7 +228,9 @@ export default function ProfileScreen() {
             deepHours: dh, lightHours: lh, remHours: rh, awakeHours: ah,
           });
           handleUpdate(next); flash(setSavedSleep);
-        }}>
+        }}
+          accessibilityRole="button"
+          accessibilityLabel="Log sleep">
           <Text style={[s.saveBtnTxt, { color: '#0A0A0A' }]}>{savedSleep ? '眠った' : 'LOG SLEEP 睡眠'}</Text>
         </Pressable>
 
@@ -255,7 +262,15 @@ export default function ProfileScreen() {
               <Text style={[s.inputLbl, { width: 70 }]}>{item.label}</Text>
               <View style={{ flexDirection: 'row', gap: 5, flex: 1 }}>
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => (
-                  <Pressable key={v} onPress={() => item.set(v)} hitSlop={4} style={s.moodPipTouch}>
+                  <Pressable
+                    key={v}
+                    onPress={() => item.set(v)}
+                    hitSlop={{ top: 16, bottom: 16, left: 2, right: 2 }}
+                    style={s.moodPipTouch}
+                    accessibilityRole="adjustable"
+                    accessibilityLabel={`${item.label} ${v} of 10`}
+                    accessibilityState={{ selected: v <= item.val }}
+                  >
                     <View style={[s.moodPip, { backgroundColor: v <= item.val ? item.color : 'rgba(255,255,255,0.1)' }]} />
                   </Pressable>
                 ))}
@@ -268,12 +283,14 @@ export default function ProfileScreen() {
         <Pressable style={[s.saveBtn, { backgroundColor: '#B967FF' }]} onPress={() => {
           const { progress: next } = updateMood(progress, { date: today, energy, mood });
           handleUpdate(next); flash(setSavedMood);
-        }}>
+        }}
+          accessibilityRole="button"
+          accessibilityLabel="Log mood and energy">
           <Text style={[s.saveBtnTxt, { color: '#0A0A0A' }]}>{savedMood ? '保存完了' : 'LOG MOOD 気分'}</Text>
         </Pressable>
       </HeroCard>
 
-      <Pressable style={s.accordionHeader} onPress={() => setShowDream(v => !v)}>
+      <Pressable style={s.accordionHeader} onPress={() => setShowDream(v => !v)} accessibilityRole="button" accessibilityLabel="Dream swordsman" accessibilityState={{ expanded: showDream }}>
         <View style={s.accordionLeft}>
           <View style={[s.accordionAccent, { backgroundColor: archetypeData.color }]} />
           <Text style={s.accordionTitle}>DREAM SWORDSMAN</Text>
@@ -293,7 +310,7 @@ export default function ProfileScreen() {
         </HeroCard>
       )}
 
-      <Pressable style={s.accordionHeader} onPress={() => setShowHydration(v => !v)}>
+      <Pressable style={s.accordionHeader} onPress={() => setShowHydration(v => !v)} accessibilityRole="button" accessibilityLabel="Hydration" accessibilityState={{ expanded: showHydration }}>
         <View style={s.accordionLeft}>
           <View style={[s.accordionAccent, { backgroundColor: '#38bdf8' }]} />
           <Text style={s.accordionTitle}>HYDRATION</Text>
@@ -308,7 +325,10 @@ export default function ProfileScreen() {
               <Pressable
                 key={v}
                 onPress={() => handleUpdate({ ...progress, hydrationLog: { ...progress.hydrationLog, [today]: { cups: todayCups === v ? v - 1 : v } } })}
-                hitSlop={8}
+                hitSlop={{ top: 12, bottom: 12, left: 4, right: 4 }}
+                accessibilityRole="button"
+                accessibilityLabel={`${v} ${v === 1 ? 'cup' : 'cups'} of water`}
+                accessibilityState={{ selected: v <= todayCups }}
               >
                 <Text style={[s.cupIcon, { color: '#38bdf8', opacity: v <= todayCups ? 1 : 0.22 }]}>水</Text>
               </Pressable>
@@ -320,7 +340,7 @@ export default function ProfileScreen() {
         </HeroCard>
       )}
 
-      <Pressable style={s.accordionHeader} onPress={() => setShowMeals(v => !v)}>
+      <Pressable style={s.accordionHeader} onPress={() => setShowMeals(v => !v)} accessibilityRole="button" accessibilityLabel="Power meals" accessibilityState={{ expanded: showMeals }}>
         <View style={s.accordionLeft}>
           <View style={[s.accordionAccent, { backgroundColor: '#F59E0B' }]} />
           <Text style={s.accordionTitle}>POWER MEALS</Text>
@@ -384,7 +404,7 @@ export default function ProfileScreen() {
         </HeroCard>
       )}
 
-      <Pressable style={s.accordionHeader} onPress={() => setShowChronicles(v => !v)}>
+      <Pressable style={s.accordionHeader} onPress={() => setShowChronicles(v => !v)} accessibilityRole="button" accessibilityLabel="Voyage chronicle" accessibilityState={{ expanded: showChronicles }}>
         <View style={s.accordionLeft}>
           <View style={[s.accordionAccent, { backgroundColor: '#B967FF' }]} />
           <Text style={s.accordionTitle}>VOYAGE CHRONICLE</Text>
@@ -400,6 +420,8 @@ export default function ProfileScreen() {
             {!hasCurrentMonth && (
               <Pressable
                 style={[s.saveBtn, { backgroundColor: '#B967FF' }]}
+                accessibilityRole="button"
+                accessibilityLabel="Generate this month's chronicle"
                 onPress={() => {
                   const chronicle = generateVoyageChronicle(progress, currentMonthKey);
                   const existing = (progress.voyageChronicles || []).filter(c => c.monthKey !== currentMonthKey);
@@ -426,7 +448,7 @@ export default function ProfileScreen() {
         );
       })()}
 
-      <Pressable style={s.accordionHeader} onPress={() => setShowPhysique(v => !v)}>
+      <Pressable style={s.accordionHeader} onPress={() => setShowPhysique(v => !v)} accessibilityRole="button" accessibilityLabel="Warrior physique" accessibilityState={{ expanded: showPhysique }}>
         <View style={s.accordionLeft}>
           <View style={[s.accordionAccent, { backgroundColor: '#E52030' }]} />
           <Text style={s.accordionTitle}>WARRIOR PHYSIQUE</Text>
@@ -459,7 +481,7 @@ export default function ProfileScreen() {
               {i < 6 && <View style={s.divider} />}
             </View>
           ))}
-          <Pressable style={[s.saveBtn, { backgroundColor: '#E52030', marginTop: 14 }]} onPress={() => {
+          <Pressable style={[s.saveBtn, { backgroundColor: '#E52030', marginTop: 14 }]} accessibilityRole="button" accessibilityLabel="Save physique" onPress={() => {
             handleUpdate({
               ...progress,
               bodyComposition: {
@@ -479,7 +501,7 @@ export default function ProfileScreen() {
           </Pressable>
         </HeroCard>
       )}
-      <Pressable style={s.accordionHeader} onPress={() => { setShowVitals(v => !v); playClick(); }}>
+      <Pressable style={s.accordionHeader} onPress={() => { setShowVitals(v => !v); playClick(); }} accessibilityRole="button" accessibilityLabel="Vitals" accessibilityState={{ expanded: showVitals }}>
         <View style={s.accordionLeft}>
           <View style={[s.accordionAccent, { backgroundColor: '#22d3ee' }]} />
           <Text style={s.accordionTitle}>VITALS</Text>
@@ -510,7 +532,7 @@ export default function ProfileScreen() {
               </View>
             ))}
           </View>
-          <Pressable style={[s.saveBtn, { backgroundColor: '#22d3ee', marginTop: 14 }]} onPress={() => {
+          <Pressable style={[s.saveBtn, { backgroundColor: '#22d3ee', marginTop: 14 }]} accessibilityRole="button" accessibilityLabel="Save vitals" onPress={() => {
             handleUpdate({
               ...progress,
               vitalsLog: {

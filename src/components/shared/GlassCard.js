@@ -28,6 +28,7 @@ const GlassCard = memo(function GlassCard({
   onPress,
   elevation = 'medium',
   variant = 'card',
+  accessibilityLabel,
 }) {
   const isCard = variant === 'card';
   const isFlat = variant === 'flat';
@@ -49,7 +50,12 @@ const GlassCard = memo(function GlassCard({
   if (!onPress) return content;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.86 : 1 })}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      style={({ pressed }) => ({ opacity: pressed ? 0.86 : 1 })}
+    >
       {content}
     </Pressable>
   );
