@@ -182,7 +182,7 @@ const s = StyleSheet.create({
   countdownNum: { fontSize: 56, fontWeight: '900', letterSpacing: -2 },
   phaseSection: { alignItems: 'center', marginBottom: 8 },
   phaseLabel: { fontSize: 22, fontWeight: '900', letterSpacing: 2 },
-  phaseSub: { ...DS.type.label, color: TXT2, letterSpacing: 3, marginTop: 6 },
+  phaseSub: { ...DS.type.label, color: TXT2, marginTop: 6 },
   cycleRow: { marginBottom: 10 },
   cycleText: { ...DS.type.micro, fontWeight: '700', letterSpacing: 2, color: TXT2 },
   cycleBar: { width: '85%', height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', marginBottom: 32 },

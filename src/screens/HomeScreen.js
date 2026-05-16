@@ -6,6 +6,7 @@ import BreathingOrb from '../components/shared/BreathingOrb';
 import ActivityRings from '../components/shared/ActivityRings';
 import ThreeSwordRings from '../components/shared/ThreeSwordRings';
 import GlassCard from '../components/shared/GlassCard';
+import SectionLabel from '../components/shared/SectionLabel';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
 import { TXT1, TXT2, TXT3, REST, SB_H, TAB_BAR_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
@@ -20,18 +21,6 @@ import { SWORDS, RANKS, senseiPhrase } from '../data/gameData';
 import useStepCounter from '../hooks/useStepCounter';
 
 const SWORD_ORDER = ['wado', 'sandai', 'shusui'];
-
-function SectionHead({ label, accent, right }) {
-  return (
-    <View style={s.sectionHead}>
-      <View style={s.sectionHeadLeft}>
-        {accent ? <View style={[s.sectionTick, { backgroundColor: accent }]} /> : null}
-        <Text style={s.sectionLabel}>{label}</Text>
-      </View>
-      {right}
-    </View>
-  );
-}
 
 function StatChip({ accent, label, value, kanji }) {
   return (
@@ -116,28 +105,26 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
-      <View style={s.heroBand}>
-        <View style={s.heroCol}>
-          <Text style={s.sectionLabel}>SWORD SHARPNESS</Text>
-          <Text style={[s.heroNumber, { color: sharpColor }]}>{sharpness}</Text>
-          <Text style={[s.heroSub, { color: sharpColor }]}>{sharpLabel}</Text>
-        </View>
-        <View style={[s.heroDivider, { backgroundColor: t.accent + '22' }]} />
-        <View style={[s.heroCol, s.heroColRight]}>
-          <Text style={s.sectionLabel}>TODAY</Text>
-          <Text style={[s.heroNumber, { color: TXT1 }]}>{todayCount}</Text>
-          <Text style={s.heroSub}>exercises logged</Text>
+      <View style={s.hero}>
+        <Text style={s.heroEyebrow}>SWORD SHARPNESS</Text>
+        <Text style={[s.heroNumber, { color: sharpColor }]}>{sharpness}</Text>
+        <View style={s.heroMeta}>
+          <Text style={[s.heroState, { color: sharpColor }]}>{sharpLabel}</Text>
+          <Text style={s.heroDot}>·</Text>
+          <Text style={s.heroToday}>
+            {todayCount} exercise{todayCount === 1 ? '' : 's'} logged today
+          </Text>
         </View>
       </View>
 
       <GlassCard accent={t.accent} elevation="medium" style={s.ringsCard}>
         <View style={s.ringBlock}>
-          <SectionHead label="THREE SWORDS" />
+          <SectionLabel label="THREE SWORDS" style={s.cardSectionLabel} />
           <ThreeSwordRings rings={rings} size={150} />
         </View>
         <View style={[s.ringsHDivider, { backgroundColor: DS.divider.medium }]} />
         <View style={s.ringBlock}>
-          <SectionHead label="ACTIVITY" />
+          <SectionLabel label="ACTIVITY" style={s.cardSectionLabel} />
           <ActivityRings rings={actRings} size={156} />
         </View>
       </GlassCard>
@@ -210,9 +197,10 @@ export default function HomeScreen() {
       </View>
 
       <View style={s.groupedSection}>
-        <SectionHead
+        <SectionLabel
           label="THIS WEEK"
           accent={t.accent}
+          style={s.groupSectionLabel}
           right={
             <View style={s.weekVols}>
               {SWORD_ORDER.map(k => (
@@ -258,7 +246,7 @@ export default function HomeScreen() {
 
       {sessions.length > 0 && (
         <View style={s.groupedSection}>
-          <SectionHead label="RECENT SESSIONS" accent={t.accent} />
+          <SectionLabel label="RECENT SESSIONS" accent={t.accent} style={s.groupSectionLabel} />
           {sessions.map((sess, i) => (
             <View key={sess.id} style={[s.sessRow, i === sessions.length - 1 && { borderBottomWidth: 0 }]}>
               <View style={[s.sessKanjiBox, { backgroundColor: SWORDS[sess.discipline]?.accent + '18' }]}>
@@ -304,26 +292,23 @@ const s = StyleSheet.create({
   headerBrand: { ...DS.type.displayLg, fontSize: 42, color: TXT1, lineHeight: 48 },
   headerSub: { ...DS.type.caption, color: TXT3, marginTop: 6, letterSpacing: 1.5 },
 
-  /* Section heads */
-  sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: DS.space.md },
-  sectionHeadLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionTick: { width: 2.5, height: 13, borderRadius: 1.5 },
-  sectionLabel: { ...DS.type.label, color: TXT2 },
+  /* Section-head spacing overrides (component lives in SectionLabel.js) */
+  cardSectionLabel: { marginBottom: DS.space.md },
+  groupSectionLabel: { marginBottom: DS.space.md },
 
-  /* Hero band */
-  heroBand: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+  /* Hero — a single honed focal, not a repeated metric template */
+  hero: {
     marginBottom: DS.space.xl,
     paddingBottom: DS.space.lg,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: DS.divider.medium,
   },
-  heroCol: { flex: 1 },
-  heroColRight: { alignItems: 'flex-end' },
-  heroDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginHorizontal: DS.space.lg },
-  heroNumber: { ...DS.type.displayHero, fontSize: 64, lineHeight: 66, marginTop: 6 },
-  heroSub: { ...DS.type.caption, color: TXT2, marginTop: 6, letterSpacing: 1.5 },
+  heroEyebrow: { ...DS.type.label, color: TXT2 },
+  heroNumber: { ...DS.type.displayHero, fontSize: 72, lineHeight: 74, marginTop: 4 },
+  heroMeta: { flexDirection: 'row', alignItems: 'center', gap: DS.space.xs, marginTop: 6 },
+  heroState: { ...DS.type.caption, fontWeight: DS.font.weight.bold, letterSpacing: 1.5 },
+  heroDot: { ...DS.type.caption, color: TXT3 },
+  heroToday: { ...DS.type.caption, color: TXT2, letterSpacing: 0.3 },
 
   /* Rings card */
   ringsCard: { marginBottom: DS.space.lg },

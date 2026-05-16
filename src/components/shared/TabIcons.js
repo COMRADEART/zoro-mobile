@@ -82,12 +82,30 @@ const GLYPHS = {
       <Circle cx="15" cy="15.5" r="2.3" fill={c} stroke="none" />
     </>
   ),
+  // General-purpose status / action glyphs — same grid + stroke as the tab
+  // icons so the whole app speaks one icon language (no emoji as UI).
+  check: () => <Path d="M5 12.5 L10 17.5 L19 7" />,
+  close: () => (
+    <>
+      <Line x1="6" y1="6" x2="18" y2="18" />
+      <Line x1="18" y1="6" x2="6" y2="18" />
+    </>
+  ),
+  star: (c, filled) => (
+    <Path
+      d="M12 2.6 L14.78 9.18 L21.9 9.78 L16.5 14.4 L18.13 21.3 L12 17.6 L5.87 21.3 L7.5 14.4 L2.1 9.78 L9.22 9.18 Z"
+      fill={filled ? c : 'none'}
+    />
+  ),
 };
 
-const TabIcon = memo(function TabIcon({ name, size = 22, color = '#fff' }) {
+const TabIcon = memo(function TabIcon({ name, size = 22, color = '#fff', filled = false }) {
   const draw = GLYPHS[name];
   if (!draw) return null;
-  return <Frame size={size} color={color}>{draw(color)}</Frame>;
+  return <Frame size={size} color={color}>{draw(color, filled)}</Frame>;
 });
 
 export default TabIcon;
+
+// Same component, intention-revealing name for non-tab usage.
+export const Icon = TabIcon;

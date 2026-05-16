@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import GlassCard from '../components/shared/GlassCard';
+import { Icon } from '../components/shared/TabIcons';
 import { TRAINING_ARCS } from '../data/gameData';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
 import { TXT1, TXT2, TXT3, BORD, SB_H } from '../theme/tokens';
@@ -77,7 +78,7 @@ export default function TrainingArcsScreen({ onBack }) {
                   <Text style={s.weekObjective}>{week.objective}</Text>
                 </View>
                 {done && <View style={[s.weekDoneBadge, { backgroundColor: selected.color + '20', borderColor: selected.color + '40' }]}>
-                  <Text style={[s.weekDone, { color: selected.color }]}>✓</Text>
+                  <Icon name="check" size={14} color={selected.color} />
                 </View>}
               </View>
             </GlassCard>
@@ -101,7 +102,7 @@ export default function TrainingArcsScreen({ onBack }) {
         )}
         {arcData?.status === 'completed' && (
           <View style={[s.startBtn, { backgroundColor: selected.color + '20', borderWidth: 1.5, borderColor: selected.color + '50' }]}>
-            <Text style={[s.startBtnTxt, { color: selected.color }]}>ARC COMPLETE · 完了 ✓</Text>
+            <Text style={[s.startBtnTxt, { color: selected.color }]}>ARC COMPLETE · 完了</Text>
           </View>
         )}
 
@@ -152,7 +153,7 @@ export default function TrainingArcsScreen({ onBack }) {
                     <Text style={s.lockText}>封 RANK {arc.requiredRank}</Text>
                   </View>}
                   {completed && <View style={[s.statusBadge, { backgroundColor: arc.color + '15', borderWidth: 1, borderColor: arc.color + '30' }]}>
-                    <Text style={[s.statusBadgeText, { color: arc.color }]}>✓ DONE · 完了</Text>
+                    <Text style={[s.statusBadgeText, { color: arc.color }]}>DONE · 完了</Text>
                   </View>}
                   {active && <View style={[s.statusBadge, { backgroundColor: arc.color + '15', borderWidth: 1, borderColor: arc.color + '30' }]}>
                     <Text style={[s.statusBadgeText, { color: arc.color }]}>{completedWeeks}/{arc.durationWeeks}wk</Text>
@@ -238,7 +239,6 @@ const s = StyleSheet.create({
   weekTitle: { ...DS.type.cardTitle, fontSize: 15 },
   weekObjective: { ...DS.type.caption, color: TXT2, marginTop: 4 },
   weekDoneBadge: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  weekDone: { fontSize: 14, fontWeight: '900' },
 
   startBtn: { paddingVertical: 16, borderRadius: 100, alignItems: 'center', marginTop: 20, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
   startBtnTxt: { fontSize: 13, fontWeight: '900', letterSpacing: 2, color: '#000' },

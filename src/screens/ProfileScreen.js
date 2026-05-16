@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, StyleSheet } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import SectionLabel from '../components/shared/SectionLabel';
+import { Icon } from '../components/shared/TabIcons';
 import { SleepStagesWeek } from '../components/shared/charts/SleepStagesChart';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
 import { SURF, TXT1, TXT2, TXT3, BORD, SB_H, TAB_BAR_H } from '../theme/tokens';
@@ -145,7 +146,7 @@ export default function ProfileScreen() {
           const { progress: next } = updateBodyStats(progress, { weight: parseFloat(weight) || 70, height: parseFloat(height) || 175 });
           handleUpdate(next); flash(setSavedBody);
         }}>
-          <Text style={s.saveBtnTxt}>{savedBody ? '✓ 保存完了' : 'SAVE 保存'}</Text>
+          <Text style={s.saveBtnTxt}>{savedBody ? '保存完了' : 'SAVE 保存'}</Text>
         </Pressable>
       </HeroCard>
 
@@ -159,8 +160,15 @@ export default function ProfileScreen() {
         </View>
         <View style={s.starRow}>
           {[1, 2, 3, 4, 5].map(v => (
-            <Pressable key={v} onPress={() => setSleepQ(v)} hitSlop={8}>
-              <Text style={[s.star, { color: v <= sleepQ ? '#D4A853' : TXT3 }]}>★</Text>
+            <Pressable
+              key={v}
+              onPress={() => setSleepQ(v)}
+              style={s.starBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Sleep quality ${v} of 5`}
+              accessibilityState={{ selected: v <= sleepQ }}
+            >
+              <Icon name="star" size={28} filled={v <= sleepQ} color={v <= sleepQ ? '#D4A853' : TXT3} />
             </Pressable>
           ))}
         </View>
@@ -216,7 +224,7 @@ export default function ProfileScreen() {
           });
           handleUpdate(next); flash(setSavedSleep);
         }}>
-          <Text style={[s.saveBtnTxt, { color: '#0A0A0A' }]}>{savedSleep ? '✓ 眠った' : 'LOG SLEEP 睡眠'}</Text>
+          <Text style={[s.saveBtnTxt, { color: '#0A0A0A' }]}>{savedSleep ? '眠った' : 'LOG SLEEP 睡眠'}</Text>
         </Pressable>
 
         {(() => {
@@ -261,7 +269,7 @@ export default function ProfileScreen() {
           const { progress: next } = updateMood(progress, { date: today, energy, mood });
           handleUpdate(next); flash(setSavedMood);
         }}>
-          <Text style={[s.saveBtnTxt, { color: '#0A0A0A' }]}>{savedMood ? '✓ 保存完了' : 'LOG MOOD 気分'}</Text>
+          <Text style={[s.saveBtnTxt, { color: '#0A0A0A' }]}>{savedMood ? '保存完了' : 'LOG MOOD 気分'}</Text>
         </Pressable>
       </HeroCard>
 
@@ -358,11 +366,16 @@ export default function ProfileScreen() {
                 <View key={idx} style={s.loggedMealRow}>
                   <Text style={s.loggedMealName}>{meal.name}</Text>
                   <Text style={[s.loggedMealKcal, { color: '#F59E0B' }]}>{meal.kcal} kcal</Text>
-                  <Pressable onPress={() => {
-                    const filtered = todayMeals.filter((_, i) => i !== idx);
-                    handleUpdate({ ...progress, foodLog: { ...progress.foodLog, [today]: filtered } });
-                  }} hitSlop={8}>
-                    <Text style={{ color: '#f87171', fontSize: 14, fontWeight: '900' }}>✕</Text>
+                  <Pressable
+                    onPress={() => {
+                      const filtered = todayMeals.filter((_, i) => i !== idx);
+                      handleUpdate({ ...progress, foodLog: { ...progress.foodLog, [today]: filtered } });
+                    }}
+                    style={s.removeBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${meal.name}`}
+                  >
+                    <Icon name="close" size={16} color="#f87171" />
                   </Pressable>
                 </View>
               ))}
@@ -462,7 +475,7 @@ export default function ProfileScreen() {
             });
             flash(setSavedPhysique);
           }}>
-            <Text style={s.saveBtnTxt}>{savedPhysique ? '✓ 保存完了' : 'SAVE PHYSIQUE'}</Text>
+            <Text style={s.saveBtnTxt}>{savedPhysique ? '保存完了' : 'SAVE PHYSIQUE'}</Text>
           </Pressable>
         </HeroCard>
       )}
@@ -511,7 +524,7 @@ export default function ProfileScreen() {
             });
             flash(setSavedVitals);
           }}>
-            <Text style={s.saveBtnTxt}>{savedVitals ? '✓ 保存完了' : 'SAVE VITALS'}</Text>
+            <Text style={s.saveBtnTxt}>{savedVitals ? '保存完了' : 'SAVE VITALS'}</Text>
           </Pressable>
         </HeroCard>
       )}
@@ -553,8 +566,9 @@ const s = StyleSheet.create({
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: BORD },
   saveBtn: { marginTop: 16, paddingVertical: 14, borderRadius: 100, alignItems: 'center' },
   saveBtnTxt: { fontSize: 13, fontWeight: '900', letterSpacing: 2, color: TXT1 },
-  starRow: { flexDirection: 'row', gap: 12, paddingVertical: 10 },
-  star: { fontSize: 30 },
+  starRow: { flexDirection: 'row', gap: 4, paddingVertical: 4 },
+  starBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  removeBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   sleepHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   sleepKanjiBox: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#D4A85315', alignItems: 'center', justifyContent: 'center' },
   sleepKanjiText: { fontSize: 18, fontWeight: '900', color: '#D4A853' },

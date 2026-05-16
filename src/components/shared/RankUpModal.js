@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   rankBadgeKanji: { fontSize: 36, fontWeight: '900' },
-  rankUpEye: { ...DS.type.label, letterSpacing: 3, color: TXT2 },
+  rankUpEye: { ...DS.type.label, color: TXT2 },
   rankUpDivider: { height: StyleSheet.hairlineWidth, width: 100, marginVertical: 20 },
   rankUpName: { ...DS.type.displayLg, fontSize: 36, textAlign: 'center' },
   rankUpXP: { fontSize: 12, color: TXT2, marginTop: 8, letterSpacing: 0.5 },

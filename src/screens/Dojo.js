@@ -7,6 +7,7 @@ import RankUpModal from '../components/shared/RankUpModal';
 import BossHintModal from '../components/shared/BossHintModal';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
 import { TXT3, TAB_BAR_H } from '../theme/tokens';
+import { DS } from '../theme/designSystem';
 import { SWORDS } from '../data/gameData';
 import HomeScreen from './HomeScreen';
 import TrainScreen from './TrainScreen';
@@ -236,5 +237,5 @@ const s = StyleSheet.create({
   root: { flex: 1 },
   loading: { flex: 1, backgroundColor: '#060303', alignItems: 'center', justifyContent: 'center', gap: 16 },
   loadingKanji: { color: '#E52030', fontSize: 60, fontWeight: '900', letterSpacing: 2 },
-  loadingLabel: { color: TXT3, fontSize: 11, letterSpacing: 4, fontWeight: '700' },
+  loadingLabel: { ...DS.type.label, color: TXT3 },
 });

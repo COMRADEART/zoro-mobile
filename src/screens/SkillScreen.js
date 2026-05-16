@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import XPBar from '../components/shared/XPBar';
 import SectionLabel from '../components/shared/SectionLabel';
+import { Icon } from '../components/shared/TabIcons';
 import { SURF, TXT1, TXT2, TXT3, BORD, SB_H, TAB_BAR_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import { rankIndexFor, weeklyVolume, getActiveBountyMissions, disciplineXPFor } from '../logic/progression';
@@ -139,7 +140,11 @@ export default function SkillScreen() {
                                   → {unlock.exerciseOverride.base} {unlock.exerciseOverride.id.split('-').pop()}
                                 </Text>
                               )}
-                              {isUnlocked && <Text style={[s.treeNodeCheck, { color: sw.accent }]}>✓</Text>}
+                              {isUnlocked && (
+                                <View style={s.treeNodeCheck}>
+                                  <Icon name="check" size={11} color={sw.accent} />
+                                </View>
+                              )}
                             </Pressable>
                           </View>
                         );
@@ -319,5 +324,5 @@ const s = StyleSheet.create({
   treeNodeXP: { ...DS.type.micro, fontWeight: '800', letterSpacing: 0.5, marginBottom: 4 },
   treeNodeName: { fontSize: 11, fontWeight: '700', lineHeight: 15 },
   treeNodeOverride: { ...DS.type.micro, color: TXT3, marginTop: 3 },
-  treeNodeCheck: { position: 'absolute', top: 7, right: 7, fontSize: 12, fontWeight: '900' },
+  treeNodeCheck: { position: 'absolute', top: 7, right: 7 },
 });
