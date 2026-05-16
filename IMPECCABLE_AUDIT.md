@@ -54,14 +54,53 @@ Status legend: `[done]` `[ ]`
   text in SkillScreen/Profile is a separate, broader contrast item.
 
 ### Performance
-- `[ ]` **P1** `HomeScreen` ~8 derived selectors recompute every render; effect
-  deps on whole `progress` → `useMemo` + narrow dep.
+- `[done]` **P1** `HomeScreen` ~8 derived selectors → single `useMemo` keyed
+  on `[progress, today]`; sharpness-log effect dep narrowed to a primitive.
+  (Spot-check: `SkillScreen` already memoizes its heavy `bossCards`/tier.)
 - `[done]` **P2** `AmbientBG` particle loops on JS driver
   (`useNativeDriver:false`) → native driver, gated by A1, capped at 16.
 - `[done]` **P3** `DojoTabBar.scaleAnim` / `Dojo.tabAnim` transforms on JS
   driver → native.
-- `[ ]` **P4** `HomeScreen` recomputes `maxVol` inside the 7× week `.map` →
-  hoist out.
+- `[done]` **P4** `HomeScreen` weekly-bar max hoisted out of the 7× `.map`
+  into the memo.
+
+## Verification status
+
+All 12 items done. Static checks green after every commit:
+
+- `npm run lint` (expo lint) — clean, no warnings.
+- `npx tsc --noEmit -p tsconfig.json` — clean.
+- `npm test` — 219/219 passed, 8/8 suites (no logic touched; the
+  `console.error` lines in output are expected from the corruption-path
+  tests, which pass).
+
+### Device QA checklist (please run on a device/emulator)
+
+Static analysis cannot exercise the runtime; verify these by hand:
+
+1. **Reduced motion** — enable OS "Reduce Motion", open the app:
+   AmbientBG settles to a static wash, no floating particles; the home
+   orb and breathing orb are still (not pulsing); rank-up / boss-hint
+   modals appear without zoom/rotate; tab switch is instant. The
+   breathing-guide phase orb MUST still animate (it paces breathing).
+   Toggle the setting off — motion returns without a reload.
+2. **Screen reader** (TalkBack/VoiceOver) — every tab, save button,
+   toggle, accordion, theme tile, star/cup/pip, arc card announces a
+   role and label; toggles announce on/off; accordions announce
+   expanded/collapsed; locked theme tiles announce "locked".
+3. **Touch targets** — the sleep-quality stars, meal-remove, hydration
+   cups, mood pips, Config switches and time chips are all comfortably
+   tappable (no mis-taps on adjacent controls).
+4. **Design** — no emoji glyphs anywhere (check ✕ ✓ ★ are now line
+   icons / kanji); Home shows ONE big number (Sword Sharpness) with
+   "today" as a small line, not two giant numbers; section headers look
+   identical across Home and the other screens.
+5. **Contrast** — switch through all 6 themes; accent-colored labels
+   (the day/date on Home, "— SENSEI", week day letters) are clearly
+   legible on the dark background, especially on the default Sandai
+   theme.
+6. **Smoke** — log a session, save sleep/mood/body, start an arc,
+   change theme, reset: all still work (no behavior was changed).
 
 ## Drop / out of scope
 
