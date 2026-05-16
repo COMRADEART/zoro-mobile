@@ -1,11 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Animated, Easing, StyleSheet, Dimensions, AppState } from 'react-native';
 import { THEMES, DEFAULT_THEME } from '../../theme/themes';
+import useReducedMotion from '../../hooks/useReducedMotion';
 
 const { width: W, height: H } = Dimensions.get('window');
 
+// Hard ceiling on decorative particles regardless of theme — keeps the
+// per-frame JS/native work bounded on lower-end devices (perf: P2).
+const MAX_PARTICLES = 16;
+
 export function AmbientBG({ theme }) {
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
+  const reducedMotion = useReducedMotion();
   const pulse = useRef(new Animated.Value(0)).current;
   const radialPulse = useRef(new Animated.Value(0)).current;
   const drift = useRef(new Animated.Value(0)).current;
@@ -14,6 +20,16 @@ export function AmbientBG({ theme }) {
   const driftRef = useRef(null);
 
   useEffect(() => {
+    if (reducedMotion) {
+      // Resting state: a single soft, static accent wash; no looping motion.
+      loopRef.current?.stop();
+      radialRef.current?.stop();
+      driftRef.current?.stop();
+      pulse.setValue(0.5);
+      radialPulse.setValue(0);
+      drift.setValue(0);
+      return;
+    }
     loopRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, { toValue: 1, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
@@ -52,7 +68,7 @@ export function AmbientBG({ theme }) {
       driftRef.current?.stop();
       sub.remove();
     };
-  }, [pulse, radialPulse, drift]);
+  }, [pulse, radialPulse, drift, reducedMotion]);
 
   const radialScale = radialPulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 2.8] });
   const radialOpacity = radialPulse.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.07, 0] });
@@ -103,6 +119,7 @@ export function AmbientBG({ theme }) {
 
 export function FloatingParticles({ theme, count = 16 }) {
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
+  const reducedMotion = useReducedMotion();
   const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
@@ -111,7 +128,7 @@ export function FloatingParticles({ theme, count = 16 }) {
   }, []);
 
   const particles = useRef(
-    Array.from({ length: count }, (_, i) => ({
+    Array.from({ length: Math.min(count, MAX_PARTICLES) }, (_, i) => ({
       id: i,
       x: Math.random() * W,
       startY: H + 10 + Math.random() * 40,
@@ -122,6 +139,9 @@ export function FloatingParticles({ theme, count = 16 }) {
       opacity: 0.05 + Math.random() * 0.18,
     }))
   ).current;
+
+  // Particles are purely decorative — drop them entirely under reduced motion.
+  if (reducedMotion) return null;
 
   return (
     <>
@@ -152,10 +172,12 @@ function AnimatedParticle({ p, color, isActive }) {
       y.setValue(p.startY);
       x.setValue(p.x);
       opacity.setValue(p.opacity * 0.5);
+      // Only transform + opacity animate (no layout props) → safe and far
+      // cheaper on the native driver (perf: P2).
       animRef.current = Animated.parallel([
-        Animated.timing(y, { toValue: -30, duration: p.speed * 1000 / 12, easing: Easing.linear, useNativeDriver: false }),
-        Animated.timing(x, { toValue: p.x + p.drift, duration: p.speed * 1000 / 12, easing: Easing.linear, useNativeDriver: false }),
-        Animated.timing(opacity, { toValue: p.opacity, duration: p.speed * 1000 / 24, useNativeDriver: false }),
+        Animated.timing(y, { toValue: -30, duration: p.speed * 1000 / 12, easing: Easing.linear, useNativeDriver: true }),
+        Animated.timing(x, { toValue: p.x + p.drift, duration: p.speed * 1000 / 12, easing: Easing.linear, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: p.opacity, duration: p.speed * 1000 / 24, useNativeDriver: true }),
       ]);
       animRef.current.start(({ finished }) => {
         if (!mounted || !finished) return;

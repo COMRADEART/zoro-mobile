@@ -2,22 +2,28 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, Modal, Pressable, Animated, Easing, StyleSheet } from 'react-native';
 import { TXT2, TXT3 } from '../../theme/tokens';
 import { DS } from '../../theme/designSystem';
+import useReducedMotion from '../../hooks/useReducedMotion';
 
 export default function RankUpModal({ rank, visible, onDismiss }) {
   const scale = useRef(new Animated.Value(0)).current;
   const glow = useRef(new Animated.Value(0)).current;
   const rotate = useRef(new Animated.Value(0)).current;
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
-    if (visible) {
-      scale.setValue(0); glow.setValue(0); rotate.setValue(0);
-      Animated.parallel([
-        Animated.spring(scale, { toValue: 1, tension: 40, friction: 5, useNativeDriver: true }),
-        Animated.timing(glow, { toValue: 1, duration: 1200, easing: Easing.out(Easing.ease), useNativeDriver: false }),
-        Animated.timing(rotate, { toValue: 1, duration: 800, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-      ]).start();
+    if (!visible) return;
+    if (reducedMotion) {
+      // Present the card immediately at its end state — no spring/rotate.
+      scale.setValue(1); glow.setValue(1); rotate.setValue(1);
+      return;
     }
-  }, [visible, scale, glow, rotate]);
+    scale.setValue(0); glow.setValue(0); rotate.setValue(0);
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, tension: 40, friction: 5, useNativeDriver: true }),
+      Animated.timing(glow, { toValue: 1, duration: 1200, easing: Easing.out(Easing.ease), useNativeDriver: false }),
+      Animated.timing(rotate, { toValue: 1, duration: 800, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+    ]).start();
+  }, [visible, scale, glow, rotate, reducedMotion]);
 
   if (!visible || !rank) return null;
 

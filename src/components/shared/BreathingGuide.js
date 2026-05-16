@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Pressable, Modal, Animated, StyleSheet, Easing } from 'react-native';
 import { TXT1, TXT2, TXT3 } from '../../theme/tokens';
 import { DS } from '../../theme/designSystem';
+import useReducedMotion from '../../hooks/useReducedMotion';
 
 const PHASE_LABELS = {
   inhale: { text: '吸う', sub: 'BREATHE IN', color: '#4A9EFF' },
@@ -14,6 +15,7 @@ export default function BreathingGuide({ program, onComplete, onDismiss }) {
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(0.5)).current;
   const ringPulse = useRef(new Animated.Value(0)).current;
+  const reducedMotion = useReducedMotion();
 
   const [phaseKey, setPhaseKey] = useState('inhale');
   const [countdown, setCountdown] = useState(program.pattern.inhale);
@@ -41,10 +43,18 @@ export default function BreathingGuide({ program, onComplete, onDismiss }) {
   }, [program, scale, opacity]);
 
   useEffect(() => {
-    Animated.loop(
+    // Outer ring shimmer is decorative; the phase scale/opacity (playPhaseAnim)
+    // is the essential breath pacing and keeps animating regardless.
+    if (reducedMotion) {
+      ringPulse.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
       Animated.timing(ringPulse, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true })
-    ).start();
-  }, [ringPulse]);
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [ringPulse, reducedMotion]);
 
   useEffect(() => {
     const phases = ['inhale', 'holdIn', 'exhale', 'holdOut'].filter(k => program.pattern[k] > 0);

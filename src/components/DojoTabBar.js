@@ -3,6 +3,7 @@ import { View, Text, Pressable, Animated, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { TXT3, TAB_BAR_H } from '../theme/tokens';
 import TabIcon from './shared/TabIcons';
+import useReducedMotion from '../hooks/useReducedMotion';
 
 export const TABS = [
   { key: 'home', label: 'HOME' },
@@ -17,13 +18,18 @@ export default function DojoTabBar({ tab, setTab, indicatorLeft, t }) {
   const TAB_W_PERCENT = 100 / TABS.length;
   const accent = t?.accent || '#E52030';
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const reducedMotion = useReducedMotion();
 
   const handleTabPress = (key) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Animated.sequence([
-      Animated.timing(scaleAnim, { toValue: 0.94, duration: 60, useNativeDriver: false }),
-      Animated.spring(scaleAnim, { toValue: 1, damping: 15, stiffness: 300, useNativeDriver: false }),
-    ]).start();
+    // Pill press-bounce is decorative. Native driver: only `scale` (and the
+    // translateX it shares on the pill) animate — both native-safe (perf: P3).
+    if (!reducedMotion) {
+      Animated.sequence([
+        Animated.timing(scaleAnim, { toValue: 0.94, duration: 60, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1, damping: 15, stiffness: 300, useNativeDriver: true }),
+      ]).start();
+    }
     setTab(key);
   };
 

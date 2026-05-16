@@ -3,21 +3,27 @@ import { View, Text, Modal, Pressable, Animated, Easing, StyleSheet } from 'reac
 import { TXT1, TXT2, TXT3 } from '../../theme/tokens';
 import { DS } from '../../theme/designSystem';
 import { BOSS_HINT_FAIL_THRESHOLD } from '../../logic/progression';
+import useReducedMotion from '../../hooks/useReducedMotion';
 
 export default function BossHintModal({ visible, bossName, onDismiss }) {
   const scale = useRef(new Animated.Value(0)).current;
   const glow = useRef(new Animated.Value(0)).current;
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
-    if (visible) {
-      scale.setValue(0);
-      glow.setValue(0);
-      Animated.parallel([
-        Animated.spring(scale, { toValue: 1, tension: 40, friction: 5, useNativeDriver: true }),
-        Animated.timing(glow, { toValue: 1, duration: 1000, easing: Easing.out(Easing.ease), useNativeDriver: false }),
-      ]).start();
+    if (!visible) return;
+    if (reducedMotion) {
+      scale.setValue(1);
+      glow.setValue(1);
+      return;
     }
-  }, [visible, scale, glow]);
+    scale.setValue(0);
+    glow.setValue(0);
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, tension: 40, friction: 5, useNativeDriver: true }),
+      Animated.timing(glow, { toValue: 1, duration: 1000, easing: Easing.out(Easing.ease), useNativeDriver: false }),
+    ]).start();
+  }, [visible, scale, glow, reducedMotion]);
 
   if (!visible) return null;
 
