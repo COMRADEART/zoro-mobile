@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import XPBar from '../components/shared/XPBar';
@@ -38,41 +38,64 @@ export default function HomeScreen() {
   const { progress, today, theme, setTab, handleUpdate } = useProgress();
   const { steps } = useStepCounter();
 
-  const streak = currentStreak(progress, today);
-  const todayCount = completionsForDate(progress, today);
-  const weekView = currentWeekView(progress, today);
-  const rankIdx = rankIndexFor(progress.totalXP);
-  const rank = RANKS[rankIdx];
-  const rec = getDailyRecommendation(progress, new Date());
-  const readiness = getReadinessLevel(progress);
-  const readyColor = getReadinessColor(progress);
-  const xpInto = progress.totalXP - rank.min;
-  const xpFor = (RANKS[rankIdx + 1]?.min ?? rank.max) - rank.min;
-  const xpPct = Math.min(1, xpInto / (Number.isFinite(xpFor) ? xpFor : 1));
-  const sessions = recentSessions(progress, 3);
-  const totalVol = totalWeeklyVolume(progress, today);
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
-  const sensei = senseiPhrase(
-    rec.type === 'rest' ? 'rest_day' : rec.discipline ? 'morning_' + rec.discipline : 'idle'
-  );
-  const rings = computeRingProgress(progress, today);
-  const sharpness = computeSwordSharpness(progress, today);
+
+  // All of these are pure functions of (progress, today); recompute only when
+  // those change, not on every render (steps/theme/state churn would otherwise
+  // re-run ~8 logic passes per frame). (perf: P1)
+  const d = useMemo(() => {
+    const rankIdx = rankIndexFor(progress.totalXP);
+    const rank = RANKS[rankIdx];
+    const rec = getDailyRecommendation(progress, new Date());
+    const xpInto = progress.totalXP - rank.min;
+    const xpFor = (RANKS[rankIdx + 1]?.min ?? rank.max) - rank.min;
+    const weekView = currentWeekView(progress, today);
+    return {
+      streak: currentStreak(progress, today),
+      todayCount: completionsForDate(progress, today),
+      weekView,
+      weekMax: Math.max(...weekView.map(x => x.total || 0), 1),
+      rankIdx,
+      rank,
+      rec,
+      readiness: getReadinessLevel(progress),
+      readyColor: getReadinessColor(progress),
+      xpPct: Math.min(1, xpInto / (Number.isFinite(xpFor) ? xpFor : 1)),
+      sessions: recentSessions(progress, 3),
+      totalVol: totalWeeklyVolume(progress, today),
+      sensei: senseiPhrase(
+        rec.type === 'rest' ? 'rest_day' : rec.discipline ? 'morning_' + rec.discipline : 'idle'
+      ),
+      rings: computeRingProgress(progress, today),
+      sharpness: computeSwordSharpness(progress, today),
+      actRings: computeActivityRings(progress, today),
+    };
+  }, [progress, today]);
+
+  const {
+    streak, todayCount, weekView, weekMax, rankIdx, rank, rec, readiness, readyColor,
+    xpPct, sessions, totalVol, sensei, rings, sharpness, actRings,
+  } = d;
   const sharpLabel = getSharpnessLabel(sharpness);
   const sharpColor = getSharpnessColor(sharpness);
-  const actRings = computeActivityRings(progress, today);
 
+  const loggedSharpness = progress.swordSharpnessLog?.[today];
   useEffect(() => {
-    const existing = progress.swordSharpnessLog?.[today];
-    if (existing === undefined || Math.abs(existing - sharpness) > 5) {
+    if (loggedSharpness === undefined || Math.abs(loggedSharpness - sharpness) > 5) {
       handleUpdate(prev => ({
         ...prev,
         swordSharpnessLog: { ...prev.swordSharpnessLog, [today]: sharpness },
       }));
     }
-  }, [today, sharpness, progress, handleUpdate]);
+  }, [today, sharpness, loggedSharpness, handleUpdate]);
 
-  const dayName = new Date().toLocaleDateString('en', { weekday: 'long' }).toUpperCase();
-  const dateFmt = new Date().toLocaleDateString('en', { month: 'long', day: 'numeric' }).toUpperCase();
+  const { dayName, dateFmt } = useMemo(() => {
+    const dt = new Date(today + 'T00:00:00');
+    return {
+      dayName: dt.toLocaleDateString('en', { weekday: 'long' }).toUpperCase(),
+      dateFmt: dt.toLocaleDateString('en', { month: 'long', day: 'numeric' }).toUpperCase(),
+    };
+  }, [today]);
 
   const onStartSession = (sword) => {
     handleUpdate({ ...progress, activeSword: sword });
@@ -215,8 +238,7 @@ export default function HomeScreen() {
         />
         <View style={s.weekBars}>
           {weekView.map((day) => {
-            const maxVol = Math.max(...weekView.map(d => d.total || 0), 1);
-            const barH = day.total > 0 ? Math.max(10, (day.total / maxVol) * 56) : 6;
+            const barH = day.total > 0 ? Math.max(10, (day.total / weekMax) * 56) : 6;
             const discColor = day.dominant ? SWORDS[day.dominant]?.accent : t.accent;
             return (
               <View key={day.date} style={s.weekDayCol}>
