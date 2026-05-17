@@ -76,7 +76,11 @@ This is opt-in **on the user's side**, not the app's: it only runs when the user
 - `app.json` → `android.allowBackup: true` (declared explicitly so it survives `expo prebuild`)
 - `android/app/src/main/res/xml/data_extraction_rules.xml` (Android 12+) and `backup_rules.xml` (≤ Android 11), referenced from the manifest `<application>` tag
 
-The rule files intentionally declare **no `<include>` elements** — any `<include>` would switch Android to allow-list mode and could silently drop the `RKStorage` database if its filename changes across `react-native-async-storage` or new-architecture upgrades. Leaving them permissive keeps the progress store covered by the default "back up all eligible app data" behavior.
+Because the `/android` dir is gitignored prebuild output, the manifest attributes and both rule XMLs are pinned by a local Expo config plugin — [`plugins/withAndroidBackup.js`](plugins/withAndroidBackup.js) (registered in `app.json` → `expo.plugins`). It rewrites them to the reviewed form on **every** `expo prebuild`, so they can't silently regress to Expo's default template across a clean checkout, CI build, or async-storage upgrade.
+
+The rule files intentionally declare **no `<include>` elements** — any `<include>` would switch Android to allow-list mode and could silently drop the `RKStorage` database if its filename changes across `react-native-async-storage` or new-architecture upgrades. Leaving them permissive keeps the progress store covered by the default "back up all eligible app data" behavior. This invariant is enforced by `tests/androidBackup.test.js`.
+
+Verify on-device after a build: `adb shell bmgr backupnow com.santoryu.fitness`, then uninstall/reinstall (or `adb shell bmgr restore`) and confirm progress is restored.
 
 ## Testing
 
