@@ -20,7 +20,8 @@ Code / config:
 - [x] **Removed `SCHEDULE_EXACT_ALARM`** from `app.json` permissions (reminders are inexact daily notifications — the permission was unjustified and a known rejection trigger). Confirm reminder delivery in on-device QA.
 - [x] Android Auto Backup is prebuild-durable (`plugins/withAndroidBackup.js`, tested).
 - [ ] Bump `android.versionCode` for each upload (currently `1`).
-- [ ] Confirm Pedometer step-count still works after permission cleanup (`ACTIVITY_RECOGNITION` is auto-added by `expo-sensors`; do not remove it).
+- [x] **Suppressed unused `RECORD_AUDIO`** — `expo-audio` is playback-only; configured `recordAudioAndroid: false` so the microphone permission is no longer declared. (`MODIFY_AUDIO_SETTINGS` remains — a normal, unscrutinized playback permission.)
+- [x] **Declared `ACTIVITY_RECOGNITION`** in `app.json` (it is NOT auto-added by `expo-sensors`) and added the runtime request in `useStepCounter.js`, so step counting works on Android 10+. Confirm on-device QA.
 
 Console / listing (use the docs in this folder):
 - [ ] Privacy policy hosted at a public URL and linked.
