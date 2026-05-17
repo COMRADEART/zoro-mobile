@@ -1,6 +1,26 @@
 # On-device Gemini (ML Kit GenAI) integration — plan for sign-off
 
-Status: **proposal — not started.** No code written yet. This document is the thing to approve before Phase 0.
+Status: **implemented on `feat/on-device-gemini`** (foundation + all four features, per the approved "all four now" scope).
+
+### Implementation status
+
+| Piece | State | Verified here? |
+|---|---|---|
+| `modules/expo-gemini-nano` (Kotlin, ML Kit Prompt API) | Built | Discovered by Expo autolinking ✓; **not compiled/run** (beta, AICore-only) |
+| `plugins/withGeminiNano.js` (minSdk 26) | Built | Clean `expo prebuild` → `android.minSdkVersion=26` ✓ |
+| `src/services/aiService.ts` + 9 Jest cases | Built | Fallback contract fully tested ✓ |
+| Smart recommendation / sensei chat / voyage narration / NL logging | Wired | JS + fallback paths tested; full suite 227/227, tsc + eslint clean ✓ |
+
+**Unchanged verification boundary:** real on-device Gemini Nano output/latency requires a dev build on an AICore device (Pixel 9/10, Galaxy S25/S26, …). Every failure of that link degrades to today's deterministic behavior by construction — proven by `tests/aiService.test.js`.
+
+### Decisions taken
+- On-device only (privacy posture preserved; committed Data Safety stays accurate — still flag for a GenAI-disclosure re-check before any Play submission).
+- All four features built now (user choice), foundation-first internally.
+- Summarization done via the verified Prompt API, not the unverified `genai-summarization` artifact.
+- Branched off `master`; the Play-hardening work is in PR #1 and merges into this branch later.
+
+---
+_Original proposal below (kept for context)._
 
 ## Decision recap
 
