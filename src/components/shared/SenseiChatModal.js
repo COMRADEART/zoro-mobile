@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
-import { TXT1, TXT2, TXT3 } from '../../theme/tokens';
+import { TXT1, TXT2, TXT3, GOLD } from '../../theme/tokens';
 import { DS } from '../../theme/designSystem';
 import * as ai from '../../services/aiService';
-
-const GOLD = '#D4A853';
 
 /**
  * Single-turn "ask the sensei". On-device Gemini Nano when available,

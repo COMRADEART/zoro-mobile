@@ -82,11 +82,18 @@ export default function HomeScreen() {
   const aiCtx = `${rec.type}/${rec.discipline || 'none'} readiness:${readiness} streak:${streak} sharp:${sharpness}`;
   useEffect(() => {
     let on = true;
+    setAiLine(null); // drop a stale AI line when the recommendation changes
     ai.recommend({ context: aiCtx, fallback: sensei }).then(line => {
       if (on && line && line !== sensei) setAiLine(line);
     });
     return () => { on = false; };
-  }, [aiCtx, sensei]);
+    // Refresh only when the recommendation itself changes. `sensei` is a
+    // fresh random pick every render and the scalars in `aiCtx` fluctuate
+    // constantly; depending on them re-fires a ~12s on-device generation
+    // on every render. Both are still read via closure to enrich the prompt
+    // and gate the fallback comparison.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rec.type, rec.discipline]);
 
   useEffect(() => {
     const existing = progress.swordSharpnessLog?.[today];
@@ -228,7 +235,6 @@ export default function HomeScreen() {
         context={aiCtx}
         fallbackPhrase={sensei}
       />
-
 
       {rec.type !== 'rest' ? (
         <Pressable onPress={() => onStartSession(rec.discipline)}>
