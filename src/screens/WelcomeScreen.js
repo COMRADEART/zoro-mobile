@@ -9,48 +9,57 @@ import { THEMES, DEFAULT_THEME } from '../theme/themes';
 import { TXT1, TXT3, BORD, SB_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import { lightImpact } from '../utils/haptics';
+import { isEnterableName, DISPLAY_NAME_MAX } from '../logic/progression';
+import { statusBarStyleForTheme } from '../theme/statusBar';
+import { createSubmitGate } from '../utils/submitGate';
 
 const { height: H } = Dimensions.get('window');
-const NAME_MAX = 40;
+const NAME_MAX = DISPLAY_NAME_MAX;
 
-// Official 4-color Google "G" mark (viewBox 0 0 24 24).
-function GoogleG({ size = 20 }) {
+// Original three-sword (三刀流) mark — three blades over a shared guard line.
+// Deliberately NOT any third-party brand: this gate is a local-only profile
+// capture, not an OAuth sign-in.
+function SantoryuMark({ size = 20, color = '#fff' }) {
+  const p = { stroke: color, strokeWidth: 2, strokeLinecap: 'round' };
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityRole="image" accessibilityLabel="Google logo">
-      <Path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-      <Path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-      <Path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-      <Path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityRole="image" accessibilityLabel="Santoryu three-sword mark">
+      <Path {...p} d="M6 4 L6 18" />
+      <Path {...p} d="M12 3 L12 19" />
+      <Path {...p} d="M18 4 L18 18" />
+      <Path {...p} d="M3 15 L21 15" />
     </Svg>
   );
 }
 
-// Local-only welcome gate. "Continue with Google" is a Google-styled local
-// profile capture (no OAuth round-trip — the app has no backend to sync to).
-// onSignIn persists; onSkip is session-only so this reappears next cold start.
+// Local-only welcome gate. There is NO backend and NO OAuth — this just
+// captures a display name stored on-device. onSignIn persists; onSkip is
+// session-only so this reappears next cold start.
 export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
   const [step, setStep] = useState('choose'); // 'choose' | 'name'
   const [name, setName] = useState('');
   const fade = useRef(new Animated.Value(0)).current;
+  // One-shot latch: a fast double-tap can't fire onSignIn twice.
+  const submitGate = useRef(createSubmitGate()).current;
 
   useEffect(() => {
     Animated.timing(fade, { toValue: 1, duration: 360, useNativeDriver: true }).start();
   }, [fade]);
 
-  const trimmed = name.trim();
-  const valid = trimmed.length > 0;
+  // Single source of truth: the button is enabled iff the name survives the
+  // same sanitization the persistence layer applies, so it can never be a
+  // silent no-op (Finding F5).
+  const valid = isEnterableName(name);
 
   const goName = () => { lightImpact(); setStep('name'); };
   const confirm = () => {
     if (!valid) return;
-    lightImpact();
-    onSignIn(trimmed.slice(0, NAME_MAX));
+    submitGate.tryFire(() => { lightImpact(); onSignIn(name); });
   };
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={statusBarStyleForTheme(theme)} backgroundColor="transparent" translucent />
       <AmbientBG theme={theme} />
       <FloatingParticles theme={theme} count={14} />
 
@@ -67,7 +76,7 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
             <Text style={s.subtitle}>世界一の大剣豪への道</Text>
             <Text style={s.tagline}>
               {step === 'choose'
-                ? 'Sign in to carve your name into the dojo.'
+                ? 'Carve your name into the dojo.'
                 : 'What should the dojo call you?'}
             </Text>
           </View>
@@ -75,20 +84,24 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
           {step === 'choose' ? (
             <View style={s.actions}>
               <Pressable
-                style={({ pressed }) => [s.googleBtn, pressed && { opacity: 0.85 }]}
+                style={({ pressed }) => [
+                  s.primaryBtn,
+                  { borderColor: t.accent + '55', backgroundColor: t.accent + '12' },
+                  pressed && { opacity: 0.85 },
+                ]}
                 onPress={goName}
                 accessibilityRole="button"
-                accessibilityLabel="Continue with Google"
+                accessibilityLabel="Create your dojo profile"
               >
-                <GoogleG size={20} />
-                <Text style={s.googleBtnTxt}>Continue with Google</Text>
+                <SantoryuMark size={20} color={t.accent} />
+                <Text style={[s.primaryBtnTxt, { color: t.accent }]}>Create your dojo profile</Text>
               </Pressable>
 
               <Pressable
                 style={s.skipBtn}
                 onPress={() => { lightImpact(); onSkip(); }}
                 accessibilityRole="button"
-                accessibilityLabel="Skip sign in for now"
+                accessibilityLabel="Skip for now, continue without a profile"
                 hitSlop={DS.hitSlop}
               >
                 <Text style={s.skipTxt}>Skip for now</Text>
@@ -165,12 +178,12 @@ const s = StyleSheet.create({
   tagline: { fontSize: 13, color: TXT3, marginTop: 22, textAlign: 'center', lineHeight: 19 },
 
   actions: { gap: 14 },
-  googleBtn: {
+  primaryBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
-    backgroundColor: '#FFFFFF', borderRadius: DS.radius.full,
+    borderWidth: 1.5, borderRadius: DS.radius.full,
     paddingVertical: 15, paddingHorizontal: 20,
   },
-  googleBtnTxt: { color: '#1F1F1F', fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
+  primaryBtnTxt: { fontSize: 15, fontWeight: '800', letterSpacing: 0.4 },
 
   input: {
     backgroundColor: 'rgba(0,0,0,0.4)', borderWidth: 1.5, borderRadius: DS.radius.lg,
