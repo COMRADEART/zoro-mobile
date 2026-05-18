@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import ShimmerXPBar from '../components/shared/ShimmerXPBar';
@@ -18,6 +18,8 @@ import {
 } from '../logic/progression';
 import { SWORDS, RANKS, senseiPhrase } from '../data/gameData';
 import useStepCounter from '../hooks/useStepCounter';
+import * as ai from '../services/aiService';
+import SenseiChatModal from '../components/shared/SenseiChatModal';
 
 const SWORD_ORDER = ['wado', 'sandai', 'shusui'];
 
@@ -48,6 +50,8 @@ function StatChip({ accent, label, value, unit, emoji }) {
 export default function HomeScreen() {
   const { progress, today, theme, setTab, handleUpdate } = useProgress();
   const { steps } = useStepCounter();
+  const [aiLine, setAiLine] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const streak = currentStreak(progress, today);
   const todayCount = completionsForDate(progress, today);
@@ -71,6 +75,18 @@ export default function HomeScreen() {
   const sharpLabel = getSharpnessLabel(sharpness);
   const sharpColor = getSharpnessColor(sharpness);
   const actRings = computeActivityRings(progress, today);
+
+  // Optional on-device AI enhancement of the sensei line. The static
+  // `sensei` renders instantly and stays unless/until AI returns a
+  // different line. No-op on every device without AICore.
+  const aiCtx = `${rec.type}/${rec.discipline || 'none'} readiness:${readiness} streak:${streak} sharp:${sharpness}`;
+  useEffect(() => {
+    let on = true;
+    ai.recommend({ context: aiCtx, fallback: sensei }).then(line => {
+      if (on && line && line !== sensei) setAiLine(line);
+    });
+    return () => { on = false; };
+  }, [aiCtx, sensei]);
 
   useEffect(() => {
     const existing = progress.swordSharpnessLog?.[today];
@@ -194,10 +210,25 @@ export default function HomeScreen() {
         <View style={s.senseiHeader}>
           <View style={[s.senseiPip, { backgroundColor: '#D4A853' }]} />
           <Text style={[s.senseiTitle, { color: '#D4A853' }]}>SENSEI</Text>
-          <Text style={s.senseiQuote}>{'"'}</Text>
+          <Pressable
+            onPress={() => setChatOpen(true)}
+            style={s.senseiAsk}
+            accessibilityRole="button"
+            accessibilityLabel="Ask the sensei a question"
+          >
+            <Text style={s.senseiAskTxt}>ASK ›</Text>
+          </Pressable>
         </View>
-        <Text style={s.senseiText}>{sensei}</Text>
+        <Text style={s.senseiText}>{aiLine || sensei}</Text>
       </HeroCard>
+
+      <SenseiChatModal
+        visible={chatOpen}
+        onClose={() => setChatOpen(false)}
+        context={aiCtx}
+        fallbackPhrase={sensei}
+      />
+
 
       {rec.type !== 'rest' ? (
         <Pressable onPress={() => onStartSession(rec.discipline)}>
@@ -367,6 +398,8 @@ const s = StyleSheet.create({
   senseiTitle: { fontSize: 7.5, fontWeight: '700', letterSpacing: 5 },
   senseiQuote: { fontSize: 22, marginLeft: 'auto', opacity: 0.4 },
   senseiText: { fontSize: 15, color: TXT2, lineHeight: 26, fontStyle: 'italic' },
+  senseiAsk: { marginLeft: 'auto', paddingVertical: 4, paddingHorizontal: 8 },
+  senseiAskTxt: { fontSize: 9, fontWeight: '800', letterSpacing: 2, color: '#D4A853' },
   recCard: { marginBottom: DS.space.sm },
   recRow: { flexDirection: 'row', alignItems: 'center', gap: DS.space.md },
   recKanjiBox: { width: 58, height: 58, borderRadius: DS.radius.md, alignItems: 'center', justifyContent: 'center' },

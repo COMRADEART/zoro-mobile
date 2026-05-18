@@ -10,6 +10,7 @@ import BreathingGuide from '../components/shared/BreathingGuide';
 import TrainingArcsScreen from './TrainingArcsScreen';
 import { heavyImpact, mediumImpact } from '../utils/haptics';
 import { playClick, playSuccess } from '../services/audioService';
+import * as ai from '../services/aiService';
 
 const SWORD_ORDER = ['wado', 'sandai', 'shusui'];
 
@@ -26,6 +27,8 @@ export default function TrainScreen() {
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [completedExercises, setCompletedExercises] = useState([]);
   const [currentAmount, setCurrentAmount] = useState('');
+  const [nlText, setNlText] = useState('');
+  const [nlBusy, setNlBusy] = useState(false);
   const timerRef = useRef(null);
   const sessionRef = useRef(null);
   const pulse = useRef(new Animated.Value(1)).current;
@@ -38,6 +41,24 @@ export default function TrainScreen() {
   useEffect(() => {
     Animated.timing(fadeSlide, { toValue: 1, duration: 400, useNativeDriver: true }).start();
   }, [phase, fadeSlide]);
+
+  // Best-effort NL → discipline. Strictly advisory: it only pre-selects
+  // a sword. The manual tabs and form remain the source of truth, and
+  // any failure (no AICore, unparseable) just shows a hint.
+  const parseNL = async () => {
+    const text = nlText.trim();
+    if (!text || nlBusy) return;
+    setNlBusy(true);
+    const hint = await ai.parseSessionHint(text);
+    setNlBusy(false);
+    if (hint) {
+      switchSword(hint.discipline);
+      setNlText('');
+      showToast && showToast(`Sensei set ${SWORDS[hint.discipline].name} — ${hint.note}`);
+    } else {
+      showToast && showToast('Could not read that — choose a discipline below.');
+    }
+  };
 
   const switchSword = (sw) => {
     setActiveSword(sw);
@@ -136,6 +157,32 @@ export default function TrainScreen() {
           showsVerticalScrollIndicator={false}
           bounces={true}
         >
+          <View style={[s.nlCard, { borderColor: t.accent + '30' }]}>
+            <Text style={s.nlLabel}>DESCRIBE YOUR SESSION · 任意</Text>
+            <View style={s.nlRow}>
+              <TextInput
+                style={[s.nlInput, { borderColor: t.accent + '30' }]}
+                value={nlText}
+                onChangeText={setNlText}
+                placeholder='e.g. "20 min meditation and some breathing"'
+                placeholderTextColor={TXT3}
+                maxLength={160}
+                onSubmitEditing={parseNL}
+                returnKeyType="done"
+                accessibilityLabel="Describe your session in words"
+              />
+              <Pressable
+                onPress={parseNL}
+                disabled={nlBusy || !nlText.trim()}
+                style={[s.nlBtn, { backgroundColor: t.accent, opacity: nlBusy || !nlText.trim() ? 0.4 : 1 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Interpret session description"
+              >
+                <Text style={s.nlBtnTxt}>{nlBusy ? '…' : 'SET'}</Text>
+              </Pressable>
+            </View>
+          </View>
+
           <Animated.View style={[s.idleHero, { opacity: fadeSlide }]}>
             <View style={s.watermarkContainer}>
               <Text style={[s.trainWatermark, { color: t.accent }]}>{sword.kanji}</Text>
@@ -411,6 +458,12 @@ const s = StyleSheet.create({
   swordTabKanji: { fontSize: 22, fontWeight: '900', color: TXT3 },
   swordTabName: { fontSize: 6.5, fontWeight: '700', letterSpacing: 1.5, color: TXT3 },
   trainIdle: { flex: 1, paddingBottom: TAB_BAR_H + DS.space.xl },
+  nlCard: { borderWidth: 1, borderRadius: 12, padding: DS.space.sm, marginBottom: DS.space.md },
+  nlLabel: { fontSize: 7.5, fontWeight: '700', letterSpacing: 4, color: TXT3, marginBottom: DS.space.xs },
+  nlRow: { flexDirection: 'row', gap: DS.space.xs, alignItems: 'center' },
+  nlInput: { flex: 1, color: TXT1, fontSize: 13, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  nlBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, minWidth: 52, alignItems: 'center' },
+  nlBtnTxt: { fontSize: 11, fontWeight: '800', letterSpacing: 2, color: '#0a0a0a' },
   idleHero: { position: 'relative', marginBottom: DS.space.lg },
   watermarkContainer: { position: 'absolute', alignSelf: 'center', top: -20, opacity: 0.05 },
   trainWatermark: { fontSize: 280, fontWeight: '900', letterSpacing: -15 },
