@@ -1,13 +1,19 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, Easing } from 'react-native';
+import useReducedMotion from '../../hooks/useReducedMotion';
 
 export default function BreathingOrb({ color, size = 52 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(0.7)).current;
   const innerPulse = useRef(new Animated.Value(0.5)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
+    // Decorative pulse/rotate only — the orb's resting state (scale 1,
+    // opacity 0.7) is a complete, calm visual on its own.
+    if (reducedMotion) return;
+
     const mainLoop = Animated.loop(
       Animated.parallel([
         Animated.sequence([
@@ -41,7 +47,7 @@ export default function BreathingOrb({ color, size = 52 }) {
       innerLoop.stop();
       rotateLoop.stop();
     };
-  }, [scale, opacity, innerPulse, rotateAnim]);
+  }, [scale, opacity, innerPulse, rotateAnim, reducedMotion]);
 
   const outerRing = size * 1.4;
   const middleRing = size * 1.2;

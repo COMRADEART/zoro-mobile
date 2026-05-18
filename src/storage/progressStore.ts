@@ -130,6 +130,13 @@ export async function loadProgress(): Promise<{ progress: Progress; wasReset: bo
         await AsyncStorage.setItem(KEY_CORRUPTED, raw3);
         const fresh = defaultProgress();
         fresh._pendingEvents = [{ type: 'data_reset' }];
+        // Persist clean v4 (explicitly without the in-memory data_reset event)
+        // and clear the broken v3 so the next launch loads valid v4 instead of
+        // re-entering this branch and re-emitting data_reset every cold start.
+        // Mirrors the v4-corruption branch above — invariant holds regardless
+        // of statement order, not just because stringify precedes the mutation.
+        await AsyncStorage.setItem(KEY_V4, JSON.stringify({ ...fresh, _pendingEvents: undefined }));
+        await AsyncStorage.removeItem(KEY_V3);
         return { progress: fresh, wasReset: true };
       }
       // Normalize after validation to fill v4-only fields the v3 schema lacks

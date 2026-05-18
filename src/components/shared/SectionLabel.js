@@ -1,12 +1,21 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { TXT3 } from '../../theme/tokens';
+import { TXT2 } from '../../theme/tokens';
+import { DS } from '../../theme/designSystem';
 
-const SectionLabel = memo(function SectionLabel({ label, style, accent }) {
+/*
+ * The single canonical section head: an eyebrow label with an optional accent
+ * tick and an optional trailing slot (e.g. per-section totals). Every screen
+ * uses this — do not reimplement section heads locally.
+ */
+const SectionLabel = memo(function SectionLabel({ label, style, accent, right }) {
   return (
-    <View style={styles.container}>
-      {accent && <View style={[styles.accent, { backgroundColor: accent }]} />}
-      <Text style={[styles.sectionLabel, style]}>{label}</Text>
+    <View style={[styles.container, style]}>
+      <View style={styles.left}>
+        {accent && <View style={[styles.tick, { backgroundColor: accent }]} />}
+        <Text style={styles.sectionLabel}>{label}</Text>
+      </View>
+      {right ? <View style={styles.right}>{right}</View> : null}
     </View>
   );
 });
@@ -14,7 +23,13 @@ const SectionLabel = memo(function SectionLabel({ label, style, accent }) {
 export default SectionLabel;
 
 const styles = StyleSheet.create({
-  container: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
-  accent: { width: 3, height: 14, borderRadius: 2 },
-  sectionLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 3.5, color: TXT3 },
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  left: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  right: { flexDirection: 'row', alignItems: 'center' },
+  sectionLabel: { ...DS.type.label, color: TXT2 },
 });

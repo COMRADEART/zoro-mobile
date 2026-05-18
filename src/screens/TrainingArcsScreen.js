@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import GlassCard from '../components/shared/GlassCard';
+import { Icon } from '../components/shared/TabIcons';
 import { TRAINING_ARCS } from '../data/gameData';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
-import { TXT1, TXT3, BORD, SB_H } from '../theme/tokens';
+import { TXT1, TXT2, TXT3, BORD, SB_H } from '../theme/tokens';
+import { DS } from '../theme/designSystem';
 import { rankIndexFor } from '../logic/progression';
 
 export default function TrainingArcsScreen({ onBack }) {
@@ -33,7 +35,13 @@ export default function TrainingArcsScreen({ onBack }) {
     return (
       <ScrollView contentContainerStyle={[s.detailScroll, { paddingTop: SB_H + 16 }]} showsVerticalScrollIndicator={false}>
         <View style={s.detailHeader}>
-          <Pressable style={s.backBtn} onPress={() => setSelected(null)}>
+          <Pressable
+            style={s.backBtn}
+            onPress={() => setSelected(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Back to arcs list"
+            hitSlop={8}
+          >
             <Text style={s.backTxt}>← ARCS · 修行</Text>
           </Pressable>
         </View>
@@ -76,7 +84,7 @@ export default function TrainingArcsScreen({ onBack }) {
                   <Text style={s.weekObjective}>{week.objective}</Text>
                 </View>
                 {done && <View style={[s.weekDoneBadge, { backgroundColor: selected.color + '20', borderColor: selected.color + '40' }]}>
-                  <Text style={[s.weekDone, { color: selected.color }]}>✓</Text>
+                  <Icon name="check" size={14} color={selected.color} />
                 </View>}
               </View>
             </GlassCard>
@@ -84,7 +92,12 @@ export default function TrainingArcsScreen({ onBack }) {
         })}
 
         {!arcData && currentRank >= selected.requiredRank && (
-          <Pressable style={[s.startBtn, { backgroundColor: selected.color }]} onPress={() => startArc(selected)}>
+          <Pressable
+            style={[s.startBtn, { backgroundColor: selected.color }]}
+            onPress={() => startArc(selected)}
+            accessibilityRole="button"
+            accessibilityLabel={`Start arc ${selected.name}`}
+          >
             <Text style={s.startBtnTxt}>START ARC · 開始</Text>
           </Pressable>
         )}
@@ -100,11 +113,17 @@ export default function TrainingArcsScreen({ onBack }) {
         )}
         {arcData?.status === 'completed' && (
           <View style={[s.startBtn, { backgroundColor: selected.color + '20', borderWidth: 1.5, borderColor: selected.color + '50' }]}>
-            <Text style={[s.startBtnTxt, { color: selected.color }]}>ARC COMPLETE · 完了 ✓</Text>
+            <Text style={[s.startBtnTxt, { color: selected.color }]}>ARC COMPLETE · 完了</Text>
           </View>
         )}
 
-        <Pressable style={s.backBtnBottom} onPress={onBack}>
+        <Pressable
+          style={s.backBtnBottom}
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Back to train"
+          hitSlop={8}
+        >
           <Text style={s.backTxt}>← BACK TO TRAIN · 訓練に戻る</Text>
         </Pressable>
       </ScrollView>
@@ -131,7 +150,18 @@ export default function TrainingArcsScreen({ onBack }) {
         const completedWeeks = arcData?.completedWeeks?.length || 0;
 
         return (
-          <Pressable key={arc.id} onPress={() => !locked && setSelected(arc)}>
+          <Pressable
+            key={arc.id}
+            onPress={() => !locked && setSelected(arc)}
+            accessibilityRole="button"
+            accessibilityLabel={`${arc.name}. ${
+              locked ? `Locked, rank ${arc.requiredRank} required`
+                : completed ? 'Completed'
+                : active ? `In progress, ${completedWeeks} of ${arc.durationWeeks} weeks`
+                : 'Available'
+            }`}
+            accessibilityState={{ disabled: locked }}
+          >
             <GlassCard accent={locked ? BORD : arc.color} style={[s.arcCard, locked && s.arcCardLocked]}>
               <View style={s.arcCardHeader}>
                 <View style={[s.arcCardKanjiBox, { backgroundColor: (locked ? BORD : arc.color) + '15' }]}>
@@ -148,10 +178,10 @@ export default function TrainingArcsScreen({ onBack }) {
                 </View>
                 <View style={s.arcCardStatus}>
                   {locked && <View style={[s.statusBadge, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
-                    <Text style={s.lockText}>🔒 {arc.requiredRank}</Text>
+                    <Text style={s.lockText}>封 RANK {arc.requiredRank}</Text>
                   </View>}
                   {completed && <View style={[s.statusBadge, { backgroundColor: arc.color + '15', borderWidth: 1, borderColor: arc.color + '30' }]}>
-                    <Text style={[s.statusBadgeText, { color: arc.color }]}>✓ DONE · 完了</Text>
+                    <Text style={[s.statusBadgeText, { color: arc.color }]}>DONE · 完了</Text>
                   </View>}
                   {active && <View style={[s.statusBadge, { backgroundColor: arc.color + '15', borderWidth: 1, borderColor: arc.color + '30' }]}>
                     <Text style={[s.statusBadgeText, { color: arc.color }]}>{completedWeeks}/{arc.durationWeeks}wk</Text>
@@ -193,9 +223,9 @@ const s = StyleSheet.create({
   detailHeader: { marginBottom: 16 },
   backBtn: { paddingVertical: 8, marginBottom: 8 },
   backBtnBottom: { paddingVertical: 20, marginTop: 16 },
-  backTxt: { fontSize: 10, fontWeight: '700', letterSpacing: 3, color: TXT3 },
-  screenTitle: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5, color: TXT1 },
-  screenSub: { fontSize: 11, color: TXT3, marginTop: 5, letterSpacing: 0.5 },
+  backTxt: { ...DS.type.label, color: TXT2, letterSpacing: 2 },
+  screenTitle: { ...DS.type.displayMd, fontSize: 24, color: TXT1 },
+  screenSub: { ...DS.type.caption, color: TXT3, marginTop: 5, letterSpacing: 0.5 },
   kanjiBadge: { width: 40, height: 40, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   kanjiBadgeText: { fontSize: 22, fontWeight: '900' },
 
@@ -204,15 +234,15 @@ const s = StyleSheet.create({
   arcCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   arcCardKanjiBox: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   arcCardKanji: { fontSize: 28, fontWeight: '900' },
-  arcCardName: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
-  arcCardSub: { fontSize: 11, color: TXT3, marginTop: 3 },
-  arcCardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 5 },
-  arcCardMetaText: { fontSize: 9, fontWeight: '700', color: TXT3 },
-  arcCardMetaDot: { fontSize: 9, color: TXT3 },
+  arcCardName: { ...DS.type.cardTitle, fontSize: 16 },
+  arcCardSub: { ...DS.type.caption, color: TXT2, marginTop: 4 },
+  arcCardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  arcCardMetaText: { ...DS.type.micro, fontWeight: '700', color: TXT3 },
+  arcCardMetaDot: { fontSize: 11, color: TXT3 },
   arcCardStatus: { alignItems: 'flex-end', gap: 6 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  statusBadgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 1 },
-  lockText: { fontSize: 9, fontWeight: '700', color: TXT3 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  statusBadgeText: { ...DS.type.micro, fontWeight: '800', letterSpacing: 0.5 },
+  lockText: { ...DS.type.micro, fontWeight: '700', color: TXT3 },
   arcProgressBar: { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', marginTop: 14 },
   arcProgressFill: { height: 4, borderRadius: 2 },
 
@@ -220,29 +250,28 @@ const s = StyleSheet.create({
   arcKanjiBox: { width: 80, height: 80, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
   arcKanji: { fontSize: 56, fontWeight: '900' },
   arcName: { fontSize: 26, fontWeight: '900', letterSpacing: -0.5, color: TXT1 },
-  arcSubtitle: { fontSize: 13, color: TXT3, textAlign: 'center', marginTop: 6 },
-  arcKanjiSub: { fontSize: 10, fontWeight: '700', letterSpacing: 2, marginTop: 12 },
+  arcSubtitle: { ...DS.type.bodySm, color: TXT2, textAlign: 'center', marginTop: 6 },
+  arcKanjiSub: { ...DS.type.label, letterSpacing: 1.5, marginTop: 12 },
 
   metaRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 24, gap: 10 },
-  metaPill: { alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12 },
+  metaPill: { flex: 1, alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 14, borderRadius: 12 },
   metaVal: { fontSize: 18, fontWeight: '900' },
-  metaLbl: { fontSize: 7.5, fontWeight: '700', letterSpacing: 2, color: TXT3, marginTop: 2 },
+  metaLbl: { ...DS.type.micro, fontWeight: '700', letterSpacing: 1, color: TXT3, marginTop: 4 },
 
-  sectionLbl: { fontSize: 9, fontWeight: '800', letterSpacing: 4, color: TXT3, marginBottom: 12 },
+  sectionLbl: { ...DS.type.label, color: TXT2, marginBottom: 12 },
 
   weekCard: { marginBottom: 10, paddingVertical: 14 },
   weekHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  weekNum: { width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  weekNumTxt: { fontSize: 14, fontWeight: '900' },
-  weekTitle: { fontSize: 15, fontWeight: '800' },
-  weekObjective: { fontSize: 11, color: TXT3, marginTop: 3 },
+  weekNum: { width: 38, height: 38, borderRadius: 19, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  weekNumTxt: { fontSize: 15, fontWeight: '900' },
+  weekTitle: { ...DS.type.cardTitle, fontSize: 15 },
+  weekObjective: { ...DS.type.caption, color: TXT2, marginTop: 4 },
   weekDoneBadge: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  weekDone: { fontSize: 14, fontWeight: '900' },
 
   startBtn: { paddingVertical: 16, borderRadius: 100, alignItems: 'center', marginTop: 20, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
-  startBtnTxt: { fontSize: 11, fontWeight: '900', letterSpacing: 3, color: '#000' },
+  startBtnTxt: { fontSize: 13, fontWeight: '900', letterSpacing: 2, color: '#000' },
 
   arcsFooter: { alignItems: 'center', marginTop: 24, marginBottom: 16 },
-  footerLine: { width: 50, height: 1, marginBottom: 12 },
-  footerText: { fontSize: 11, color: TXT3, fontStyle: 'italic', letterSpacing: 1 },
+  footerLine: { width: 48, height: 1, marginBottom: 12 },
+  footerText: { fontSize: 13, color: TXT2, fontFamily: DS.font.display, fontStyle: 'italic', letterSpacing: 0.5 },
 });

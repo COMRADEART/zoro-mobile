@@ -7,6 +7,7 @@ import RankUpModal from '../components/shared/RankUpModal';
 import BossHintModal from '../components/shared/BossHintModal';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
 import { TXT3, TAB_BAR_H } from '../theme/tokens';
+import { DS } from '../theme/designSystem';
 import { SWORDS } from '../data/gameData';
 import HomeScreen from './HomeScreen';
 import TrainScreen from './TrainScreen';
@@ -19,6 +20,7 @@ import { setHapticsEnabled, rankUp, bossDefeat, bossFail, themeUnlock } from '..
 import { scheduleRestReminder } from '../services/notificationService';
 import { initAudio, playRankUp, setSoundEnabled } from '../services/audioService';
 import { useAutoTheme } from '../hooks/useAutoTheme';
+import useReducedMotion from '../hooks/useReducedMotion';
 
 const { width: W } = Dimensions.get('window');
 export const THEME_KEYS = Object.keys(THEMES);
@@ -42,10 +44,12 @@ const EVENT_HANDLERS = {
     bossFail();
     setBossHint(ev.boss?.name ?? 'this challenge');
   },
-  theme_unlocked: (ev, { showToast, setThemeFlash, flashAnim }) => {
+  theme_unlocked: (ev, { showToast, setThemeFlash, flashAnim, reducedMotion }) => {
     themeUnlock();
     const tc = THEMES[ev.themeKey];
-    if (tc) {
+    // Full-screen color flash is purely celebratory — skip it entirely under
+    // reduced motion; the toast still announces the unlock.
+    if (tc && !reducedMotion) {
       flashAnim.stopAnimation();
       setThemeFlash({ color: tc.accent, key: ev.themeKey });
       Animated.sequence([
@@ -90,6 +94,7 @@ function DojoInner() {
   const toastTimer = useRef(null);
   const tabAnim = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef(null);
+  const reducedMotion = useReducedMotion();
 
   useAutoTheme(progress, handleUpdate);
 
@@ -104,16 +109,21 @@ function DojoInner() {
   /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     const idx = TABS.findIndex(tb => tb.key === tab);
-    Animated.spring(tabAnim, { toValue: idx, tension: 90, friction: 14, useNativeDriver: false }).start();
-  }, [tab]);
+    if (reducedMotion) {
+      tabAnim.setValue(idx);
+      return;
+    }
+    // Indicator only feeds a translateX on the pill → native-safe (perf: P3).
+    Animated.spring(tabAnim, { toValue: idx, tension: 90, friction: 14, useNativeDriver: true }).start();
+  }, [tab, reducedMotion]);
   /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
     const idx = TABS.findIndex(tb => tb.key === tab);
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({ x: idx * W, animated: true, duration: 320 });
+      scrollRef.current.scrollTo({ x: idx * W, animated: !reducedMotion, duration: 320 });
     }
-  }, [tab]);
+  }, [tab, reducedMotion]);
 
   const showToast = useCallback(({ title, body }) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -136,12 +146,12 @@ function DojoInner() {
     if (!progress) return;
     const events = progress._pendingEvents || [];
     if (events.length === 0) return;
-    const ctx = { showToast, setPendingRankUp, setBossHint, setThemeFlash, flashAnim };
+    const ctx = { showToast, setPendingRankUp, setBossHint, setThemeFlash, flashAnim, reducedMotion };
     for (const ev of events) {
       EVENT_HANDLERS[ev.type]?.(ev, ctx);
     }
     clearPendingEvents();
-  }, [progress, showToast, clearPendingEvents, flashAnim]);
+  }, [progress, showToast, clearPendingEvents, flashAnim, reducedMotion]);
 
   if (!progress) {
     return (
@@ -227,5 +237,5 @@ const s = StyleSheet.create({
   root: { flex: 1 },
   loading: { flex: 1, backgroundColor: '#060303', alignItems: 'center', justifyContent: 'center', gap: 16 },
   loadingKanji: { color: '#E52030', fontSize: 60, fontWeight: '900', letterSpacing: 2 },
-  loadingLabel: { color: TXT3, fontSize: 9, letterSpacing: 6, fontWeight: '700' },
+  loadingLabel: { ...DS.type.label, color: TXT3 },
 });

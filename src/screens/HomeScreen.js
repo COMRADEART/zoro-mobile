@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
-import ShimmerXPBar from '../components/shared/ShimmerXPBar';
+import XPBar from '../components/shared/XPBar';
 import BreathingOrb from '../components/shared/BreathingOrb';
 import ActivityRings from '../components/shared/ActivityRings';
-import SectionLabel from '../components/shared/SectionLabel';
 import ThreeSwordRings from '../components/shared/ThreeSwordRings';
+import GlassCard from '../components/shared/GlassCard';
+import SectionLabel from '../components/shared/SectionLabel';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
-import { TXT1, TXT2, TXT3, SB_H, TAB_BAR_H } from '../theme/tokens';
+import { TXT1, TXT2, TXT3, REST, SB_H, TAB_BAR_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import {
   rankIndexFor, currentStreak, completionsForDate,
@@ -23,25 +24,13 @@ import SenseiChatModal from '../components/shared/SenseiChatModal';
 
 const SWORD_ORDER = ['wado', 'sandai', 'shusui'];
 
-function HeroCard({ accent, children, style }) {
+function StatChip({ accent, label, value, kanji }) {
   return (
-    <View style={[s.heroCard, { borderColor: accent + '30' }, style]}>
-      <View style={[s.heroGlow, { backgroundColor: accent }]} />
-      {children}
-    </View>
-  );
-}
-
-function StatChip({ accent, label, value, unit, emoji }) {
-  return (
-    <View style={[s.statChip, { borderColor: accent + '25' }]}>
-      {emoji ? (
-        <Text style={s.statEmoji}>{emoji}</Text>
-      ) : (
-        <View style={[s.statDot, { backgroundColor: accent, shadowColor: accent }]} />
-      )}
-      <Text style={[s.statVal, { color: accent }]}>{value}</Text>
-      {unit && <Text style={s.statUnit}>{unit}</Text>}
+    <View style={s.statChip}>
+      <View style={[s.statKanjiBox, { borderColor: accent + '40' }]}>
+        <Text style={[s.statKanji, { color: accent }]}>{kanji}</Text>
+      </View>
+      <Text style={[s.statVal, { color: TXT1 }]}>{value}</Text>
       <Text style={s.statLabel}>{label}</Text>
     </View>
   );
@@ -53,53 +42,64 @@ export default function HomeScreen() {
   const [aiLine, setAiLine] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
 
-  const streak = currentStreak(progress, today);
-  const todayCount = completionsForDate(progress, today);
-  const weekView = currentWeekView(progress, today);
-  const rankIdx = rankIndexFor(progress.totalXP);
-  const rank = RANKS[rankIdx];
-  const rec = getDailyRecommendation(progress, new Date());
-  const readiness = getReadinessLevel(progress);
-  const readyColor = getReadinessColor(progress);
-  const xpInto = progress.totalXP - rank.min;
-  const xpFor = (RANKS[rankIdx + 1]?.min ?? rank.max) - rank.min;
-  const xpPct = Math.min(1, xpInto / (Number.isFinite(xpFor) ? xpFor : 1));
-  const sessions = recentSessions(progress, 3);
-  const totalVol = totalWeeklyVolume(progress, today);
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
-  const sensei = senseiPhrase(
-    rec.type === 'rest' ? 'rest_day' : rec.discipline ? 'morning_' + rec.discipline : 'idle'
-  );
-  const rings = computeRingProgress(progress, today);
-  const sharpness = computeSwordSharpness(progress, today);
+
+  // All of these are pure functions of (progress, today); recompute only when
+  // those change, not on every render (steps/theme/state churn would otherwise
+  // re-run ~8 logic passes per frame). (perf: P1)
+  const d = useMemo(() => {
+    const rankIdx = rankIndexFor(progress.totalXP);
+    const rank = RANKS[rankIdx];
+    const rec = getDailyRecommendation(progress, new Date());
+    const xpInto = progress.totalXP - rank.min;
+    const xpFor = (RANKS[rankIdx + 1]?.min ?? rank.max) - rank.min;
+    const weekView = currentWeekView(progress, today);
+    return {
+      streak: currentStreak(progress, today),
+      todayCount: completionsForDate(progress, today),
+      weekView,
+      weekMax: Math.max(...weekView.map(x => x.total || 0), 1),
+      rankIdx,
+      rank,
+      rec,
+      readiness: getReadinessLevel(progress),
+      readyColor: getReadinessColor(progress),
+      xpPct: Math.min(1, xpInto / (Number.isFinite(xpFor) ? xpFor : 1)),
+      sessions: recentSessions(progress, 3),
+      totalVol: totalWeeklyVolume(progress, today),
+      sensei: senseiPhrase(
+        rec.type === 'rest' ? 'rest_day' : rec.discipline ? 'morning_' + rec.discipline : 'idle'
+      ),
+      rings: computeRingProgress(progress, today),
+      sharpness: computeSwordSharpness(progress, today),
+      actRings: computeActivityRings(progress, today),
+    };
+  }, [progress, today]);
+
+  const {
+    streak, todayCount, weekView, weekMax, rankIdx, rank, rec, readiness, readyColor,
+    xpPct, sessions, totalVol, sensei, rings, sharpness, actRings,
+  } = d;
   const sharpLabel = getSharpnessLabel(sharpness);
   const sharpColor = getSharpnessColor(sharpness);
-  const actRings = computeActivityRings(progress, today);
 
-  // Optional on-device AI enhancement of the sensei line. The static
-  // `sensei` renders instantly and stays unless/until AI returns a
-  // different line. No-op on every device without AICore.
-  const aiCtx = `${rec.type}/${rec.discipline || 'none'} readiness:${readiness} streak:${streak} sharp:${sharpness}`;
+  const loggedSharpness = progress.swordSharpnessLog?.[today];
   useEffect(() => {
-    let on = true;
-    ai.recommend({ context: aiCtx, fallback: sensei }).then(line => {
-      if (on && line && line !== sensei) setAiLine(line);
-    });
-    return () => { on = false; };
-  }, [aiCtx, sensei]);
-
-  useEffect(() => {
-    const existing = progress.swordSharpnessLog?.[today];
-    if (existing === undefined || Math.abs(existing - sharpness) > 5) {
+    if (loggedSharpness === undefined || Math.abs(loggedSharpness - sharpness) > 5) {
       handleUpdate(prev => ({
         ...prev,
         swordSharpnessLog: { ...prev.swordSharpnessLog, [today]: sharpness },
       }));
     }
-  }, [today, sharpness, progress, handleUpdate]);
+  }, [today, sharpness, loggedSharpness, handleUpdate]);
 
-  const dayName = new Date().toLocaleDateString('en', { weekday: 'long' }).toUpperCase();
-  const dateFmt = new Date().toLocaleDateString('en', { month: 'long', day: 'numeric' }).toUpperCase();
+  const { dayName, dateFmt } = useMemo(() => {
+    const dt = new Date(today + 'T00:00:00');
+    return {
+      dayName: dt.toLocaleDateString('en', { weekday: 'long' }).toUpperCase(),
+      dateFmt: dt.toLocaleDateString('en', { month: 'long', day: 'numeric' }).toUpperCase(),
+    };
+  }, [today]);
 
   const onStartSession = (sword) => {
     handleUpdate({ ...progress, activeSword: sword });
@@ -108,119 +108,77 @@ export default function HomeScreen() {
 
   return (
     <ScrollView
-      contentContainerStyle={[s.scroll, { paddingTop: SB_H + 20 }]}
+      contentContainerStyle={[s.scroll, { paddingTop: SB_H + 18 }]}
       showsVerticalScrollIndicator={false}
     >
-      <View style={s.watermarkContainer}>
-        <Text style={[s.watermark, { color: t.accent }]}>三刀流</Text>
-      </View>
-
       <View style={s.headerSection}>
         <View style={s.headerLeft}>
           <View style={s.headerTop}>
-            <View style={[s.kanjiBadge, { backgroundColor: t.accent + '15', borderColor: t.accent + '30' }]}>
+            <View style={[s.kanjiBadge, { backgroundColor: t.accent + '18', borderColor: t.accent + '38' }]}>
               <Text style={[s.kanjiBadgeText, { color: t.accent }]}>刀</Text>
             </View>
             <Text style={[s.headerDate, { color: t.accent }]}>{dayName}</Text>
           </View>
           <Text style={s.headerBrand}>三刀流</Text>
-          <Text style={s.headerSub}>SANTORYU FITNESS</Text>
-          <View style={[s.headerDivider, { backgroundColor: t.accent + '30' }]} />
-          <Text style={s.headerDateFull}>{dateFmt}</Text>
+          <Text style={s.headerSub}>SANTORYU FITNESS · {dateFmt}</Text>
         </View>
         <Pressable
           onPress={() => onStartSession(progress.activeSword || 'sandai')}
           hitSlop={16}
+          accessibilityRole="button"
+          accessibilityLabel="Start a training session"
         >
           <BreathingOrb color={t.accent} size={56} />
         </Pressable>
       </View>
 
-      <HeroCard accent={sharpColor} style={s.sharpCard}>
-        <View style={s.sharpRow}>
-          <View style={s.sharpLeft}>
-            <Text style={s.sectionLabel}>SWORD SHARPNESS</Text>
-            <Text style={[s.sharpScore, { color: sharpColor }]}>{sharpness}</Text>
-            <Text style={[s.sharpLabel, { color: sharpColor }]}>{sharpLabel}</Text>
-          </View>
-          <View style={s.sharpRight}>
-            <Text style={s.sectionLabel}>TODAY</Text>
-            <Text style={[s.heroCount, { color: t.accent }]}>{todayCount}</Text>
-            <Text style={s.heroUnit}>exercises</Text>
-          </View>
-        </View>
-      </HeroCard>
-
-      <View style={s.ringsSection}>
-        <HeroCard accent={t.accent} style={s.ringsCard}>
-          <View style={s.ringsHeader}>
-            <Text style={s.sectionLabel}>THREE SWORD RINGS</Text>
-            <View style={s.swordKanjiRow}>
-              {SWORD_ORDER.map(k => (
-                <Text key={k} style={[s.swordKanji, { color: SWORDS[k].accent }]}>{SWORDS[k].kanji}</Text>
-              ))}
-            </View>
-          </View>
-          <View style={s.ringsContainer}>
-            <ThreeSwordRings rings={rings} size={148} />
-          </View>
-        </HeroCard>
-
-        <HeroCard accent="#FB7185" style={s.activityCard}>
-          <Text style={s.sectionLabel}>ACTIVITY RINGS</Text>
-          <View style={s.activityContainer}>
-            <ActivityRings rings={actRings} size={160} />
-          </View>
-        </HeroCard>
-      </View>
-
-      <View style={s.statsRow}>
-        <StatChip accent={t.accent} label="STREAK" value={streak} emoji="🔥" />
-        <StatChip accent={readyColor} label="STATUS" value={readiness} />
-        <StatChip accent="#FB7185" label="STEPS" value={steps.toLocaleString()} emoji="👣" />
-      </View>
-
-      <HeroCard accent={rank.color} style={s.rankCard}>
-        <View style={s.rankHeader}>
-          <View>
-            <View style={s.rankBadgeRow}>
-              <View style={[s.rankBadge, { backgroundColor: rank.color + '20', borderColor: rank.color + '40' }]}>
-                <Text style={[s.rankBadgeText, { color: rank.color }]}>{rank.kanji || '⚔'}</Text>
-              </View>
-              <Text style={[s.rankName, { color: rank.color }]}>{rank.name}</Text>
-            </View>
-            <Text style={s.rankXPValue}>{progress.totalXP.toLocaleString()} XP</Text>
-          </View>
-          <View style={[s.rankEmblem, { borderColor: rank.color + '50', backgroundColor: rank.color + '10' }]}>
-            <Text style={{ fontSize: 24 }}>{rank.id === 0 ? '🌱' : rank.id === 1 ? '⚔' : rank.id === 2 ? '🔥' : rank.id === 3 ? '👑' : rank.id === 4 ? '💀' : '⚰'}</Text>
-          </View>
-        </View>
-        <View style={s.xpProgressSection}>
-          <Text style={s.xpProgressLabel}>PROGRESS TO NEXT RANK</Text>
-          <ShimmerXPBar pct={xpPct} color={rank.color} height={10} />
-          <Text style={s.xpProgressSub}>
-            {RANKS[rankIdx + 1]
-              ? `${(RANKS[rankIdx + 1].min - progress.totalXP).toLocaleString()} XP to ${RANKS[rankIdx + 1].name}`
-              : 'Maximum rank — King of Hell'}
+      <View style={s.hero}>
+        <Text style={s.heroEyebrow}>SWORD SHARPNESS</Text>
+        <Text style={[s.heroNumber, { color: sharpColor }]}>{sharpness}</Text>
+        <View style={s.heroMeta}>
+          <Text style={[s.heroState, { color: sharpColor }]}>{sharpLabel}</Text>
+          <Text style={s.heroDot}>·</Text>
+          <Text style={s.heroToday}>
+            {todayCount} exercise{todayCount === 1 ? '' : 's'} logged today
           </Text>
         </View>
-      </HeroCard>
+      </View>
 
-      <HeroCard accent="#D4A853" style={s.senseiCard}>
-        <View style={s.senseiHeader}>
-          <View style={[s.senseiPip, { backgroundColor: '#D4A853' }]} />
-          <Text style={[s.senseiTitle, { color: '#D4A853' }]}>SENSEI</Text>
-          <Pressable
-            onPress={() => setChatOpen(true)}
-            style={s.senseiAsk}
-            accessibilityRole="button"
-            accessibilityLabel="Ask the sensei a question"
-          >
-            <Text style={s.senseiAskTxt}>ASK ›</Text>
-          </Pressable>
+      <GlassCard accent={t.accent} elevation="medium" style={s.ringsCard}>
+        <View style={s.ringBlock}>
+          <SectionLabel label="THREE SWORDS" style={s.cardSectionLabel} />
+          <ThreeSwordRings rings={rings} size={150} />
         </View>
-        <Text style={s.senseiText}>{aiLine || sensei}</Text>
-      </HeroCard>
+        <View style={[s.ringsHDivider, { backgroundColor: DS.divider.medium }]} />
+        <View style={s.ringBlock}>
+          <SectionLabel label="ACTIVITY" style={s.cardSectionLabel} />
+          <ActivityRings rings={actRings} size={156} />
+        </View>
+      </GlassCard>
+
+      <View style={s.statsRow}>
+        <StatChip accent={t.accent} label="STREAK" value={`${streak}d`} kanji="連" />
+        <StatChip accent={readyColor} label="STATUS" value={readiness} kanji="気" />
+        <StatChip accent="#FB7185" label="STEPS" value={steps.toLocaleString()} kanji="歩" />
+      </View>
+
+      <GlassCard accent={rank.color} elevation="medium">
+        <View style={s.rankHeader}>
+          <View style={[s.rankEmblem, { borderColor: rank.color + '50', backgroundColor: rank.color + '14' }]}>
+            <Text style={[s.rankEmblemText, { color: rank.color }]}>{rank.kanji || '刀'}</Text>
+          </View>
+          <View style={s.rankInfo}>
+            <Text style={[s.rankName, { color: rank.color }]}>{rank.name}</Text>
+            <Text style={s.rankXPValue}>{progress.totalXP.toLocaleString()} XP</Text>
+          </View>
+        </View>
+        <XPBar pct={xpPct} color={rank.color} height={10} />
+        <Text style={s.rankProgressSub}>
+          {RANKS[rankIdx + 1]
+            ? `${(RANKS[rankIdx + 1].min - progress.totalXP).toLocaleString()} XP to ${RANKS[rankIdx + 1].name}`
+            : 'Maximum rank — King of Hell'}
+        </Text>
+      </GlassCard>
 
       <SenseiChatModal
         visible={chatOpen}
@@ -231,65 +189,80 @@ export default function HomeScreen() {
 
 
       {rec.type !== 'rest' ? (
-        <Pressable onPress={() => onStartSession(rec.discipline)}>
-          <HeroCard accent={SWORDS[rec.discipline]?.accent || t.accent} style={s.recCard}>
-            <View style={s.recRow}>
-              <View style={[s.recKanjiBox, { backgroundColor: (SWORDS[rec.discipline]?.accent || t.accent) + '15' }]}>
-                <Text style={[s.recKanji, { color: SWORDS[rec.discipline]?.accent }]}>
-                  {SWORDS[rec.discipline]?.kanji}
-                </Text>
-              </View>
-              <View style={s.recInfo}>
-                <Text style={s.recLabel}>RECOMMENDED</Text>
-                <Text style={[s.recName, { color: SWORDS[rec.discipline]?.accent }]}>
-                  {SWORDS[rec.discipline]?.name}
-                </Text>
-                <Text style={s.recIntensity}>Intensity {rec.intensity}/10</Text>
-              </View>
-              <Text style={[s.recArrow, { color: SWORDS[rec.discipline]?.accent }]}>›</Text>
+        <GlassCard
+          accent={SWORDS[rec.discipline]?.accent || t.accent}
+          elevation="medium"
+          onPress={() => onStartSession(rec.discipline)}
+          accessibilityLabel={`Recommended today: ${SWORDS[rec.discipline]?.name}. Start session`}
+        >
+          <View style={s.recRow}>
+            <View style={[s.recKanjiBox, { backgroundColor: (SWORDS[rec.discipline]?.accent || t.accent) + '18' }]}>
+              <Text style={[s.recKanji, { color: SWORDS[rec.discipline]?.accent }]}>
+                {SWORDS[rec.discipline]?.kanji}
+              </Text>
             </View>
-          </HeroCard>
-        </Pressable>
+            <View style={s.recInfo}>
+              <Text style={s.recLabel}>RECOMMENDED TODAY</Text>
+              <Text style={[s.recName, { color: SWORDS[rec.discipline]?.accent }]}>
+                {SWORDS[rec.discipline]?.name}
+              </Text>
+              <Text style={s.recIntensity}>Intensity {rec.intensity} / 10</Text>
+            </View>
+            <Text style={[s.recArrow, { color: SWORDS[rec.discipline]?.accent }]}>›</Text>
+          </View>
+        </GlassCard>
       ) : (
-        <HeroCard accent="#4A9EFF" style={s.recCard}>
-          <View style={s.restRow}>
-            <Text style={s.restIcon}>🌙</Text>
-            <View>
-              <Text style={[s.recName, { color: '#4A9EFF' }]}>REST DAY</Text>
-              <Text style={s.recIntensity}>Recovery {progress.recoveryScore}/100 — let your body heal</Text>
+        <GlassCard accent={REST} elevation="medium">
+          <View style={s.recRow}>
+            <View style={[s.recKanjiBox, { backgroundColor: REST + '18' }]}>
+              <Text style={[s.recKanji, { color: REST }]}>休</Text>
+            </View>
+            <View style={s.recInfo}>
+              <Text style={s.recLabel}>RECOVERY</Text>
+              <Text style={[s.recName, { color: REST }]}>Rest Day</Text>
+              <Text style={s.recIntensity}>Recovery {progress.recoveryScore} / 100 — let your body heal</Text>
             </View>
           </View>
-        </HeroCard>
+        </GlassCard>
       )}
 
-      <HeroCard accent={t.accent} style={s.weekCard}>
-        <View style={s.weekHead}>
-          <Text style={s.weekTitle}>THIS WEEK</Text>
-          <View style={s.weekVols}>
-            {SWORD_ORDER.map(k => (
-              <View key={k} style={s.weekVolItem}>
-                <Text style={[s.weekVolKanji, { color: SWORDS[k].accent }]}>{SWORDS[k].kanji}</Text>
-                <Text style={s.weekVolCount}>{totalVol[k] || 0}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+      <View style={s.senseiBlock}>
+        <Text style={[s.senseiMark, { color: t.accent }]}>“</Text>
+        <Text style={s.senseiText}>{sensei}</Text>
+        <Text style={[s.senseiAttr, { color: t.accent }]}>— SENSEI</Text>
+      </View>
+
+      <View style={s.groupedSection}>
+        <SectionLabel
+          label="THIS WEEK"
+          accent={t.accent}
+          style={s.groupSectionLabel}
+          right={
+            <View style={s.weekVols}>
+              {SWORD_ORDER.map(k => (
+                <View key={k} style={s.weekVolItem}>
+                  <Text style={[s.weekVolKanji, { color: SWORDS[k].accent }]}>{SWORDS[k].kanji}</Text>
+                  <Text style={s.weekVolCount}>{totalVol[k] || 0}</Text>
+                </View>
+              ))}
+            </View>
+          }
+        />
         <View style={s.weekBars}>
           {weekView.map((day) => {
-            const maxVol = Math.max(...weekView.map(d => d.total || 0), 1);
-            const barH = day.total > 0 ? Math.max(10, (day.total / maxVol) * 56) : 6;
+            const barH = day.total > 0 ? Math.max(10, (day.total / weekMax) * 56) : 6;
             const discColor = day.dominant ? SWORDS[day.dominant]?.accent : t.accent;
             return (
               <View key={day.date} style={s.weekDayCol}>
-                <View style={[s.weekBarTrack, { height: 60 }]}>
+                <View style={s.weekBarTrack}>
                   <View
                     style={[
                       s.weekBarFill,
                       {
                         height: barH,
-                        backgroundColor: day.total > 0 ? discColor + '95' : 'rgba(255,255,255,0.04)',
+                        backgroundColor: day.total > 0 ? discColor + 'B0' : 'rgba(255,255,255,0.05)',
                         borderColor: day.isToday ? discColor : 'transparent',
-                        borderWidth: day.isToday ? 2 : 0,
+                        borderWidth: day.isToday ? 1.5 : 0,
                       },
                     ]}
                   />
@@ -304,14 +277,14 @@ export default function HomeScreen() {
             );
           })}
         </View>
-      </HeroCard>
+      </View>
 
       {sessions.length > 0 && (
-        <HeroCard accent={t.accent} style={s.recentCard}>
-          <SectionLabel label="RECENT SESSIONS" style={{ marginBottom: 12 }} />
-          {sessions.map(sess => (
-            <View key={sess.id} style={s.sessRow}>
-              <View style={[s.sessKanjiBox, { backgroundColor: SWORDS[sess.discipline]?.accent + '15' }]}>
+        <View style={s.groupedSection}>
+          <SectionLabel label="RECENT SESSIONS" accent={t.accent} style={s.groupSectionLabel} />
+          {sessions.map((sess, i) => (
+            <View key={sess.id} style={[s.sessRow, i === sessions.length - 1 && { borderBottomWidth: 0 }]}>
+              <View style={[s.sessKanjiBox, { backgroundColor: SWORDS[sess.discipline]?.accent + '18' }]}>
                 <Text style={[s.sessKanji, { color: SWORDS[sess.discipline]?.accent }]}>
                   {SWORDS[sess.discipline]?.kanji}
                 </Text>
@@ -324,11 +297,11 @@ export default function HomeScreen() {
               </View>
             </View>
           ))}
-        </HeroCard>
+        </View>
       )}
 
       <View style={s.footer}>
-        <View style={[s.footerLine, { backgroundColor: t.accent + '20' }]} />
+        <View style={[s.footerLine, { backgroundColor: t.accent + '25' }]} />
         <Text style={s.footerText}>一刀流にならない　三刀流になる</Text>
         <Text style={s.footerSub}>Never become one blade — become three</Text>
       </View>
@@ -338,101 +311,120 @@ export default function HomeScreen() {
 
 const s = StyleSheet.create({
   scroll: { paddingHorizontal: DS.space.md, paddingBottom: TAB_BAR_H + DS.space.xl },
-  watermarkContainer: { position: 'absolute', top: 80, left: 0, right: 0, alignItems: 'center', opacity: 0.03 },
-  watermark: { fontSize: 200, fontWeight: '900', letterSpacing: -15 },
+
+  /* Header */
   headerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: DS.space.lg,
-    paddingTop: DS.space.xs,
+    marginBottom: DS.space.xl,
   },
   headerLeft: { flex: 1 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: DS.space.xs, marginBottom: DS.space.xs },
-  kanjiBadge: { width: 28, height: 28, borderRadius: DS.radius.sm, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  kanjiBadgeText: { fontSize: 16, fontWeight: '900' },
-  headerDate: { fontSize: DS.fontSize.xs, fontWeight: '700', letterSpacing: DS.letterSpacing.widest },
-  headerBrand: { fontSize: 40, fontWeight: DS.font.weight.black, color: TXT1, letterSpacing: 4, lineHeight: 46 },
-  headerSub: { fontSize: 7, fontWeight: '700', letterSpacing: 6, color: TXT3, marginTop: 4 },
-  headerDivider: { height: 1, marginVertical: DS.space.sm, width: '55%' },
-  headerDateFull: { fontSize: DS.fontSize.xs + 1, color: TXT3, letterSpacing: 1 },
-  sectionLabel: { fontSize: 7.5, fontWeight: '700', letterSpacing: DS.letterSpacing.widest, color: TXT3, marginBottom: DS.space.xs },
-  heroCard: { backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderRadius: DS.radius.xl, padding: DS.space.lg, position: 'relative', overflow: 'hidden' },
-  heroGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, opacity: 0.4 },
-  sharpCard: { marginBottom: DS.space.sm },
-  sharpRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sharpScore: { fontSize: 58, fontWeight: '900', letterSpacing: -2, lineHeight: 60 },
-  sharpLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 2, marginTop: 4 },
-  sharpRight: { alignItems: 'flex-end' },
-  heroCount: { fontSize: 62, fontWeight: '900', lineHeight: 66, letterSpacing: -2.5 },
-  heroUnit: { fontSize: DS.fontSize.sm + 1, color: TXT3, marginTop: 2, fontWeight: '500' },
-  ringsSection: { marginBottom: DS.space.xs },
-  ringsCard: { marginBottom: DS.space.xs },
-  ringsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: DS.space.sm },
-  swordKanjiRow: { flexDirection: 'row', gap: DS.space.sm },
-  swordKanji: { fontSize: 16, fontWeight: '900' },
-  ringsContainer: { alignItems: 'center', paddingVertical: DS.space.xs },
-  activityCard: { marginBottom: DS.space.sm },
-  activityContainer: { alignItems: 'center', paddingVertical: DS.space.xs },
-  statsRow: { flexDirection: 'row', gap: DS.space.xs, marginBottom: DS.space.sm },
-  statChip: { flex: 1, alignItems: 'center', paddingVertical: DS.space.md + 4, borderWidth: 1, borderRadius: DS.radius.lg, backgroundColor: 'rgba(0,0,0,0.3)' },
-  statEmoji: { fontSize: 22, marginBottom: 4 },
-  statDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 6, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 6 },
-  statVal: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
-  statUnit: { fontSize: 10, color: TXT3, marginTop: 2 },
-  statLabel: { fontSize: 7, fontWeight: '700', letterSpacing: 2, color: TXT3, marginTop: 4 },
-  rankCard: { marginBottom: DS.space.sm },
-  rankHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: DS.space.md },
-  rankBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: DS.space.sm },
-  rankBadge: { width: 42, height: 42, borderRadius: DS.radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  rankBadgeText: { fontSize: 18, fontWeight: '900' },
-  rankName: { fontSize: 9, fontWeight: '700', letterSpacing: 3 },
-  rankXPValue: { fontSize: 28, fontWeight: '900', color: TXT1, letterSpacing: -1, marginTop: 6 },
-  rankEmblem: { width: 50, height: 50, borderRadius: 25, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  xpProgressSection: {},
-  xpProgressLabel: { fontSize: 7.5, letterSpacing: 2.5, color: TXT3, fontWeight: '700', marginBottom: DS.space.sm },
-  xpProgressSub: { fontSize: 10, color: TXT3, letterSpacing: 0.5, marginTop: DS.space.sm },
-  senseiCard: { marginBottom: DS.space.sm },
-  senseiHeader: { flexDirection: 'row', alignItems: 'center', gap: DS.space.xs, marginBottom: DS.space.sm },
-  senseiPip: { width: 3, height: 16, borderRadius: 2 },
-  senseiTitle: { fontSize: 7.5, fontWeight: '700', letterSpacing: 5 },
-  senseiQuote: { fontSize: 22, marginLeft: 'auto', opacity: 0.4 },
-  senseiText: { fontSize: 15, color: TXT2, lineHeight: 26, fontStyle: 'italic' },
-  senseiAsk: { marginLeft: 'auto', paddingVertical: 4, paddingHorizontal: 8 },
-  senseiAskTxt: { fontSize: 9, fontWeight: '800', letterSpacing: 2, color: '#D4A853' },
-  recCard: { marginBottom: DS.space.sm },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: DS.space.sm, marginBottom: DS.space.sm },
+  kanjiBadge: { width: 30, height: 30, borderRadius: DS.radius.sm, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  kanjiBadgeText: { fontSize: 17, fontWeight: '900' },
+  headerDate: { ...DS.type.label },
+  headerBrand: { ...DS.type.displayLg, fontSize: 42, color: TXT1, lineHeight: 48 },
+  headerSub: { ...DS.type.caption, color: TXT3, marginTop: 6, letterSpacing: 1.5 },
+
+  /* Section-head spacing overrides (component lives in SectionLabel.js) */
+  cardSectionLabel: { marginBottom: DS.space.md },
+  groupSectionLabel: { marginBottom: DS.space.md },
+
+  /* Hero — a single honed focal, not a repeated metric template */
+  hero: {
+    marginBottom: DS.space.xl,
+    paddingBottom: DS.space.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: DS.divider.medium,
+  },
+  heroEyebrow: { ...DS.type.label, color: TXT2 },
+  heroNumber: { ...DS.type.displayHero, fontSize: 72, lineHeight: 74, marginTop: 4 },
+  heroMeta: { flexDirection: 'row', alignItems: 'center', gap: DS.space.xs, marginTop: 6 },
+  heroState: { ...DS.type.caption, fontWeight: DS.font.weight.bold, letterSpacing: 1.5 },
+  heroDot: { ...DS.type.caption, color: TXT3 },
+  heroToday: { ...DS.type.caption, color: TXT2, letterSpacing: 0.3 },
+
+  /* Rings card */
+  ringsCard: { marginBottom: DS.space.lg },
+  ringBlock: { width: '100%', alignItems: 'center', paddingVertical: DS.space.sm },
+  ringsHDivider: { height: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginVertical: DS.space.lg },
+
+  /* Stats strip */
+  statsRow: { flexDirection: 'row', gap: DS.space.sm, marginBottom: DS.space.lg },
+  statChip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: DS.space.md,
+    borderRadius: DS.radius.md,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  statKanjiBox: { width: 30, height: 30, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  statKanji: { fontSize: 16, fontWeight: '900' },
+  statVal: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  statLabel: { ...DS.type.micro, color: TXT3, marginTop: 4, letterSpacing: 1.5 },
+
+  /* Rank card */
+  rankHeader: { flexDirection: 'row', alignItems: 'center', gap: DS.space.md, marginBottom: DS.space.md },
+  rankEmblem: { width: 52, height: 52, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  rankEmblemText: { fontSize: 24, fontWeight: '900' },
+  rankInfo: { flex: 1 },
+  rankName: { ...DS.type.screenTitle, fontSize: 14 },
+  rankXPValue: { ...DS.type.displayMd, color: TXT1, marginTop: 4 },
+  rankProgressSub: { ...DS.type.caption, color: TXT3, marginTop: DS.space.sm },
+
+  /* Recommendation */
   recRow: { flexDirection: 'row', alignItems: 'center', gap: DS.space.md },
-  recKanjiBox: { width: 58, height: 58, borderRadius: DS.radius.md, alignItems: 'center', justifyContent: 'center' },
+  recKanjiBox: { width: 56, height: 56, borderRadius: DS.radius.md, alignItems: 'center', justifyContent: 'center' },
   recKanji: { fontSize: 30, fontWeight: '900' },
   recInfo: { flex: 1 },
-  recLabel: { fontSize: 7, fontWeight: '700', letterSpacing: 3, color: TXT3, marginBottom: 4 },
-  recName: { fontSize: 17, fontWeight: '800' },
-  recIntensity: { fontSize: 11, color: TXT3, marginTop: 3 },
-  recArrow: { fontSize: 26, fontWeight: '300' },
-  restRow: { flexDirection: 'row', alignItems: 'center', gap: DS.space.md },
-  restIcon: { fontSize: 32 },
-  weekCard: { marginBottom: DS.space.sm },
-  weekHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: DS.space.md },
-  weekTitle: { fontSize: 7.5, fontWeight: '700', letterSpacing: 3, color: TXT3 },
+  recLabel: { ...DS.type.label, color: TXT3, marginBottom: 5 },
+  recName: { ...DS.type.cardTitle, fontSize: 18 },
+  recIntensity: { ...DS.type.caption, color: TXT2, marginTop: 4 },
+  recArrow: { fontSize: 28, fontWeight: '300' },
+
+  /* Sensei pull-quote */
+  senseiBlock: { marginTop: DS.space.xs, marginBottom: DS.space.xl, paddingHorizontal: DS.space.sm },
+  senseiMark: { fontFamily: DS.font.display, fontSize: 44, lineHeight: 40, opacity: 0.5 },
+  senseiText: { ...DS.type.body, fontFamily: DS.font.display, fontSize: 17, lineHeight: 27, color: TXT1, fontStyle: 'italic', marginTop: 2 },
+  senseiAttr: { ...DS.type.micro, marginTop: DS.space.md, letterSpacing: 2 },
+
+  /* Grouped sections */
+  groupedSection: {
+    marginBottom: DS.space.lg,
+    paddingTop: DS.space.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: DS.divider.subtle,
+  },
   weekVols: { flexDirection: 'row', gap: DS.space.md },
   weekVolItem: { alignItems: 'center', gap: 3 },
   weekVolKanji: { fontSize: 15, fontWeight: '900' },
-  weekVolCount: { fontSize: 10, color: TXT3, fontWeight: '600' },
+  weekVolCount: { ...DS.type.caption, color: TXT3 },
   weekBars: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  weekDayCol: { alignItems: 'center', gap: 5 },
-  weekBarTrack: { width: 22, justifyContent: 'flex-end', alignItems: 'center' },
-  weekBarFill: { width: 16, borderRadius: 4 },
-  weekDayLabel: { fontSize: 9, color: TXT3, fontWeight: '600' },
-  weekDayCount: { fontSize: 8, fontWeight: '800', marginTop: 1 },
-  recentCard: { marginBottom: DS.space.sm },
-  sessRow: { flexDirection: 'row', alignItems: 'center', gap: DS.space.md, paddingVertical: DS.space.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DS.divider.subtle },
-  sessKanjiBox: { width: 44, height: 44, borderRadius: DS.radius.md, alignItems: 'center', justifyContent: 'center' },
-  sessKanji: { fontSize: 22, fontWeight: '900' },
+  weekDayCol: { alignItems: 'center', gap: 6 },
+  weekBarTrack: { width: 24, height: 60, justifyContent: 'flex-end', alignItems: 'center' },
+  weekBarFill: { width: 18, borderRadius: 5 },
+  weekDayLabel: { ...DS.type.caption, color: TXT3, fontWeight: '600' },
+  weekDayCount: { fontSize: 11, fontWeight: '800' },
+
+  /* Recent sessions */
+  sessRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.md,
+    paddingVertical: DS.space.sm + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: DS.divider.subtle,
+  },
+  sessKanjiBox: { width: 42, height: 42, borderRadius: DS.radius.md, alignItems: 'center', justifyContent: 'center' },
+  sessKanji: { fontSize: 21, fontWeight: '900' },
   sessInfo: { flex: 1 },
-  sessName: { fontSize: 14, fontWeight: '700', color: TXT1 },
-  sessMeta: { fontSize: 11, color: TXT3, marginTop: 3 },
+  sessName: { ...DS.type.cardTitle, fontSize: 15, color: TXT1 },
+  sessMeta: { ...DS.type.caption, color: TXT3, marginTop: 3 },
+
+  /* Footer */
   footer: { alignItems: 'center', marginTop: DS.space.lg, marginBottom: DS.space.md },
-  footerLine: { width: 50, height: 1, marginBottom: DS.space.md },
-  footerText: { fontSize: 13, color: TXT3, fontStyle: 'italic', letterSpacing: 0.8 },
-  footerSub: { fontSize: 10, color: TXT3, marginTop: 5, letterSpacing: 0.4 },
+  footerLine: { width: 48, height: 1, marginBottom: DS.space.md },
+  footerText: { fontFamily: DS.font.display, fontSize: 14, color: TXT2, fontStyle: 'italic', letterSpacing: 0.5 },
+  footerSub: { ...DS.type.caption, color: TXT3, marginTop: 6 },
 });

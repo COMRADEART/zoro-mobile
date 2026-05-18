@@ -116,6 +116,30 @@ describe('loadProgress corruption handling', () => {
     expect(backup).toBe(garbageV3);
   });
 
+  test('failed v3 migration removes v3 + writes clean v4 (no repeat reset on next launch)', async () => {
+    // Regression guard for the cold-start loop: a failed v3 migration must
+    // persist a clean v4 and drop the broken v3, so the SECOND launch loads
+    // valid v4 instead of re-running the failed migration and re-emitting
+    // data_reset on every cold start.
+    await AsyncStorage.setItem(KEY_V3, JSON.stringify({ schemaVersion: 3 }));
+
+    // First launch: reset emitted once, storage cleaned up.
+    const first = await loadProgress();
+    expect(first.wasReset).toBe(true);
+    expect(first.progress._pendingEvents).toEqual([{ type: 'data_reset' }]);
+    expect(await AsyncStorage.getItem(KEY_V3)).toBeNull();
+    const v4After = JSON.parse(await AsyncStorage.getItem(KEY_V4));
+    expect(v4After.schemaVersion).toBe(4);
+    expect(v4After.totalXP).toBe(0);
+    // Persisted v4 must not carry the in-memory data_reset event.
+    expect(v4After._pendingEvents).toBeUndefined();
+
+    // Second launch (cold start): must NOT reset or re-emit data_reset.
+    const second = await loadProgress();
+    expect(second.wasReset).toBe(false);
+    expect(second.progress._pendingEvents ?? []).toEqual([]);
+  });
+
   test('valid v3 with all required keys migrates cleanly (no reset)', async () => {
     // Real v3 payload: a defaultProgress shape stamped with schemaVersion 3 and
     // missing the v4-only fields. migrateV3ToV4 should populate v4-only fields,

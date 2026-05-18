@@ -137,8 +137,43 @@ export const DS = {
   hitSlop: { top: 12, bottom: 12, left: 12, right: 12 },
 
   fontSizeKanji: {
-    badge: 10,
-    label: 12,
-    section: 14,
+    badge: 12,
+    label: 14,
+    section: 16,
   },
+};
+
+/*
+ * Typography presets — the single source of legible text styles.
+ *
+ * LEGIBILITY FLOOR: no informational or interactive text below 11pt. Old
+ * code used 6-9pt uppercase labels at letterSpacing 3-6; that is the primary
+ * thing this system replaces. Hierarchy is scale + weight, not shrink + fade.
+ *
+ * Pair these with the TXT* colors in tokens.ts (TXT2 for labels/secondary,
+ * TXT3 only for genuinely tertiary support text; both clear WCAG AA at >=11pt
+ * on every theme background).
+ *
+ * `display` presets use the serif (Georgia / serif) for hero numerics and
+ * titles — the editorial, "honed and resolute" voice the product calls for.
+ * Everything else stays in the system sans.
+ */
+const F = DS.font;
+DS.type = {
+  // Eyebrow / section labels. Replaces every 7-9pt uppercase micro-label.
+  label: { fontSize: 12, fontWeight: F.weight.bold, letterSpacing: 1.2 },
+  // Tab bar + the very smallest supporting captions. Hard floor.
+  micro: { fontSize: 11, fontWeight: F.weight.semibold, letterSpacing: 0.6 },
+  // Screen titles (was 9pt/ls5). Still characterful, now readable.
+  screenTitle: { fontSize: 13, fontWeight: F.weight.extrabold, letterSpacing: 2.5 },
+  cardTitle: { fontSize: 16, fontWeight: F.weight.bold, letterSpacing: 0.2 },
+  body: { fontSize: 15, fontWeight: F.weight.regular, lineHeight: 22 },
+  bodySm: { fontSize: 13, fontWeight: F.weight.regular, lineHeight: 19 },
+  caption: { fontSize: 12, fontWeight: F.weight.medium, letterSpacing: 0.2 },
+  // Editorial serif voice.
+  displayHero: { fontFamily: F.display, fontSize: 56, fontWeight: F.weight.bold, letterSpacing: -1 },
+  displayLg: { fontFamily: F.display, fontSize: 34, fontWeight: F.weight.bold, letterSpacing: -0.5 },
+  displayMd: { fontFamily: F.display, fontSize: 24, fontWeight: F.weight.bold, letterSpacing: -0.3 },
+  // Tabular numerics for timers / counters.
+  numeric: { fontVariant: ['tabular-nums'], fontWeight: F.weight.black, letterSpacing: -1 },
 };

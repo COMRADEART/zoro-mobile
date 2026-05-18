@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, StyleSheet } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import SectionLabel from '../components/shared/SectionLabel';
+import { Icon } from '../components/shared/TabIcons';
 import { SleepStagesWeek } from '../components/shared/charts/SleepStagesChart';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
-import { TXT1, TXT2, TXT3, BORD, SB_H, TAB_BAR_H } from '../theme/tokens';
+import { SURF, TXT1, TXT2, TXT3, BORD, SB_H, TAB_BAR_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import {
   updateRecoveryFromSleep, updateMood, updateBodyStats,
@@ -17,8 +18,7 @@ import { playClick } from '../services/audioService';
 
 function HeroCard({ accent, children, style }) {
   return (
-    <View style={[s.heroCard, { borderColor: accent + '30' }, style]}>
-      <View style={[s.heroGlow, { backgroundColor: accent }]} />
+    <View style={[s.heroCard, { borderColor: accent + '38' }, style]}>
       {children}
     </View>
   );
@@ -96,7 +96,9 @@ export default function ProfileScreen() {
           { label: 'TOTAL XP', value: progress.totalXP.toLocaleString(), color: '#B967FF', kanji: '力' },
         ].map(item => (
           <HeroCard key={item.label} accent={item.color} style={s.allTimeCard}>
-            <View style={[s.cardTopAccent, { backgroundColor: item.color }]} />
+            <View style={[s.allTimeKanjiBox, { borderColor: item.color + '40' }]}>
+              <Text style={[s.allTimeKanji, { color: item.color }]}>{item.kanji}</Text>
+            </View>
             <Text style={[s.allTimeNum, { color: item.color }]}>{item.value}</Text>
             <Text style={s.allTimeLabel}>{item.label}</Text>
           </HeroCard>
@@ -140,11 +142,16 @@ export default function ProfileScreen() {
           </View>
           <TextInput style={[s.numInput, { borderColor: '#DC143C55', color: TXT1 }]} value={height} onChangeText={setHeight} keyboardType="numeric" placeholderTextColor={TXT3} />
         </View>
-        <Pressable style={[s.saveBtn, { backgroundColor: '#DC143C' }]} onPress={() => {
-          const { progress: next } = updateBodyStats(progress, { weight: parseFloat(weight) || 70, height: parseFloat(height) || 175 });
-          handleUpdate(next); flash(setSavedBody);
-        }}>
-          <Text style={s.saveBtnTxt}>{savedBody ? '✓ 保存完了' : 'SAVE 保存'}</Text>
+        <Pressable
+          style={[s.saveBtn, { backgroundColor: '#DC143C' }]}
+          accessibilityRole="button"
+          accessibilityLabel="Save body stats"
+          onPress={() => {
+            const { progress: next } = updateBodyStats(progress, { weight: parseFloat(weight) || 70, height: parseFloat(height) || 175 });
+            handleUpdate(next); flash(setSavedBody);
+          }}
+        >
+          <Text style={s.saveBtnTxt}>{savedBody ? '保存完了' : 'SAVE 保存'}</Text>
         </Pressable>
       </HeroCard>
 
@@ -158,8 +165,15 @@ export default function ProfileScreen() {
         </View>
         <View style={s.starRow}>
           {[1, 2, 3, 4, 5].map(v => (
-            <Pressable key={v} onPress={() => setSleepQ(v)} hitSlop={8}>
-              <Text style={[s.star, { color: v <= sleepQ ? '#D4A853' : TXT3 }]}>★</Text>
+            <Pressable
+              key={v}
+              onPress={() => setSleepQ(v)}
+              style={s.starBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Sleep quality ${v} of 5`}
+              accessibilityState={{ selected: v <= sleepQ }}
+            >
+              <Icon name="star" size={28} filled={v <= sleepQ} color={v <= sleepQ ? '#D4A853' : TXT3} />
             </Pressable>
           ))}
         </View>
@@ -172,7 +186,7 @@ export default function ProfileScreen() {
           <TextInput style={[s.numInput, { borderColor: '#D4A85355', color: TXT1 }]} value={sleepH} onChangeText={setSleepH} keyboardType="numeric" placeholderTextColor={TXT3} />
         </View>
         <View style={s.divider} />
-        <Pressable style={s.toggleRow} onPress={() => setShowSleepStages(v => !v)}>
+        <Pressable style={s.toggleRow} onPress={() => setShowSleepStages(v => !v)} accessibilityRole="button" accessibilityLabel="Sleep stages" accessibilityState={{ expanded: showSleepStages }}>
           <Text style={s.inputLbl}>SLEEP STAGES</Text>
           <Text style={{ color: '#D4A853', fontSize: 14, fontWeight: '800' }}>{showSleepStages ? '−' : '+'}</Text>
         </Pressable>
@@ -214,8 +228,10 @@ export default function ProfileScreen() {
             deepHours: dh, lightHours: lh, remHours: rh, awakeHours: ah,
           });
           handleUpdate(next); flash(setSavedSleep);
-        }}>
-          <Text style={[s.saveBtnTxt, { color: '#0A0A0A' }]}>{savedSleep ? '✓ 眠った' : 'LOG SLEEP 睡眠'}</Text>
+        }}
+          accessibilityRole="button"
+          accessibilityLabel="Log sleep">
+          <Text style={[s.saveBtnTxt, { color: '#0A0A0A' }]}>{savedSleep ? '眠った' : 'LOG SLEEP 睡眠'}</Text>
         </Pressable>
 
         {(() => {
@@ -246,7 +262,15 @@ export default function ProfileScreen() {
               <Text style={[s.inputLbl, { width: 70 }]}>{item.label}</Text>
               <View style={{ flexDirection: 'row', gap: 5, flex: 1 }}>
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => (
-                  <Pressable key={v} onPress={() => item.set(v)} hitSlop={4}>
+                  <Pressable
+                    key={v}
+                    onPress={() => item.set(v)}
+                    hitSlop={{ top: 16, bottom: 16, left: 2, right: 2 }}
+                    style={s.moodPipTouch}
+                    accessibilityRole="adjustable"
+                    accessibilityLabel={`${item.label} ${v} of 10`}
+                    accessibilityState={{ selected: v <= item.val }}
+                  >
                     <View style={[s.moodPip, { backgroundColor: v <= item.val ? item.color : 'rgba(255,255,255,0.1)' }]} />
                   </Pressable>
                 ))}
@@ -259,12 +283,14 @@ export default function ProfileScreen() {
         <Pressable style={[s.saveBtn, { backgroundColor: '#B967FF' }]} onPress={() => {
           const { progress: next } = updateMood(progress, { date: today, energy, mood });
           handleUpdate(next); flash(setSavedMood);
-        }}>
-          <Text style={[s.saveBtnTxt, { color: '#0A0A0A' }]}>{savedMood ? '✓ 保存完了' : 'LOG MOOD 気分'}</Text>
+        }}
+          accessibilityRole="button"
+          accessibilityLabel="Log mood and energy">
+          <Text style={[s.saveBtnTxt, { color: '#0A0A0A' }]}>{savedMood ? '保存完了' : 'LOG MOOD 気分'}</Text>
         </Pressable>
       </HeroCard>
 
-      <Pressable style={s.accordionHeader} onPress={() => setShowDream(v => !v)}>
+      <Pressable style={s.accordionHeader} onPress={() => setShowDream(v => !v)} accessibilityRole="button" accessibilityLabel="Dream swordsman" accessibilityState={{ expanded: showDream }}>
         <View style={s.accordionLeft}>
           <View style={[s.accordionAccent, { backgroundColor: archetypeData.color }]} />
           <Text style={s.accordionTitle}>DREAM SWORDSMAN</Text>
@@ -284,7 +310,7 @@ export default function ProfileScreen() {
         </HeroCard>
       )}
 
-      <Pressable style={s.accordionHeader} onPress={() => setShowHydration(v => !v)}>
+      <Pressable style={s.accordionHeader} onPress={() => setShowHydration(v => !v)} accessibilityRole="button" accessibilityLabel="Hydration" accessibilityState={{ expanded: showHydration }}>
         <View style={s.accordionLeft}>
           <View style={[s.accordionAccent, { backgroundColor: '#38bdf8' }]} />
           <Text style={s.accordionTitle}>HYDRATION</Text>
@@ -299,9 +325,12 @@ export default function ProfileScreen() {
               <Pressable
                 key={v}
                 onPress={() => handleUpdate({ ...progress, hydrationLog: { ...progress.hydrationLog, [today]: { cups: todayCups === v ? v - 1 : v } } })}
-                hitSlop={8}
+                hitSlop={{ top: 12, bottom: 12, left: 4, right: 4 }}
+                accessibilityRole="button"
+                accessibilityLabel={`${v} ${v === 1 ? 'cup' : 'cups'} of water`}
+                accessibilityState={{ selected: v <= todayCups }}
               >
-                <Text style={[s.cupIcon, { opacity: v <= todayCups ? 1 : 0.25 }]}>🍶</Text>
+                <Text style={[s.cupIcon, { color: '#38bdf8', opacity: v <= todayCups ? 1 : 0.22 }]}>水</Text>
               </Pressable>
             ))}
           </View>
@@ -311,7 +340,7 @@ export default function ProfileScreen() {
         </HeroCard>
       )}
 
-      <Pressable style={s.accordionHeader} onPress={() => setShowMeals(v => !v)}>
+      <Pressable style={s.accordionHeader} onPress={() => setShowMeals(v => !v)} accessibilityRole="button" accessibilityLabel="Power meals" accessibilityState={{ expanded: showMeals }}>
         <View style={s.accordionLeft}>
           <View style={[s.accordionAccent, { backgroundColor: '#F59E0B' }]} />
           <Text style={s.accordionTitle}>POWER MEALS</Text>
@@ -357,11 +386,16 @@ export default function ProfileScreen() {
                 <View key={idx} style={s.loggedMealRow}>
                   <Text style={s.loggedMealName}>{meal.name}</Text>
                   <Text style={[s.loggedMealKcal, { color: '#F59E0B' }]}>{meal.kcal} kcal</Text>
-                  <Pressable onPress={() => {
-                    const filtered = todayMeals.filter((_, i) => i !== idx);
-                    handleUpdate({ ...progress, foodLog: { ...progress.foodLog, [today]: filtered } });
-                  }} hitSlop={8}>
-                    <Text style={{ color: '#f87171', fontSize: 14, fontWeight: '900' }}>✕</Text>
+                  <Pressable
+                    onPress={() => {
+                      const filtered = todayMeals.filter((_, i) => i !== idx);
+                      handleUpdate({ ...progress, foodLog: { ...progress.foodLog, [today]: filtered } });
+                    }}
+                    style={s.removeBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${meal.name}`}
+                  >
+                    <Icon name="close" size={16} color="#f87171" />
                   </Pressable>
                 </View>
               ))}
@@ -370,7 +404,7 @@ export default function ProfileScreen() {
         </HeroCard>
       )}
 
-      <Pressable style={s.accordionHeader} onPress={() => setShowChronicles(v => !v)}>
+      <Pressable style={s.accordionHeader} onPress={() => setShowChronicles(v => !v)} accessibilityRole="button" accessibilityLabel="Voyage chronicle" accessibilityState={{ expanded: showChronicles }}>
         <View style={s.accordionLeft}>
           <View style={[s.accordionAccent, { backgroundColor: '#B967FF' }]} />
           <Text style={s.accordionTitle}>VOYAGE CHRONICLE</Text>
@@ -386,6 +420,8 @@ export default function ProfileScreen() {
             {!hasCurrentMonth && (
               <Pressable
                 style={[s.saveBtn, { backgroundColor: '#B967FF' }]}
+                accessibilityRole="button"
+                accessibilityLabel="Generate this month's chronicle"
                 onPress={() => {
                   const chronicle = generateVoyageChronicle(progress, currentMonthKey);
                   const existing = (progress.voyageChronicles || []).filter(c => c.monthKey !== currentMonthKey);
@@ -400,7 +436,7 @@ export default function ProfileScreen() {
               <View key={c.monthKey} style={s.chronicleEntry}>
                 <View style={s.chronicleHeader}>
                   <Text style={s.chronicleMonth}>{c.monthKey}</Text>
-                  <Text style={s.chronicleKanji}>⚓</Text>
+                  <Text style={[s.chronicleKanji, { color: '#B967FF' }]}>航</Text>
                 </View>
                 <Text style={s.chronicleNarrative}>{c.narrative}</Text>
                 <Text style={s.chronicleStats}>
@@ -412,7 +448,7 @@ export default function ProfileScreen() {
         );
       })()}
 
-      <Pressable style={s.accordionHeader} onPress={() => setShowPhysique(v => !v)}>
+      <Pressable style={s.accordionHeader} onPress={() => setShowPhysique(v => !v)} accessibilityRole="button" accessibilityLabel="Warrior physique" accessibilityState={{ expanded: showPhysique }}>
         <View style={s.accordionLeft}>
           <View style={[s.accordionAccent, { backgroundColor: '#E52030' }]} />
           <Text style={s.accordionTitle}>WARRIOR PHYSIQUE</Text>
@@ -445,7 +481,7 @@ export default function ProfileScreen() {
               {i < 6 && <View style={s.divider} />}
             </View>
           ))}
-          <Pressable style={[s.saveBtn, { backgroundColor: '#E52030', marginTop: 14 }]} onPress={() => {
+          <Pressable style={[s.saveBtn, { backgroundColor: '#E52030', marginTop: 14 }]} accessibilityRole="button" accessibilityLabel="Save physique" onPress={() => {
             handleUpdate({
               ...progress,
               bodyComposition: {
@@ -461,11 +497,11 @@ export default function ProfileScreen() {
             });
             flash(setSavedPhysique);
           }}>
-            <Text style={s.saveBtnTxt}>{savedPhysique ? '✓ 保存完了' : 'SAVE PHYSIQUE'}</Text>
+            <Text style={s.saveBtnTxt}>{savedPhysique ? '保存完了' : 'SAVE PHYSIQUE'}</Text>
           </Pressable>
         </HeroCard>
       )}
-      <Pressable style={s.accordionHeader} onPress={() => { setShowVitals(v => !v); playClick(); }}>
+      <Pressable style={s.accordionHeader} onPress={() => { setShowVitals(v => !v); playClick(); }} accessibilityRole="button" accessibilityLabel="Vitals" accessibilityState={{ expanded: showVitals }}>
         <View style={s.accordionLeft}>
           <View style={[s.accordionAccent, { backgroundColor: '#22d3ee' }]} />
           <Text style={s.accordionTitle}>VITALS</Text>
@@ -496,7 +532,7 @@ export default function ProfileScreen() {
               </View>
             ))}
           </View>
-          <Pressable style={[s.saveBtn, { backgroundColor: '#22d3ee', marginTop: 14 }]} onPress={() => {
+          <Pressable style={[s.saveBtn, { backgroundColor: '#22d3ee', marginTop: 14 }]} accessibilityRole="button" accessibilityLabel="Save vitals" onPress={() => {
             handleUpdate({
               ...progress,
               vitalsLog: {
@@ -510,7 +546,7 @@ export default function ProfileScreen() {
             });
             flash(setSavedVitals);
           }}>
-            <Text style={s.saveBtnTxt}>{savedVitals ? '✓ 保存完了' : 'SAVE VITALS'}</Text>
+            <Text style={s.saveBtnTxt}>{savedVitals ? '保存完了' : 'SAVE VITALS'}</Text>
           </Pressable>
         </HeroCard>
       )}
@@ -520,25 +556,25 @@ export default function ProfileScreen() {
 
 const s = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
-  heroCard: { backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderRadius: DS.radius.xl, padding: DS.space.lg, position: 'relative', overflow: 'hidden' },
-  heroGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, opacity: 0.4 },
+  heroCard: { backgroundColor: SURF, borderWidth: StyleSheet.hairlineWidth, borderRadius: DS.radius.lg, padding: DS.space.lg },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  screenTitle: { fontSize: 9, fontWeight: '700', letterSpacing: 5, color: TXT3 },
-  screenSub: { fontSize: 11, color: TXT3, marginTop: 4, letterSpacing: 0.5 },
-  kanjiBadge: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  screenTitle: { ...DS.type.screenTitle, color: TXT1 },
+  screenSub: { ...DS.type.caption, color: TXT3, marginTop: 5, letterSpacing: 0.5 },
+  kanjiBadge: { width: 38, height: 38, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
   kanjiBadgeText: { fontSize: 20, fontWeight: '900' },
   allTimeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  allTimeCard: { flex: 1, alignItems: 'center', paddingVertical: 20, marginBottom: 0 },
-  cardTopAccent: { position: 'absolute', top: 0, left: '25%', right: '25%', height: 2, borderRadius: 1 },
-  allTimeNum: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5, marginTop: 8 },
-  allTimeLabel: { fontSize: 7.5, fontWeight: '700', letterSpacing: 2, color: TXT3, marginTop: 6 },
+  allTimeCard: { flex: 1, alignItems: 'center', paddingVertical: 18, marginBottom: 0 },
+  allTimeKanjiBox: { width: 30, height: 30, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  allTimeKanji: { fontSize: 15, fontWeight: '900' },
+  allTimeNum: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  allTimeLabel: { ...DS.type.micro, color: TXT3, marginTop: 6, letterSpacing: 1.2 },
   recoveryCard: { marginBottom: 10 },
   recoveryTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
   recoveryHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   recoveryScore: { fontSize: 52, fontWeight: '900', letterSpacing: -2 },
   recoveryBadge: { width: 32, height: 32, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   recoveryBadgeText: { fontSize: 16, fontWeight: '900' },
-  recoveryLabel: { fontSize: 8, letterSpacing: 2.5, color: TXT3, fontWeight: '700', marginTop: 4 },
+  recoveryLabel: { ...DS.type.label, color: TXT2, marginTop: 5 },
   statusPill: { borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
   statusPillTxt: { fontSize: 13, fontWeight: '900', letterSpacing: 2 },
   recoveryBar: { height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' },
@@ -546,53 +582,55 @@ const s = StyleSheet.create({
   inputCard: { marginBottom: 10 },
   inputLabelGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   inputRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
-  inputLbl: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: TXT2 },
-  inputUnit: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  inputLbl: { fontSize: 12, fontWeight: '700', letterSpacing: 1, color: TXT2 },
+  inputUnit: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   numInput: { borderWidth: 1.5, width: 90, textAlign: 'center', paddingVertical: 10, borderRadius: 12, fontSize: 18, fontWeight: '800', backgroundColor: 'rgba(0,0,0,0.2)' },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: BORD },
   saveBtn: { marginTop: 16, paddingVertical: 14, borderRadius: 100, alignItems: 'center' },
-  saveBtnTxt: { fontSize: 11, fontWeight: '900', letterSpacing: 3, color: TXT1 },
-  starRow: { flexDirection: 'row', gap: 12, paddingVertical: 10 },
-  star: { fontSize: 30 },
+  saveBtnTxt: { fontSize: 13, fontWeight: '900', letterSpacing: 2, color: TXT1 },
+  starRow: { flexDirection: 'row', gap: 4, paddingVertical: 4 },
+  starBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  removeBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   sleepHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   sleepKanjiBox: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#D4A85315', alignItems: 'center', justifyContent: 'center' },
   sleepKanjiText: { fontSize: 18, fontWeight: '900', color: '#D4A853' },
   moodRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 10 },
-  moodPip: { width: 22, height: 12, borderRadius: 4 },
+  moodPipTouch: { flex: 1 },
+  moodPip: { width: '100%', height: 14, borderRadius: 4 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
   accordionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, marginTop: 8 },
   accordionLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  accordionAccent: { width: 3, height: 16, borderRadius: 2 },
-  accordionTitle: { fontSize: 8.5, fontWeight: '800', letterSpacing: 3, color: TXT3 },
-  accordionSub: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  accordionAccent: { width: 2.5, height: 15, borderRadius: 1.5 },
+  accordionTitle: { ...DS.type.label, color: TXT1, letterSpacing: 1.5 },
+  accordionSub: { ...DS.type.caption, fontWeight: '700', letterSpacing: 0.5 },
   vitalsRow: { gap: 14 },
   vitalsField: { marginBottom: 14 },
-  vitalsLabel: { fontSize: 8, fontWeight: '700', letterSpacing: 2, color: TXT3, marginBottom: 6 },
-  vitalsUnit: { fontSize: 10, color: TXT3, fontWeight: '600' },
+  vitalsLabel: { ...DS.type.micro, color: TXT2, marginBottom: 7 },
+  vitalsUnit: { fontSize: 12, color: TXT3, fontWeight: '600' },
   numInputWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 12, backgroundColor: 'rgba(0,0,0,0.3)' },
   archetypeRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   archetypeIcon: { fontSize: 44 },
   archetypeName: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
   archetypeDesc: { fontSize: 13, color: TXT2, lineHeight: 21, marginTop: 5 },
   cupsRow: { flexDirection: 'row', gap: 10, justifyContent: 'center', marginTop: 14, marginBottom: 10 },
-  cupIcon: { fontSize: 30 },
+  cupIcon: { fontSize: 26, fontWeight: '900' },
   cupsBar: { height: 5, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginTop: 10 },
   cupsBarFill: { height: 5, borderRadius: 3 },
   macroRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
   macroItem: { alignItems: 'center', gap: 4 },
   macroVal: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
-  macroLabel: { fontSize: 7.5, fontWeight: '700', letterSpacing: 2, color: TXT3 },
+  macroLabel: { ...DS.type.micro, color: TXT3, letterSpacing: 1.2, marginTop: 3 },
   mealsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
-  mealPill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.3)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', gap: 3 },
+  mealPill: { paddingHorizontal: 14, paddingVertical: 11, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', gap: 5 },
   mealKanji: { fontSize: 20, fontWeight: '900', color: TXT1 },
-  mealName: { fontSize: 7.5, fontWeight: '700', color: TXT3, letterSpacing: 1, maxWidth: 60 },
+  mealName: { ...DS.type.micro, color: TXT2, letterSpacing: 0.5, maxWidth: 64 },
   loggedMealRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   loggedMealName: { flex: 1, fontSize: 14, color: TXT1, fontWeight: '600' },
   loggedMealKcal: { fontSize: 14, fontWeight: '700' },
-  chronicleEntry: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.08)', paddingTop: 14 },
+  chronicleEntry: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.10)', paddingTop: 14 },
   chronicleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  chronicleMonth: { fontSize: 8, fontWeight: '700', letterSpacing: 3, color: TXT3 },
-  chronicleKanji: { fontSize: 26, fontWeight: '900' },
-  chronicleNarrative: { fontSize: 14, color: TXT2, lineHeight: 22, fontStyle: 'italic', marginBottom: 10 },
-  chronicleStats: { fontSize: 10, color: TXT3, fontWeight: '600' },
+  chronicleMonth: { ...DS.type.label, color: TXT2, letterSpacing: 2 },
+  chronicleKanji: { fontSize: 24, fontWeight: '900' },
+  chronicleNarrative: { fontSize: 14, color: TXT2, fontFamily: DS.font.display, lineHeight: 23, fontStyle: 'italic', marginBottom: 10 },
+  chronicleStats: { ...DS.type.caption, color: TXT3, fontWeight: '600' },
 });

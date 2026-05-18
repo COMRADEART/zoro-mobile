@@ -24,6 +24,18 @@ export default function useStepCounter() {
           return;
         }
 
+        // Android 10+ (API 29+) gates step data behind the
+        // ACTIVITY_RECOGNITION runtime permission. Without this request
+        // getStepCountAsync / watchStepCount silently return nothing.
+        if (Platform.OS === 'android') {
+          const { status } = await Pedometer.requestPermissionsAsync();
+          if (!mounted) return;
+          if (status !== 'granted') {
+            setError('Motion & fitness permission denied');
+            return;
+          }
+        }
+
         // Get steps from start of today
         const start = new Date();
         start.setHours(0, 0, 0, 0);
@@ -57,7 +69,10 @@ export default function useStepCounter() {
   }, []);
 
   const requestPermission = async () => {
-    if (Platform.OS === 'android') return true;
+    if (Platform.OS === 'android') {
+      const { status } = await Pedometer.requestPermissionsAsync();
+      return status === 'granted';
+    }
     // iOS permissions are requested implicitly on first getStepCountAsync call
     const available = await Pedometer.isAvailableAsync();
     return available;

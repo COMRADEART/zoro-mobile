@@ -50,5 +50,5 @@ export default function LineChart({ data = [], labels = [], color = '#4A9EFF', w
 
 const s = StyleSheet.create({
   labelsRow: { flexDirection: 'row', marginTop: 6 },
-  label: { textAlign: 'center', fontSize: 7, color: TXT3, fontWeight: '700', letterSpacing: 0.5 },
+  label: { textAlign: 'center', fontSize: 11, color: TXT3, fontWeight: '700', letterSpacing: 0.3 },
 });
