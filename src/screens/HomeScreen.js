@@ -19,6 +19,8 @@ import {
 } from '../logic/progression';
 import { SWORDS, RANKS, senseiPhrase } from '../data/gameData';
 import useStepCounter from '../hooks/useStepCounter';
+import * as ai from '../services/aiService';
+import SenseiChatModal from '../components/shared/SenseiChatModal';
 
 const SWORD_ORDER = ['wado', 'sandai', 'shusui'];
 
@@ -37,6 +39,8 @@ function StatChip({ accent, label, value, kanji }) {
 export default function HomeScreen() {
   const { progress, today, theme, setTab, handleUpdate } = useProgress();
   const { steps } = useStepCounter();
+  const [aiLine, setAiLine] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
 
@@ -175,6 +179,14 @@ export default function HomeScreen() {
             : 'Maximum rank — King of Hell'}
         </Text>
       </GlassCard>
+
+      <SenseiChatModal
+        visible={chatOpen}
+        onClose={() => setChatOpen(false)}
+        context={aiCtx}
+        fallbackPhrase={sensei}
+      />
+
 
       {rec.type !== 'rest' ? (
         <GlassCard

@@ -14,6 +14,7 @@ import {
   computeActivityRings,
 } from '../logic/progression';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
+import * as ai from '../services/aiService';
 
 const { width: W } = Dimensions.get('window');
 const CHART_W = W - 48;
@@ -193,10 +194,21 @@ const [view, setView] = useState('weekly');
 
   const existingChronicle = (progress.voyageChronicles || []).find(c => c.monthKey === currentMonthKey);
 
-  const generateChronicle = () => {
+  const generateChronicle = async () => {
     const chronicle = generateVoyageChronicle(progress, currentMonthKey);
+    const st = chronicle.stats;
+    const statsText =
+      `Training month ${chronicle.monthKey}: ${st.activeDays} active days, ` +
+      `${st.totalXP} XP, ${st.totalCal} calories, dominant discipline ${st.dominant}, ` +
+      `average sword sharpness ${st.avgSharpness ?? 'unknown'}.`;
+    // AI narration when AICore is present; otherwise the existing
+    // templated narrative is returned unchanged.
+    const narrative = await ai.narrate({ statsText, fallback: chronicle.narrative });
     const existing = (progress.voyageChronicles || []).filter(c => c.monthKey !== currentMonthKey);
-    handleUpdate({ ...progress, voyageChronicles: [...existing, chronicle].slice(-36) });
+    handleUpdate({
+      ...progress,
+      voyageChronicles: [...existing, { ...chronicle, narrative }].slice(-36),
+    });
   };
 
   const qualityColor = q => {

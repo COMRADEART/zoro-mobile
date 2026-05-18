@@ -10,6 +10,7 @@ import BreathingGuide from '../components/shared/BreathingGuide';
 import TrainingArcsScreen from './TrainingArcsScreen';
 import { heavyImpact, mediumImpact } from '../utils/haptics';
 import { playClick, playSuccess } from '../services/audioService';
+import * as ai from '../services/aiService';
 
 const SWORD_ORDER = ['wado', 'sandai', 'shusui'];
 
@@ -26,6 +27,8 @@ export default function TrainScreen() {
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [completedExercises, setCompletedExercises] = useState([]);
   const [currentAmount, setCurrentAmount] = useState('');
+  const [nlText, setNlText] = useState('');
+  const [nlBusy, setNlBusy] = useState(false);
   const timerRef = useRef(null);
   const sessionRef = useRef(null);
   const pulse = useRef(new Animated.Value(1)).current;
@@ -38,6 +41,24 @@ export default function TrainScreen() {
   useEffect(() => {
     Animated.timing(fadeSlide, { toValue: 1, duration: 400, useNativeDriver: true }).start();
   }, [phase, fadeSlide]);
+
+  // Best-effort NL → discipline. Strictly advisory: it only pre-selects
+  // a sword. The manual tabs and form remain the source of truth, and
+  // any failure (no AICore, unparseable) just shows a hint.
+  const parseNL = async () => {
+    const text = nlText.trim();
+    if (!text || nlBusy) return;
+    setNlBusy(true);
+    const hint = await ai.parseSessionHint(text);
+    setNlBusy(false);
+    if (hint) {
+      switchSword(hint.discipline);
+      setNlText('');
+      showToast && showToast(`Sensei set ${SWORDS[hint.discipline].name} — ${hint.note}`);
+    } else {
+      showToast && showToast('Could not read that — choose a discipline below.');
+    }
+  };
 
   const switchSword = (sw) => {
     setActiveSword(sw);
@@ -135,6 +156,32 @@ export default function TrainScreen() {
           showsVerticalScrollIndicator={false}
           bounces={true}
         >
+          <View style={[s.nlCard, { borderColor: t.accent + '30' }]}>
+            <Text style={s.nlLabel}>DESCRIBE YOUR SESSION · 任意</Text>
+            <View style={s.nlRow}>
+              <TextInput
+                style={[s.nlInput, { borderColor: t.accent + '30' }]}
+                value={nlText}
+                onChangeText={setNlText}
+                placeholder='e.g. "20 min meditation and some breathing"'
+                placeholderTextColor={TXT3}
+                maxLength={160}
+                onSubmitEditing={parseNL}
+                returnKeyType="done"
+                accessibilityLabel="Describe your session in words"
+              />
+              <Pressable
+                onPress={parseNL}
+                disabled={nlBusy || !nlText.trim()}
+                style={[s.nlBtn, { backgroundColor: t.accent, opacity: nlBusy || !nlText.trim() ? 0.4 : 1 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Interpret session description"
+              >
+                <Text style={s.nlBtnTxt}>{nlBusy ? '…' : 'SET'}</Text>
+              </Pressable>
+            </View>
+          </View>
+
           <Animated.View style={[s.idleHero, { opacity: fadeSlide }]}>
             <View style={[s.heroCard, { borderColor: t.accent + '30' }]}>
               <View style={s.heroContent}>

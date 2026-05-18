@@ -43,5 +43,8 @@ yarn-error.*
 # Claude Code local config
 .claude/
 
+# remember plugin runtime logs/scratch
+.remember/
+
 # accidental skill scaffold
 --help/
