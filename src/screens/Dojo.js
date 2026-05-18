@@ -14,7 +14,9 @@ import SkillScreen from './SkillScreen';
 import ProfileScreen from './ProfileScreen';
 import ConfigScreen from './ConfigScreen';
 import VoyageLogScreen from './VoyageLogScreen';
+import WelcomeScreen from './WelcomeScreen';
 import DojoTabBar, { TABS } from '../components/DojoTabBar';
+import { toDateKey } from '../logic/progression';
 import { setHapticsEnabled, rankUp, bossDefeat, bossFail, themeUnlock } from '../utils/haptics';
 import { scheduleRestReminder } from '../services/notificationService';
 import { initAudio, playRankUp, setSoundEnabled } from '../services/audioService';
@@ -82,6 +84,9 @@ const EVENT_HANDLERS = {
 function DojoInner() {
   const { progress, tab, setTab, handleUpdate, clearPendingEvents } = useProgress();
   const [toast, setToast] = useState(null);
+  // Session-only: Skip dismisses the gate for this launch only, so the welcome
+  // screen reappears on the next cold start until the user actually signs in.
+  const [authSkipped, setAuthSkipped] = useState(false);
   const [pendingRankUp, setPendingRankUp] = useState(null);
   const [bossHint, setBossHint] = useState(null);
   const [themeFlash, setThemeFlash] = useState(null);
@@ -154,6 +159,20 @@ function DojoInner() {
   }
 
   const currentTheme = progress.settings?.theme || DEFAULT_THEME;
+
+  if (!progress.userProfile?.signedIn && !authSkipped) {
+    return (
+      <WelcomeScreen
+        theme={currentTheme}
+        onSignIn={(name) => handleUpdate(prev => ({
+          ...prev,
+          userProfile: { name, provider: 'local', signedIn: true, createdAt: toDateKey(new Date()) },
+        }))}
+        onSkip={() => setAuthSkipped(true)}
+      />
+    );
+  }
+
   const themeData = THEMES[currentTheme] || THEMES[DEFAULT_THEME];
   const TAB_W = W / TABS.length;
   const indicatorLeft = tabAnim.interpolate({

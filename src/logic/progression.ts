@@ -138,6 +138,7 @@ export function defaultProgress(): Progress {
 
     unlockedThemes: [...DISCIPLINES],
     bossAttemptHistory: {},
+    userProfile: null,
 
     // v4 fields
     hydrationLog: {},
@@ -494,6 +495,22 @@ export function normalizeProgress(raw: any): Progress {
       stepGoal:         typeof raw.settings.stepGoal === 'number' && raw.settings.stepGoal > 0 ? Math.min(100000, Math.floor(raw.settings.stepGoal)) : def.stepGoal,
       gender:           raw.settings.gender === 'female' ? 'female' : 'male',
     };
+  }
+
+  // userProfile — local-only identity. Anything malformed collapses to null
+  // (so the welcome screen reappears) rather than throwing.
+  out.userProfile = null;
+  if (raw.userProfile && typeof raw.userProfile === 'object') {
+    const up = raw.userProfile;
+    const name = typeof up.name === 'string' ? up.name.trim().slice(0, 40) : '';
+    if (name.length > 0 && up.signedIn === true) {
+      out.userProfile = {
+        name,
+        provider: up.provider === 'google' ? 'google' : 'local',
+        signedIn: true,
+        createdAt: typeof up.createdAt === 'string' ? up.createdAt : '',
+      };
+    }
   }
 
   return out;
