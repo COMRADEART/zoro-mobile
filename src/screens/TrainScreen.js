@@ -158,6 +158,15 @@ export default function TrainScreen() {
                   <Text style={s.metaChipLabel}>EXERCISES · 演習</Text>
                 </View>
               </View>
+              <View style={s.exList}>
+                {exercises.map((ex, i) => (
+                  <View key={ex.id} style={[s.exListRow, { borderColor: t.accent + '1f' }]}>
+                    <Text style={[s.exListIdx, { color: t.accent }]}>{String(i + 1).padStart(2, '0')}</Text>
+                    <Text style={s.exListName} numberOfLines={1}>{ex.name}</Text>
+                    <Text style={[s.exListTarget, { color: t.accent }]}>{ex.base} {ex.unit}</Text>
+                  </View>
+                ))}
+              </View>
               <Pressable
                 style={[s.beginBtn, { backgroundColor: t.accent, shadowColor: t.accent }]}
                 onPress={startSession}
@@ -445,6 +454,20 @@ const s = StyleSheet.create({
   trainDiscipline: { fontSize: 8, fontWeight: '700', letterSpacing: 4, color: TXT3, marginTop: 4 },
   trainDesc: { fontSize: 13, color: TXT2, textAlign: 'center', lineHeight: 22, marginBottom: DS.space.md },
   exerciseMeta: { alignItems: 'center', marginBottom: DS.space.md },
+  exList: { width: '100%', gap: 6, marginBottom: DS.space.md },
+  exListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: DS.radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    gap: 12,
+  },
+  exListIdx: { fontSize: 11, fontWeight: '800', letterSpacing: 1, width: 22, fontVariant: ['tabular-nums'] },
+  exListName: { flex: 1, fontSize: 14, fontWeight: '700', color: TXT1 },
+  exListTarget: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5, fontVariant: ['tabular-nums'] },
   metaChip: { flexDirection: 'row', alignItems: 'baseline', gap: 6, borderWidth: 1, borderRadius: 100, paddingHorizontal: 16, paddingVertical: 6 },
   metaChipText: { fontSize: 20, fontWeight: '900' },
   metaChipLabel: { fontSize: 7, fontWeight: '700', letterSpacing: 2, color: TXT3 },
