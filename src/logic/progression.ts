@@ -85,6 +85,33 @@ export function toDateKey(date: Date = new Date()): string {
   return date.toISOString().slice(0, 10);
 }
 
+export const DISPLAY_NAME_MAX = 40;
+
+/**
+ * Sanitizes a user-entered display name before it is persisted or rendered.
+ * Strips C0/C1 control chars and Unicode bidi-override / zero-width / invisible
+ * format characters (which enable later UI text-spoofing), collapses internal
+ * whitespace, trims, and caps length. Non-strings become ''.
+ * @param raw - untrusted name value (from input or storage)
+ * @returns a safe, display-ready name (possibly empty)
+ */
+export function sanitizeDisplayName(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  let cleaned = '';
+  for (const ch of raw.normalize('NFC')) {
+    const c = ch.codePointAt(0)!;
+    if (c <= 0x1f) { cleaned += ' '; continue; }            // C0 controls -> space
+    if (c >= 0x7f && c <= 0x9f) continue;                    // DEL + C1
+    if (c >= 0x200b && c <= 0x200f) continue;                // zero-width + LTR/RTL marks
+    if (c >= 0x202a && c <= 0x202e) continue;                // bidi embeddings/overrides
+    if (c >= 0x2060 && c <= 0x2064) continue;                // word joiner / invisible
+    if (c >= 0x2066 && c <= 0x2069) continue;                // bidi isolates
+    if (c === 0xfeff) continue;                              // BOM / ZWNBSP
+    cleaned += ch;
+  }
+  return cleaned.replace(/\s+/g, ' ').trim().slice(0, DISPLAY_NAME_MAX);
+}
+
 /**
  * Converts a Date object to a YYYY-MM-DDTHH hour key string.
  * @param date - Date object (defaults to now)
@@ -502,7 +529,7 @@ export function normalizeProgress(raw: any): Progress {
   out.userProfile = null;
   if (raw.userProfile && typeof raw.userProfile === 'object') {
     const up = raw.userProfile;
-    const name = typeof up.name === 'string' ? up.name.trim().slice(0, 40) : '';
+    const name = sanitizeDisplayName(up.name);
     if (name.length > 0 && up.signedIn === true) {
       out.userProfile = {
         name,

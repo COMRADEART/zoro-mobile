@@ -16,7 +16,7 @@ import ConfigScreen from './ConfigScreen';
 import VoyageLogScreen from './VoyageLogScreen';
 import WelcomeScreen from './WelcomeScreen';
 import DojoTabBar, { TABS } from '../components/DojoTabBar';
-import { toDateKey } from '../logic/progression';
+import { toDateKey, sanitizeDisplayName } from '../logic/progression';
 import { setHapticsEnabled, rankUp, bossDefeat, bossFail, themeUnlock } from '../utils/haptics';
 import { scheduleRestReminder } from '../services/notificationService';
 import { initAudio, playRankUp, setSoundEnabled } from '../services/audioService';
@@ -164,10 +164,14 @@ function DojoInner() {
     return (
       <WelcomeScreen
         theme={currentTheme}
-        onSignIn={(name) => handleUpdate(prev => ({
-          ...prev,
-          userProfile: { name, provider: 'local', signedIn: true, createdAt: toDateKey(new Date()) },
-        }))}
+        onSignIn={(name) => {
+          const clean = sanitizeDisplayName(name);
+          if (!clean) return; // reject names that sanitize to empty
+          handleUpdate(prev => ({
+            ...prev,
+            userProfile: { name: clean, provider: 'local', signedIn: true, createdAt: toDateKey(new Date()) },
+          }));
+        }}
         onSkip={() => setAuthSkipped(true)}
       />
     );
