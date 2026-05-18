@@ -1,13 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadProgress, saveProgress } from '../src/storage/progressStore.js';
-import { defaultProgress, toDateKey } from '../src/logic/progression.js';
+import { defaultProgress, toDateKey, shouldShowWelcome } from '../src/logic/progression.js';
 
 const KEY_V4 = 'santoryu:progress:v4';
 
-// Mirrors the gate expression in Dojo.js:
-//   if (!progress.userProfile?.signedIn && !authSkipped) -> show WelcomeScreen
-const welcomeShows = (progress, authSkipped) =>
-  !progress.userProfile?.signedIn && !authSkipped;
+// The gate predicate is now a shared pure function imported by BOTH Dojo.js and
+// these tests, so drift between the runtime gate and the test cannot hide.
+const welcomeShows = shouldShowWelcome;
 
 // Mirrors the exact payload Dojo.js writes in onSignIn.
 const signInPayload = (name) => ({
@@ -17,6 +16,19 @@ const signInPayload = (name) => ({
 
 beforeEach(() => {
   AsyncStorage.clear();
+});
+
+describe('shouldShowWelcome (shared gate predicate)', () => {
+  test('shows unless signed in OR skipped this session', () => {
+    expect(shouldShowWelcome({ userProfile: null }, false)).toBe(true);
+    expect(shouldShowWelcome({ userProfile: null }, true)).toBe(false); // skip
+    expect(shouldShowWelcome({ userProfile: { signedIn: true } }, false)).toBe(false);
+    expect(shouldShowWelcome({ userProfile: { signedIn: false } }, false)).toBe(true);
+  });
+  test('tolerates a missing/empty progress object', () => {
+    expect(shouldShowWelcome({}, false)).toBe(true);
+    expect(shouldShowWelcome(undefined, false)).toBe(true);
+  });
 });
 
 describe('welcome gate: first launch', () => {

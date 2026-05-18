@@ -1,4 +1,4 @@
-import { defaultProgress, normalizeProgress, sanitizeDisplayName } from '../src/logic/progression';
+import { defaultProgress, normalizeProgress, sanitizeDisplayName, isEnterableName, DISPLAY_NAME_MAX } from '../src/logic/progression';
 
 // Build risky characters from code points so this test file stays pure ASCII
 // (literal bidi/zero-width chars in source are exactly what we're defending against).
@@ -46,6 +46,39 @@ describe('sanitizeDisplayName', () => {
     expect(sanitizeDisplayName('x'.repeat(100))).toBe('x'.repeat(40));
   });
 
+  test('caps by code point, never severing an astral char into a lone surrogate (F2)', () => {
+    const EMOJI = cp(0x1f5e1); // 1 code point, 2 UTF-16 units
+    // 39 ASCII + 1 emoji = exactly 40 code points: the emoji must survive whole.
+    const atBoundary = sanitizeDisplayName('x'.repeat(39) + EMOJI);
+    expect(atBoundary).toBe('x'.repeat(39) + EMOJI);
+    // Bulk truncation must cut on code-point boundaries, not UTF-16 units.
+    const truncated = sanitizeDisplayName(EMOJI.repeat(45));
+    expect(Array.from(truncated)).toHaveLength(DISPLAY_NAME_MAX);
+    // No unpaired surrogate may remain after removing well-formed pairs.
+    const orphans = truncated.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+    expect(/[\uD800-\uDFFF]/.test(orphans)).toBe(false);
+  });
+
+  test('strips U+061C ARABIC LETTER MARK (bidi control char) (F3)', () => {
+    expect(sanitizeDisplayName('Zoro' + cp(0x061c) + 'exe')).toBe('Zoroexe');
+  });
+
+  test('strips U+115F HANGUL CHOSEONG FILLER (invisible) (F4)', () => {
+    expect(sanitizeDisplayName('Zoro' + cp(0x115f))).toBe('Zoro');
+  });
+
+  test('strips U+1160 HANGUL JUNGSEONG FILLER (invisible) (F4)', () => {
+    expect(sanitizeDisplayName('Zoro' + cp(0x1160))).toBe('Zoro');
+  });
+
+  test('strips U+3164 HANGUL FILLER (invisible) (F4)', () => {
+    expect(sanitizeDisplayName('Zoro' + cp(0x3164))).toBe('Zoro');
+  });
+
+  test('strips U+FFA0 HALFWIDTH HANGUL FILLER (invisible) (F4)', () => {
+    expect(sanitizeDisplayName('Zoro' + cp(0xffa0))).toBe('Zoro');
+  });
+
   test('a name of only format chars sanitizes to empty', () => {
     expect(sanitizeDisplayName(ZWSP + RLO + BOM)).toBe('');
   });
@@ -53,6 +86,25 @@ describe('sanitizeDisplayName', () => {
   test('preserves legitimate Unicode (CJK + emoji + VS16)', () => {
     const ok = 'Zoro ' + CJK + ' ' + SWORD;
     expect(sanitizeDisplayName(ok)).toBe(ok);
+  });
+});
+
+describe('isEnterableName (single source of truth for the welcome button) (F5)', () => {
+  test('true only when the name survives sanitization as non-empty', () => {
+    expect(isEnterableName('Zoro')).toBe(true);
+    expect(isEnterableName('  Roronoa  ')).toBe(true);
+  });
+  test('false for empty / whitespace-only / non-string', () => {
+    expect(isEnterableName('')).toBe(false);
+    expect(isEnterableName('   ')).toBe(false);
+    expect(isEnterableName(null)).toBe(false);
+    expect(isEnterableName(123)).toBe(false);
+  });
+  test('false for input that LOOKS non-empty but sanitizes away (the dead-button case)', () => {
+    // What the old screen check (raw.trim().length > 0) wrongly accepted:
+    const invisibleOnly = cp(0x200b) + cp(0x202e) + cp(0xfeff);
+    expect(invisibleOnly.trim().length > 0).toBe(true); // old, naive check
+    expect(isEnterableName(invisibleOnly)).toBe(false);  // new, correct check
   });
 });
 

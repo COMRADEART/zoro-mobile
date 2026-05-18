@@ -16,7 +16,7 @@ import ConfigScreen from './ConfigScreen';
 import VoyageLogScreen from './VoyageLogScreen';
 import WelcomeScreen from './WelcomeScreen';
 import DojoTabBar, { TABS } from '../components/DojoTabBar';
-import { toDateKey, sanitizeDisplayName } from '../logic/progression';
+import { toDateKey, sanitizeDisplayName, shouldShowWelcome } from '../logic/progression';
 import { setHapticsEnabled, rankUp, bossDefeat, bossFail, themeUnlock } from '../utils/haptics';
 import { scheduleRestReminder } from '../services/notificationService';
 import { initAudio, playRankUp, setSoundEnabled } from '../services/audioService';
@@ -160,7 +160,7 @@ function DojoInner() {
 
   const currentTheme = progress.settings?.theme || DEFAULT_THEME;
 
-  if (!progress.userProfile?.signedIn && !authSkipped) {
+  if (shouldShowWelcome(progress, authSkipped)) {
     return (
       <WelcomeScreen
         theme={currentTheme}

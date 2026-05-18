@@ -89,9 +89,11 @@ export const DISPLAY_NAME_MAX = 40;
 
 /**
  * Sanitizes a user-entered display name before it is persisted or rendered.
- * Strips C0/C1 control chars and Unicode bidi-override / zero-width / invisible
- * format characters (which enable later UI text-spoofing), collapses internal
- * whitespace, trims, and caps length. Non-strings become ''.
+ * Strips C0/C1 control chars and Unicode bidi controls (incl. U+061C ALM),
+ * bidi embeddings/overrides/isolates, zero-width and invisible format chars,
+ * and invisible Hangul fillers (U+115F/1160/3164/FFA0) — all vectors for later
+ * UI text-spoofing. Collapses internal whitespace, trims, and caps length by
+ * code point (never severing an astral char). Non-strings become ''.
  * @param raw - untrusted name value (from input or storage)
  * @returns a safe, display-ready name (possibly empty)
  */
@@ -102,6 +104,10 @@ export function sanitizeDisplayName(raw: unknown): string {
     const c = ch.codePointAt(0)!;
     if (c <= 0x1f) { cleaned += ' '; continue; }            // C0 controls -> space
     if (c >= 0x7f && c <= 0x9f) continue;                    // DEL + C1
+    if (c === 0x061c) continue;                              // ARABIC LETTER MARK (bidi control)
+    if (c >= 0x115f && c <= 0x1160) continue;                // HANGUL CHO/JUNG FILLERS (invisible)
+    if (c === 0x3164) continue;                              // HANGUL FILLER (invisible)
+    if (c === 0xffa0) continue;                              // HALFWIDTH HANGUL FILLER (invisible)
     if (c >= 0x200b && c <= 0x200f) continue;                // zero-width + LTR/RTL marks
     if (c >= 0x202a && c <= 0x202e) continue;                // bidi embeddings/overrides
     if (c >= 0x2060 && c <= 0x2064) continue;                // word joiner / invisible
@@ -109,7 +115,34 @@ export function sanitizeDisplayName(raw: unknown): string {
     if (c === 0xfeff) continue;                              // BOM / ZWNBSP
     cleaned += ch;
   }
-  return cleaned.replace(/\s+/g, ' ').trim().slice(0, DISPLAY_NAME_MAX);
+  // Cap by code point, not UTF-16 unit, so an astral char (emoji, CJK ext.)
+  // at the boundary is never severed into a lone surrogate. Grapheme clusters
+  // (emoji+VS16 / ZWJ sequences) may still split at the cap — acceptable for a
+  // 40-char name and avoids depending on Intl.Segmenter (spotty in Hermes).
+  const collapsed = cleaned.replace(/\s+/g, ' ').trim();
+  return Array.from(collapsed).slice(0, DISPLAY_NAME_MAX).join('');
+}
+
+/**
+ * True iff `raw` yields a non-empty name after sanitization. Single source of
+ * truth for "can this be entered" — used by the welcome button's enabled state
+ * AND the persistence guard so they can never disagree (a name the screen lets
+ * through but sanitization empties would otherwise be a silent no-op).
+ */
+export function isEnterableName(raw: unknown): boolean {
+  return sanitizeDisplayName(raw).length > 0;
+}
+
+/**
+ * Whether the welcome/login gate should be shown. Shared by Dojo.js (the
+ * runtime gate) and the welcome-gate tests so the two can never silently drift.
+ * `authSkipped` is the session-only "Skip for now" flag (never persisted).
+ */
+export function shouldShowWelcome(
+  progress: { userProfile?: { signedIn?: boolean } | null } | null | undefined,
+  authSkipped: boolean,
+): boolean {
+  return !progress?.userProfile?.signedIn && !authSkipped;
 }
 
 /**
