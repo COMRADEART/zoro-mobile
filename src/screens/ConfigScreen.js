@@ -256,8 +256,21 @@ export default function ConfigScreen() {
 
 const s = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 32 },
-  heroCard: { backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderRadius: DS.radius.xl, padding: DS.space.lg, position: 'relative', overflow: 'hidden' },
-  heroGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, opacity: 0.4 },
+  heroCard: {
+    backgroundColor: 'rgba(8,10,12,0.74)',
+    borderWidth: 1,
+    borderBottomWidth: 1.5,
+    borderRadius: DS.radius.xl,
+    padding: DS.space.lg,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  heroGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 2, opacity: 0.6 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   screenTitle: { fontSize: 9, fontWeight: '700', letterSpacing: 5, color: TXT3 },
   screenSub: { fontSize: 11, color: TXT3, marginTop: 4, letterSpacing: 0.5 },

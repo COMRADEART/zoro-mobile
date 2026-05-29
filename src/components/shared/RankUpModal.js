@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   rankBadgeKanji: { fontSize: 36, fontWeight: '900' },
   rankUpEye: { fontSize: 8, fontWeight: '800', letterSpacing: 6, color: TXT3 },
   rankUpDivider: { height: 1, width: 100, marginVertical: 20 },
-  rankUpName: { fontSize: 36, fontWeight: '900', letterSpacing: -1, textAlign: 'center' },
+  rankUpName: { fontSize: 36, fontWeight: '900', letterSpacing: 0, textAlign: 'center' },
   rankUpXP: { fontSize: 11, color: TXT3, marginTop: 8, letterSpacing: 1 },
   japaneseText: { alignItems: 'center', marginVertical: 8 },
   japaneseTitle: { fontSize: 20, fontWeight: '900', letterSpacing: 2 },

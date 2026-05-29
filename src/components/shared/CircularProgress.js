@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 30,
     fontWeight: '900',
-    letterSpacing: -1,
+    letterSpacing: 0,
   },
   label: {
     fontSize: 7.5,

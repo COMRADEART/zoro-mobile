@@ -4,10 +4,11 @@ export const SURF = 'rgba(255,255,255,0.06)';
 export const SURF2 = 'rgba(255,255,255,0.10)';
 export const BORD = 'rgba(255,255,255,0.10)';
 export const TXT1 = '#FFFFFF';
-export const TXT2 = 'rgba(255,255,255,0.55)';
-export const TXT3 = 'rgba(255,255,255,0.28)';
+export const TXT2 = 'rgba(255,255,255,0.68)';
+export const TXT3 = 'rgba(255,255,255,0.44)';
 
-export const TAB_BAR_H = 72;
+export const NAV_SAFE_BOTTOM = Platform.OS === 'ios' ? 22 : 14;
+export const TAB_BAR_H = 96;
 export const SB_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 44;
 
 export const GOLD = '#D4A853';

@@ -1,584 +1,633 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, Animated, TextInput, ScrollView, StyleSheet } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
-import { THEMES, DEFAULT_THEME } from '../theme/themes';
-import { BORD, TXT1, TXT2, TXT3, SB_H } from '../theme/tokens';
+import { Panel, PrimaryButton, SwordSelector, MetricTile, ProgressRail } from '../components/premium/PremiumUI';
+import { TXT1, TXT2, TXT3, SB_H, TAB_BAR_H, STEEL } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
-import { applySessionStart, applySessionEnd, logBreathingSession } from '../logic/progression';
-import { SWORDS, getSwordExercises, BREATHING_PROGRAMS } from '../data/gameData';
+import { applySessionStart, applySessionEnd, logBreathingSession, rankIndexFor } from '../logic/progression';
+import { SWORDS, RANKS, getSwordExercises, BREATHING_PROGRAMS } from '../data/gameData';
 import BreathingGuide from '../components/shared/BreathingGuide';
 import TrainingArcsScreen from './TrainingArcsScreen';
-import { heavyImpact, mediumImpact } from '../utils/haptics';
+import { heavyImpact, mediumImpact, lightImpact } from '../utils/haptics';
 import { playClick, playSuccess } from '../services/audioService';
+import useReducedMotion from '../hooks/useReducedMotion';
 
-const SWORD_ORDER = ['wado', 'sandai', 'shusui'];
+const REST_SECONDS = 20;
 
-export default function TrainScreen() {
-  const { progress, today, theme, handleSessionEnd, showToast, handleUpdate } = useProgress();
+const MOOD = {
+  wado: 'Calm breath. Clean movement. No wasted force.',
+  sandai: 'Power day. Move heavy, stay honest.',
+  shusui: 'Endurance turns effort into identity.',
+};
 
-  const [activeSword, setActiveSword] = useState(progress.activeSword || 'sandai');
-  const [phase, setPhase] = useState('idle');
-  const [sessionId, setSessionId] = useState(null);
+function TrainScreen({ onFocusModeChange }) {
+  const { progress, today, handleSessionEnd, showToast, handleUpdate, handleUpdateImmediate } = useProgress();
+  const reducedMotion = useReducedMotion();
+  // If a session was in progress when the app last died, resume it. Reading
+  // currentSession at first render avoids a flash of the idle hero card before
+  // we restore focus mode.
+  const resumeSession = progress.currentSession ?? null;
+  const [activeSword, setActiveSword] = useState(resumeSession?.discipline || progress.activeSword || 'sandai');
+  const [phase, setPhase] = useState(resumeSession ? 'active' : 'idle');
+  const [sessionId, setSessionId] = useState(resumeSession?.id ?? null);
   const [breathProgram, setBreathProgram] = useState(null);
   const [showArcs, setShowArcs] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [intensity, setIntensity] = useState(progress.settings?.defaultIntensity || 5);
-  const [exerciseIndex, setExerciseIndex] = useState(0);
-  const [completedExercises, setCompletedExercises] = useState([]);
+  const [elapsed, setElapsed] = useState(
+    resumeSession ? Math.max(0, Math.floor((Date.now() - resumeSession.startedAt) / 1000)) : 0,
+  );
+  const [restSeconds, setRestSeconds] = useState(REST_SECONDS);
+  const intensity = progress.settings?.defaultIntensity || 5;
+  const [exerciseIndex, setExerciseIndex] = useState(resumeSession?.exerciseIndex ?? 0);
+  const [completedExercises, setCompletedExercises] = useState(resumeSession?.exercises ?? []);
   const [currentAmount, setCurrentAmount] = useState('');
+  const [earnedXP, setEarnedXP] = useState(0);
   const timerRef = useRef(null);
-  const sessionRef = useRef(null);
+  const restRef = useRef(null);
+  const sessionRef = useRef(resumeSession);
   const pulse = useRef(new Animated.Value(1)).current;
   const fadeSlide = useRef(new Animated.Value(0)).current;
-  const t = THEMES[theme] || THEMES[DEFAULT_THEME];
+
   const sword = SWORDS[activeSword];
+  const swordMark = sword.kanji?.slice(0, 1) || sword.name?.slice(0, 1) || '?';
   const exercises = getSwordExercises(activeSword, progress.skillUnlocks);
   const currentEx = exercises[exerciseIndex];
+  const nextEx = exercises[exerciseIndex + 1];
+  const rank = RANKS[rankIndexFor(progress.totalXP)];
 
   useEffect(() => {
-    Animated.timing(fadeSlide, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-  }, [phase, fadeSlide]);
+    if (reducedMotion) { fadeSlide.setValue(1); return; }
+    fadeSlide.setValue(0);
+    Animated.spring(fadeSlide, {
+      toValue: 1,
+      damping: 20,
+      stiffness: 120,
+      mass: 0.7,
+      useNativeDriver: true,
+    }).start();
+  }, [phase, exerciseIndex, fadeSlide, reducedMotion]);
+
+  useEffect(() => {
+    onFocusModeChange?.(phase !== 'idle');
+    return () => onFocusModeChange?.(false);
+  }, [onFocusModeChange, phase]);
+
+  useEffect(() => () => {
+    clearInterval(timerRef.current);
+    clearInterval(restRef.current);
+  }, []);
+
+  // Drive the active-phase timer from the *persisted* startedAt, not from a
+  // local "tick from now" counter. After a resume, this keeps elapsed honest
+  // (the previous implementation always restarted at 0).
+  useEffect(() => {
+    if (phase !== 'active') return undefined;
+    const startedAt = sessionRef.current?.startedAt ?? Date.now();
+    setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  }, [phase, sessionId]);
+
+  useEffect(() => {
+    if (reducedMotion || phase !== 'idle') return undefined;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.04, duration: 1800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 1800, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [phase, pulse, reducedMotion]);
 
   const switchSword = (sw) => {
     setActiveSword(sw);
-    handleUpdate({ ...progress, activeSword: sw });
-    heavyImpact();
+    handleUpdate(prev => ({ ...prev, activeSword: sw }));
+    lightImpact();
     playClick();
   };
 
   const startSession = () => {
     const { progress: p } = applySessionStart(progress, { discipline: activeSword });
-    sessionRef.current = p.currentSession;
-    setSessionId(p.currentSession.id);
-    setElapsed(0); setPhase('active');
-    setExerciseIndex(0); setCompletedExercises([]);
+    const seeded = { ...p.currentSession, exerciseIndex: 0 };
+    sessionRef.current = seeded;
+    setSessionId(seeded.id);
+    setElapsed(0);
+    setPhase('active');
+    setExerciseIndex(0);
+    setCompletedExercises([]);
     setCurrentAmount('');
-    fadeSlide.setValue(0);
-    timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+    setEarnedXP(0);
     heavyImpact();
     playClick();
+    // Persist immediately — losing the session-start write to the debounce
+    // window would mean a hard kill in the first 500 ms makes the session
+    // unresumable. The active-phase timer effect picks up from here.
+    handleUpdateImmediate(prev => ({ ...prev, currentSession: seeded }));
   };
 
-  const endSession = () => {
+  const finishSession = (done = completedExercises) => {
     clearInterval(timerRef.current);
-    const payload = completedExercises.map(ex => ({ id: ex.id, name: ex.name, unit: ex.unit, amount: ex.amount || ex.base }));
+    clearInterval(restRef.current);
+    const payload = done.map(ex => ({ id: ex.id, name: ex.name, unit: ex.unit, amount: ex.amount || ex.base }));
     const { progress: next, events } = applySessionEnd(
       { ...progress, currentSession: sessionRef.current },
       { sessionId, exercises: payload, intensity, endedAt: Date.now() }
     );
+    const gained = Math.max(0, next.totalXP - progress.totalXP);
+    setEarnedXP(gained);
     setPhase('done');
     playSuccess();
-    fadeSlide.setValue(0);
     handleSessionEnd(next, events);
     const stored = next.sessions[next.sessions.length - 1];
-    showToast({ title: 'SESSION COMPLETE · 修了', body: `${Math.round(elapsed / 60)}min · ${stored?.calories ?? 0}kcal · +${next.totalXP - progress.totalXP} XP` });
+    showToast({
+      title: 'Session complete',
+      body: `${Math.round(elapsed / 60)} min · ${stored?.calories ?? 0} kcal · +${gained} XP`,
+    });
+  };
+
+  const beginRest = () => {
+    clearInterval(restRef.current);
+    setRestSeconds(REST_SECONDS);
+    setPhase('rest');
+    restRef.current = setInterval(() => {
+      setRestSeconds(sec => {
+        if (sec <= 1) {
+          clearInterval(restRef.current);
+          setExerciseIndex(i => Math.min(i + 1, exercises.length - 1));
+          setCurrentAmount('');
+          setPhase('active');
+          return REST_SECONDS;
+        }
+        return sec - 1;
+      });
+    }, 1000);
   };
 
   const logExercise = () => {
     if (!currentEx) return;
-    const amount = currentAmount ? parseFloat(currentAmount) : currentEx.base;
-    setCompletedExercises(prev => [...prev, { ...currentEx, amount }]);
+    // Clamp: a pasted negative or non-numeric value must not flow into calorie/XP
+    // math. Falls back to the exercise's base target like an empty input does.
+    const parsed = parseFloat(currentAmount);
+    const amount = Number.isFinite(parsed) && parsed > 0 ? parsed : currentEx.base;
+    const logged = { id: currentEx.id, name: currentEx.name, unit: currentEx.unit, amount };
+    const nextCompleted = [...completedExercises, logged];
+    const nextIndex = exerciseIndex + 1;
+    setCompletedExercises(nextCompleted);
     setCurrentAmount('');
     mediumImpact();
     playClick();
-    Animated.sequence([
-      Animated.timing(pulse, { toValue: 1.08, duration: 100, useNativeDriver: true }),
-      Animated.spring(pulse, { toValue: 1, tension: 100, friction: 9, useNativeDriver: true }),
-    ]).start();
-    setTimeout(() => {
-      if (exerciseIndex < exercises.length - 1) {
-        setExerciseIndex(i => i + 1);
-      } else { endSession(); }
-    }, 300);
+    if (!reducedMotion) {
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.05, duration: 90, useNativeDriver: true }),
+        Animated.spring(pulse, { toValue: 1, tension: 110, friction: 10, useNativeDriver: true }),
+      ]).start();
+    }
+    // Persist the in-progress session so a crash before the final log doesn't
+    // throw away the moves the user already completed. finishSession reads
+    // sessionRef so it sees the same nextCompleted, but only the persisted copy
+    // survives an app kill.
+    if (sessionRef.current) {
+      sessionRef.current = { ...sessionRef.current, exercises: nextCompleted, exerciseIndex: nextIndex };
+      const snapshot = sessionRef.current;
+      handleUpdate(prev => ({ ...prev, currentSession: snapshot }));
+    }
+    if (exerciseIndex >= exercises.length - 1) {
+      finishSession(nextCompleted);
+      return;
+    }
+    beginRest();
   };
 
-  useEffect(() => { return () => clearInterval(timerRef.current); }, []);
+  const skipExercise = () => {
+    lightImpact();
+    if (exerciseIndex >= exercises.length - 1) {
+      finishSession(completedExercises);
+    } else {
+      setExerciseIndex(i => i + 1);
+      setCurrentAmount('');
+    }
+  };
+
+  const skipRest = () => {
+    clearInterval(restRef.current);
+    setExerciseIndex(i => Math.min(i + 1, exercises.length - 1));
+    setPhase('active');
+    lightImpact();
+  };
 
   const fmt = sec => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+  const contentMotion = {
+    opacity: fadeSlide,
+    transform: [{ translateY: fadeSlide.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
+  };
 
   if (showArcs) {
     return <TrainingArcsScreen onBack={() => setShowArcs(false)} />;
   }
 
-  const swordTabs = (
-    <View style={[s.swordTabs, { top: SB_H + DS.space.sm }]}>
-      <View style={[s.tabTrack, { borderColor: t.accent + '20' }]}>
-        {SWORD_ORDER.map(k => {
-          const sw = SWORDS[k];
-          const active = k === activeSword;
-          return (
-            <Pressable
-              key={k}
-              onPress={() => switchSword(k)}
-              style={[s.swordTab, active && s.swordTabActive]}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={`${sw.name} discipline`}
-            >
-              {active && <View style={[s.tabGlow, { backgroundColor: sw.accent }]} />}
-              <Text style={[s.swordTabKanji, active && { color: sw.accent }]}>{sw.kanji}</Text>
-              <Text style={[s.swordTabName, active && { color: sw.accent }]}>{sw.name.split(' ')[0].toUpperCase()}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-
   return (
-    <View style={{ flex: 1 }}>
-      {swordTabs}
-
-      {/* IDLE */}
+    <View style={s.root}>
       {phase === 'idle' && (
         <ScrollView
-          contentContainerStyle={[s.trainIdle, { paddingTop: SB_H + 90, paddingHorizontal: DS.space.md }]}
+          contentContainerStyle={[s.scroll, { paddingTop: SB_H + 16 }]}
           showsVerticalScrollIndicator={false}
-          bounces={true}
         >
-          <Animated.View style={[s.idleHero, { opacity: fadeSlide }]}>
-            <View style={s.watermarkContainer}>
-              <Text style={[s.trainWatermark, { color: t.accent }]}>{sword.kanji}</Text>
-            </View>
-            <View style={[s.heroCard, { borderColor: t.accent + '30' }]}>
-              <View style={[s.heroGlow, { backgroundColor: t.accent }]} />
-              <View style={s.heroContent}>
-                <View style={[s.swordIconBadge, { backgroundColor: t.accent + '12', borderColor: t.accent + '35' }]}>
-                  <Text style={[s.swordIconText, { color: t.accent }]}>{sword.kanji}</Text>
-                </View>
-                <View style={s.heroInfo}>
-                  <Text style={[s.trainSwordName, { color: t.accent }]}>{sword.name}</Text>
-                  <Text style={s.trainDiscipline}>{sword.discipline}</Text>
-                </View>
+          <SwordSelector value={activeSword} onChange={switchSword} />
+
+          <Animated.View style={contentMotion}>
+            <Panel accent={sword.accent} style={s.hero}>
+              <Animated.View style={[s.symbolWrap, { transform: [{ scale: pulse }] }]}>
+                <View style={[s.symbolAura, { borderColor: sword.accent + '36' }]} />
+                <Text style={[s.heroSymbol, { color: sword.accent }]}>{swordMark}</Text>
+              </Animated.View>
+              <Text style={[s.disciplineName, { color: sword.accent }]}>{sword.name}</Text>
+              <Text style={s.disciplineMeta}>{sword.discipline}</Text>
+              <Text style={s.moodPhrase}>{MOOD[activeSword]}</Text>
+
+              <View style={s.heroMetrics}>
+                <MetricTile label="Moves" value={exercises.length} detail="today" accent={sword.accent} mark="型" />
+                <MetricTile label="Default" value={`${intensity}/10`} detail="intensity" accent={sword.accent} mark="力" />
               </View>
-              <Text style={s.trainDesc}>{sword.desc}</Text>
-              <View style={s.exerciseMeta}>
-                <View style={[s.metaChip, { borderColor: t.accent + '30' }]}>
-                  <Text style={[s.metaChipText, { color: t.accent }]}>{exercises.length}</Text>
-                  <Text style={s.metaChipLabel}>EXERCISES · 演習</Text>
-                </View>
-              </View>
-              <View style={s.exList}>
-                {exercises.map((ex, i) => (
-                  <View key={ex.id} style={[s.exListRow, { borderColor: t.accent + '1f' }]}>
-                    <Text style={[s.exListIdx, { color: t.accent }]}>{String(i + 1).padStart(2, '0')}</Text>
-                    <Text style={s.exListName} numberOfLines={1}>{ex.name}</Text>
-                    <Text style={[s.exListTarget, { color: t.accent }]}>{ex.base} {ex.unit}</Text>
-                  </View>
-                ))}
-              </View>
-              <Pressable
-                style={[s.beginBtn, { backgroundColor: t.accent, shadowColor: t.accent }]}
+
+              <PrimaryButton
+                label="BEGIN SESSION"
+                sublabel="Focus mode"
+                accent={sword.accent}
                 onPress={startSession}
-                accessibilityLabel="Begin training session"
-                accessibilityRole="button"
-              >
-                <View style={s.beginBtnInner}>
-                  <Text style={[s.beginBtnText, { color: THEMES[theme]?.bg || '#000' }]}>
-                    BEGIN · 始める
-                  </Text>
+                darkText={sword.accent !== STEEL}
+                style={s.beginButton}
+              />
+            </Panel>
+
+            <Panel accent={sword.accent} dim style={s.previewPanel}>
+              <View style={s.previewHeader}>
+                <Text style={s.previewTitle}>Today&apos;s flow</Text>
+                <Pressable
+                  onPress={() => setShowArcs(true)}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="View Training Arcs"
+                >
+                  <Text style={[s.previewAction, { color: sword.accent }]}>Training arcs</Text>
+                </Pressable>
+              </View>
+              {exercises.slice(0, 3).map((ex, index) => (
+                <View key={ex.id} style={s.previewRow}>
+                  <Text style={[s.previewIndex, { color: sword.accent }]}>{String(index + 1).padStart(2, '0')}</Text>
+                  <Text style={s.previewName} numberOfLines={1}>{ex.name}</Text>
+                  <Text style={s.previewTarget}>{ex.base} {ex.unit}</Text>
                 </View>
-              </Pressable>
-              <Pressable style={s.arcsBtn} onPress={() => setShowArcs(true)}>
-                <Text style={s.arcsBtnTxt}>TRAINING ARCS · 修行 ›</Text>
-              </Pressable>
+              ))}
+              {exercises.length > 3 && (
+                <Text style={s.previewMore}>+{exercises.length - 3} more in focus mode</Text>
+              )}
+            </Panel>
+
+            <View style={s.breathRow}>
+              {BREATHING_PROGRAMS.slice(0, 2).map(program => (
+                <Pressable
+                  key={program.id}
+                  onPress={() => setBreathProgram(program)}
+                  style={[s.breathPill, { borderColor: sword.accent + '20' }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Start ${program.name} breathing, ${program.durationMin} minutes, ${program.xpReward} XP`}
+                >
+                  <Text style={[s.breathKanji, { color: sword.accent }]}>{program.kanji}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.breathName} numberOfLines={1}>{program.name}</Text>
+                    <Text style={s.breathMeta}>{program.durationMin} min · +{program.xpReward} XP</Text>
+                  </View>
+                </Pressable>
+              ))}
             </View>
           </Animated.View>
-
-          <View style={s.breathSection}>
-            <View style={s.breathSectionHeader}>
-              <View style={[s.breathDivider, { backgroundColor: t.accent + '25' }]} />
-              <View style={[s.breathSectionTitleBox, { borderColor: t.accent + '30' }]}>
-                <Text style={[s.breathSectionKanji, { color: t.accent }]}>息</Text>
-              </View>
-              <Text style={[s.breathSectionTitle, { color: t.accent }]}>NAP MODE · 呼吸の修行</Text>
-              <View style={[s.breathDivider, { backgroundColor: t.accent + '25' }]} />
-            </View>
-            {BREATHING_PROGRAMS.map((prog, idx) => (
-              <Pressable
-                key={prog.id}
-                style={[s.breathCard, { borderColor: t.accent + '20' }]}
-                onPress={() => setBreathProgram(prog)}
-                accessibilityLabel={`${prog.name}, ${prog.durationMin} minutes`}
-                accessibilityRole="button"
-              >
-                <View style={[s.breathKanjiBox, { backgroundColor: t.accent + '10' }]}>
-                  <Text style={[s.breathKanji, { color: t.accent }]}>{prog.kanji}</Text>
-                </View>
-                <View style={s.breathInfo}>
-                  <Text style={s.breathName}>{prog.name}</Text>
-                  <Text style={s.breathPattern}>
-                    {[
-                      prog.pattern.inhale ? `in ${prog.pattern.inhale}s` : null,
-                      prog.pattern.holdIn ? `hold ${prog.pattern.holdIn}s` : null,
-                      prog.pattern.exhale ? `out ${prog.pattern.exhale}s` : null,
-                      prog.pattern.holdOut ? `hold ${prog.pattern.holdOut}s` : null,
-                    ].filter(Boolean).join(' · ')}
-                  </Text>
-                </View>
-                <View style={s.breathMeta}>
-                  <Text style={[s.breathDur, { color: t.accent }]}>{prog.durationMin}m</Text>
-                  <Text style={s.breathXP}>+{prog.xpReward} XP</Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
         </ScrollView>
+      )}
+
+      {phase === 'active' && (
+        <Animated.View style={[s.focusScreen, { paddingTop: SB_H + 22 }, contentMotion]}>
+          <View style={s.focusTop}>
+            <Text style={s.focusTimer}>{fmt(elapsed)}</Text>
+            <Text style={s.focusCount}>{exerciseIndex + 1} of {exercises.length}</Text>
+          </View>
+          <ProgressRail pct={exerciseIndex / exercises.length} accent={sword.accent} />
+
+          <Animated.View style={[s.exerciseStage, { transform: [{ scale: pulse }] }]}>
+            <Text style={[s.exerciseMark, { color: sword.accent }]}>{swordMark}</Text>
+            <Text style={s.exerciseLabel}>Current move</Text>
+            <Text style={[s.exerciseName, { color: sword.accent }]}>{currentEx?.name}</Text>
+            <Text style={s.exerciseTarget}>Target {currentEx?.base} {currentEx?.unit}</Text>
+
+            <TextInput
+              style={[s.amountInput, { borderColor: sword.accent + '35' }]}
+              placeholder={`${currentEx?.base ?? ''}`}
+              placeholderTextColor={TXT3}
+              keyboardType="numeric"
+              value={currentAmount}
+              onChangeText={setCurrentAmount}
+              selectTextOnFocus
+              accessibilityLabel="Completed amount"
+              accessibilityHint={`Enter ${currentEx?.unit ?? 'amount'}; default is ${currentEx?.base ?? 0}`}
+            />
+          </Animated.View>
+
+          <View style={s.focusActions}>
+            <PrimaryButton
+              label="LOG MOVE"
+              sublabel={currentEx ? `${currentEx.base} ${currentEx.unit}` : ''}
+              accent={sword.accent}
+              onPress={logExercise}
+              darkText={sword.accent !== STEEL}
+            />
+            <View style={s.secondaryActions}>
+              <Pressable
+                onPress={skipExercise}
+                style={s.textButton}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Skip this exercise"
+              >
+                <Text style={s.textButtonLabel}>Skip</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => finishSession(completedExercises)}
+                style={s.textButton}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="End session early"
+              >
+                <Text style={s.textButtonLabel}>End session</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Animated.View>
+      )}
+
+      {phase === 'rest' && (
+        <Animated.View style={[s.focusScreen, { paddingTop: SB_H + 22 }, contentMotion]}>
+          <Text style={s.restLabel}>Rest</Text>
+          <Text style={[s.restTimer, { color: sword.accent }]}>{restSeconds}</Text>
+          <Text style={s.restCopy}>Let your breathing settle. The next cut should be cleaner.</Text>
+          <Panel accent={sword.accent} dim style={s.nextPanel}>
+            <Text style={s.nextLabel}>Next</Text>
+            <Text style={s.nextName}>{nextEx?.name}</Text>
+            <Text style={s.nextTarget}>{nextEx?.base} {nextEx?.unit}</Text>
+          </Panel>
+          <PrimaryButton
+            label="START NEXT MOVE"
+            accent={sword.accent}
+            onPress={skipRest}
+            darkText={sword.accent !== STEEL}
+            style={s.beginButton}
+          />
+        </Animated.View>
+      )}
+
+      {phase === 'done' && (
+        <Animated.View style={[s.doneScreen, { paddingTop: SB_H + 28 }, contentMotion]}>
+          <View style={[s.finishAura, { borderColor: sword.accent + '40' }]} />
+          <Text style={[s.doneKanji, { color: sword.accent }]}>完</Text>
+          <Text style={s.doneTitle}>Session complete</Text>
+          <Text style={s.doneSubtitle}>The blade remembers today.</Text>
+
+          <View style={s.doneMetrics}>
+            <MetricTile label="XP gained" value={`+${earnedXP}`} accent={sword.accent} mark="力" />
+            <MetricTile label="Logged" value={completedExercises.length} detail="moves" accent={rank.color} mark="型" />
+          </View>
+
+          <Panel accent={rank.color} dim style={s.rankMoment}>
+            <Text style={[s.rankMomentTitle, { color: rank.color }]}>{rank.name}</Text>
+            <Text style={s.rankMomentCopy}>Rank progress updated. New unlocks will appear in Skills.</Text>
+          </Panel>
+
+          <PrimaryButton
+            label="RETURN TO HOME"
+            accent={sword.accent}
+            onPress={() => setPhase('idle')}
+            darkText={sword.accent !== STEEL}
+          />
+        </Animated.View>
       )}
 
       {breathProgram && (
         <BreathingGuide
           program={breathProgram}
           onComplete={() => {
-            const { progress: next, events } = logBreathingSession(progress, { date: today, programId: breathProgram.id, durationMin: breathProgram.durationMin, xpReward: breathProgram.xpReward });
+            const { progress: next, events } = logBreathingSession(progress, {
+              date: today,
+              programId: breathProgram.id,
+              durationMin: breathProgram.durationMin,
+              xpReward: breathProgram.xpReward,
+            });
             playSuccess();
             handleSessionEnd(next, events);
-            showToast({ title: 'NAP MODE COMPLETE · 修了', body: `${breathProgram.name} · +${breathProgram.xpReward} XP` });
+            showToast({ title: 'Breathing complete', body: `${breathProgram.name} · +${breathProgram.xpReward} XP` });
             setBreathProgram(null);
           }}
           onDismiss={() => setBreathProgram(null)}
         />
-      )}
-
-      {/* ACTIVE */}
-      {phase === 'active' && (
-        <Animated.View style={[s.trainActive, { paddingTop: SB_H + 90, opacity: fadeSlide }]}>
-          <View style={s.timerSection}>
-            <View style={[s.timerBadge, { borderColor: t.accent + '30' }]}>
-              <Text style={s.timerLabel}>修行中 · TRAINING</Text>
-            </View>
-            <Text style={[s.timerVal, { color: t.accent }]}>{fmt(elapsed)}</Text>
-            <View style={s.sessionProgressOuter}>
-              <Animated.View style={[s.sessionProgressFill, {
-                width: `${((exerciseIndex) / exercises.length) * 100}%`,
-                backgroundColor: t.accent,
-                shadowColor: t.accent,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.8,
-                shadowRadius: 8,
-              }]} />
-            </View>
-            <Text style={s.progressLabel}>{exerciseIndex + 1} / {exercises.length} · {completedExercises.length} logged</Text>
-          </View>
-
-          <Animated.View
-            style={[
-              s.exCard,
-              {
-                borderColor: t.accent + '40',
-                transform: [{ scale: pulse }],
-                shadowColor: t.accent,
-              },
-            ]}
-          >
-            <View style={[s.exCardGlowLine, { backgroundColor: t.accent }]} />
-            <View style={s.exCardInner}>
-              <View style={s.exCardHeader}>
-                <View style={[s.exNumBadge, { backgroundColor: t.accent + '15', borderColor: t.accent + '30' }]}>
-                  <Text style={[s.exNum, { color: t.accent }]}>{exerciseIndex + 1}/{exercises.length}</Text>
-                </View>
-                <Text style={[s.exTarget, { color: t.accent }]}>目標 · TARGET {currentEx?.base} {currentEx?.unit}</Text>
-              </View>
-              <Text style={[s.exName, { color: t.accent }]}>{currentEx?.name}</Text>
-              <View style={[s.exInputWrap, { borderColor: t.accent + '45', backgroundColor: 'rgba(0,0,0,0.4)' }]}>
-                <TextInput
-                  style={[s.exInput, { color: TXT1 }]}
-                  placeholder={`${currentEx?.base} ${currentEx?.unit}`}
-                  placeholderTextColor={TXT3}
-                  keyboardType="numeric"
-                  value={currentAmount}
-                  onChangeText={setCurrentAmount}
-                  autoFocus={true}
-                />
-              </View>
-              <View style={s.exBtns}>
-                <Pressable
-                  style={[s.logBtn, { backgroundColor: t.accent, shadowColor: t.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.45, shadowRadius: 12 }]}
-                  onPress={logExercise}
-                  accessibilityLabel={`Log ${currentEx?.name}`}
-                  accessibilityRole="button"
-                >
-                  <Text style={[s.logBtnTxt, { color: THEMES[theme]?.bg || '#000' }]}>LOG · 記録</Text>
-                </Pressable>
-                <Pressable
-                  style={[s.skipBtn, { borderColor: t.accent + '40' }]}
-                  onPress={() => {
-                    if (exerciseIndex >= exercises.length - 1) { endSession(); }
-                    else { setExerciseIndex(i => i + 1); }
-                  }}
-                  accessibilityLabel="Skip this exercise"
-                  accessibilityRole="button"
-                >
-                  <Text style={[s.skipBtnTxt, { color: t.accent }]}>SKIP · スキップ</Text>
-                </Pressable>
-              </View>
-            </View>
-          </Animated.View>
-
-          <View style={s.intensitySection}>
-            <View style={s.intensityRow}>
-              <Text style={s.intensityLabel}>INTENSITY · 強度</Text>
-              <Text style={[s.intensityValue, { color: t.accent }]}>{intensity}/10</Text>
-            </View>
-            <View style={s.intensityBtns}>
-              {[3, 5, 7, 9].map(v => (
-                <Pressable
-                  key={v}
-                  onPress={() => setIntensity(v)}
-                  style={[
-                    s.intBtn,
-                    {
-                      borderColor: intensity === v ? t.accent : BORD,
-                      backgroundColor: intensity === v ? t.accent + '15' : 'transparent',
-                      shadowColor: intensity === v ? t.accent : 'transparent',
-                      shadowOpacity: intensity === v ? 0.5 : 0,
-                      shadowRadius: intensity === v ? 8 : 0,
-                    },
-                  ]}
-                  accessibilityLabel={`Intensity ${v}`}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: intensity === v }}
-                >
-                  <Text style={[s.intBtnTxt, intensity === v && { color: t.accent }]}>{v}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          <View style={s.endSection}>
-            <Pressable onPress={endSession} accessibilityLabel="End training session early" accessibilityRole="button">
-              <View style={[s.endBtn, { borderColor: '#E52030' + '40' }]}>
-                <Text style={s.endBtnText}>END SESSION · 終了</Text>
-              </View>
-            </Pressable>
-          </View>
-        </Animated.View>
-      )}
-
-      {/* DONE */}
-      {phase === 'done' && (
-        <Animated.View style={[s.trainDone, { opacity: fadeSlide }]}>
-          <View style={[s.doneGlowRing, { borderColor: t.accent }]} />
-          <View style={[s.doneBadge, { borderColor: t.accent + '50', shadowColor: t.accent, shadowOpacity: 0.6, shadowRadius: 20 }]}>
-            <Text style={[s.doneKanji, { color: t.accent }]}>完了</Text>
-          </View>
-          <Text style={[s.doneTitle, { color: t.accent }]}>Session Complete</Text>
-          <Text style={s.doneTitleJp}>修行終了 · Great work, swordsman</Text>
-          <View style={s.doneStats}>
-            <View style={[s.doneStatChip, { borderColor: t.accent + '30' }]}>
-              <Text style={[s.doneStatVal, { color: t.accent }]}>{completedExercises.length}</Text>
-              <Text style={s.doneStatLabel}>EXERCISES</Text>
-            </View>
-            <View style={[s.doneStatChip, { borderColor: t.accent + '30' }]}>
-              <Text style={[s.doneStatVal, { color: t.accent }]}>{Math.round(elapsed / 60)}m</Text>
-              <Text style={s.doneStatLabel}>DURATION</Text>
-            </View>
-          </View>
-          <Pressable
-            style={[s.beginBtn, { backgroundColor: t.accent, shadowColor: t.accent, marginTop: DS.space.lg, paddingHorizontal: DS.space.xxl }]}
-            onPress={() => setPhase('idle')}
-            accessibilityLabel="Return to dojo"
-            accessibilityRole="button"
-          >
-            <Text style={[s.beginBtnText, { color: THEMES[theme]?.bg || '#000' }]}>BACK TO DOJO · 道場へ</Text>
-          </Pressable>
-        </Animated.View>
       )}
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  swordTabs: { position: 'absolute', left: DS.space.md, right: DS.space.md, zIndex: 10 },
-  tabTrack: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderRadius: DS.radius.lg,
-    padding: 4,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+  root: { flex: 1 },
+  scroll: {
+    paddingHorizontal: DS.space.md,
+    paddingBottom: TAB_BAR_H + DS.space.xl,
+    gap: DS.space.lg,
   },
-  swordTab: {
+  hero: {
+    marginTop: DS.space.lg,
+    alignItems: 'center',
+    paddingTop: DS.space.xl,
+    paddingBottom: DS.space.lg,
+  },
+  symbolWrap: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: DS.space.md,
+  },
+  symbolAura: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 18,
+    opacity: 0.9,
+  },
+  heroSymbol: {
+    fontSize: 76,
+    fontWeight: '900',
+  },
+  disciplineName: {
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: 0,
+    textAlign: 'center',
+  },
+  disciplineMeta: {
+    color: TXT3,
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 5,
+  },
+  moodPhrase: {
+    color: TXT2,
+    textAlign: 'center',
+    fontSize: 15,
+    lineHeight: 23,
+    marginTop: DS.space.md,
+    maxWidth: 286,
+  },
+  heroMetrics: {
+    flexDirection: 'row',
+    gap: DS.space.sm,
+    marginTop: DS.space.lg,
+    width: '100%',
+  },
+  beginButton: { marginTop: DS.space.lg, width: '100%' },
+  previewPanel: { marginTop: DS.space.md, gap: DS.space.sm },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  previewTitle: { color: TXT1, fontSize: 16, fontWeight: '800' },
+  previewAction: { fontSize: 12, fontWeight: '800' },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.sm,
+    minHeight: 34,
+  },
+  previewIndex: { width: 26, fontWeight: '900', fontSize: 13 },
+  previewName: { flex: 1, color: TXT1, fontSize: 14, fontWeight: '700' },
+  previewTarget: { color: TXT3, fontSize: 13, fontWeight: '700' },
+  previewMore: { color: TXT3, fontSize: 12, marginTop: 2 },
+  breathRow: { gap: DS.space.sm, marginTop: DS.space.md },
+  breathPill: {
+    minHeight: 68,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.045)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.sm,
+    paddingHorizontal: DS.space.md,
+  },
+  breathKanji: { fontSize: 22, fontWeight: '900' },
+  breathName: { color: TXT1, fontSize: 14, fontWeight: '800' },
+  breathMeta: { color: TXT3, fontSize: 12, marginTop: 3 },
+  focusScreen: {
+    flex: 1,
+    paddingHorizontal: DS.space.md,
+    paddingBottom: TAB_BAR_H + DS.space.sm,
+  },
+  focusTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: DS.space.sm,
+  },
+  focusTimer: { color: TXT1, fontSize: 36, fontWeight: '900', letterSpacing: 0 },
+  focusCount: { color: TXT3, fontSize: 13, fontWeight: '800', marginBottom: 7 },
+  exerciseStage: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: DS.space.sm + 2,
-    borderRadius: DS.radius.md,
-    gap: 4,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  swordTabActive: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  tabGlow: {
-    position: 'absolute',
-    bottom: 0,
-    left: '20%',
-    right: '20%',
-    height: 2,
-    borderRadius: 1,
-  },
-  swordTabKanji: { fontSize: 22, fontWeight: '900', color: TXT3 },
-  swordTabName: { fontSize: 6.5, fontWeight: '700', letterSpacing: 1.5, color: TXT3 },
-  trainIdle: { flex: 1, paddingBottom: TAB_BAR_H + DS.space.xl },
-  idleHero: { position: 'relative', marginBottom: DS.space.lg },
-  watermarkContainer: { position: 'absolute', alignSelf: 'center', top: -20, opacity: 0.05 },
-  trainWatermark: { fontSize: 280, fontWeight: '900', letterSpacing: -15 },
-  heroCard: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderWidth: 1,
-    borderRadius: DS.radius.xl,
-    padding: DS.space.lg,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  heroGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    opacity: 0.4,
-  },
-  heroContent: { flexDirection: 'row', alignItems: 'center', gap: DS.space.md, marginBottom: DS.space.md },
-  swordIconBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: DS.radius.md,
-    borderWidth: 1.5,
-    alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: DS.space.md,
   },
-  swordIconText: { fontSize: 28, fontWeight: '900' },
-  heroInfo: { flex: 1 },
-  trainSwordName: { fontSize: 26, fontWeight: '900', letterSpacing: 0.3 },
-  trainDiscipline: { fontSize: 8, fontWeight: '700', letterSpacing: 4, color: TXT3, marginTop: 4 },
-  trainDesc: { fontSize: 13, color: TXT2, textAlign: 'center', lineHeight: 22, marginBottom: DS.space.md },
-  exerciseMeta: { alignItems: 'center', marginBottom: DS.space.md },
-  exList: { width: '100%', gap: 6, marginBottom: DS.space.md },
-  exListRow: {
+  exerciseMark: { fontSize: 78, fontWeight: '900', marginBottom: DS.space.sm },
+  exerciseLabel: { color: TXT3, fontSize: 13, fontWeight: '700', marginBottom: DS.space.xs },
+  exerciseName: {
+    fontSize: 42,
+    lineHeight: 48,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: 0,
+  },
+  exerciseTarget: { color: TXT2, fontSize: 17, marginTop: DS.space.sm, fontWeight: '700' },
+  amountInput: {
+    minWidth: 152,
+    borderWidth: 1,
+    borderRadius: 28,
+    color: TXT1,
+    fontSize: 28,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginTop: DS.space.lg,
+    paddingHorizontal: DS.space.lg,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(0,0,0,0.24)',
+  },
+  focusActions: { gap: DS.space.md },
+  secondaryActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: DS.radius.md,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    gap: 12,
-  },
-  exListIdx: { fontSize: 11, fontWeight: '800', letterSpacing: 1, width: 22, fontVariant: ['tabular-nums'] },
-  exListName: { flex: 1, fontSize: 14, fontWeight: '700', color: TXT1 },
-  exListTarget: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5, fontVariant: ['tabular-nums'] },
-  metaChip: { flexDirection: 'row', alignItems: 'baseline', gap: 6, borderWidth: 1, borderRadius: 100, paddingHorizontal: 16, paddingVertical: 6 },
-  metaChipText: { fontSize: 20, fontWeight: '900' },
-  metaChipLabel: { fontSize: 7, fontWeight: '700', letterSpacing: 2, color: TXT3 },
-  beginBtn: {
-    paddingHorizontal: DS.space.xl,
-    paddingVertical: DS.space.md,
-    borderRadius: 100,
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  beginBtnInner: { alignItems: 'center' },
-  beginBtnText: { fontSize: 11, fontWeight: '900', letterSpacing: 3 },
-  arcsBtn: { marginTop: DS.space.md, alignItems: 'center', paddingVertical: DS.space.xs },
-  arcsBtnTxt: { fontSize: 8, fontWeight: '700', letterSpacing: 3, color: TXT3 },
-  trainActive: { flex: 1, paddingHorizontal: DS.space.md, paddingBottom: TAB_BAR_H },
-  timerSection: { alignItems: 'center', marginBottom: DS.space.lg },
-  timerBadge: { borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 4, marginBottom: DS.space.xs },
-  timerLabel: { fontSize: 7, fontWeight: '700', letterSpacing: 3, color: TXT3 },
-  timerVal: { fontSize: 64, fontWeight: '900', letterSpacing: -3, fontVariant: ['tabular-nums'], marginVertical: DS.space.xs },
-  sessionProgressOuter: { width: '100%', height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, marginTop: DS.space.xs, overflow: 'hidden' },
-  sessionProgressFill: { height: 4, borderRadius: 2 },
-  progressLabel: { fontSize: 9, fontWeight: '600', letterSpacing: 2, color: TXT3, marginTop: DS.space.xs },
-  exCard: {
-    borderWidth: 2,
-    borderRadius: DS.radius.xl,
-    marginBottom: DS.space.md,
-    position: 'relative',
-    overflow: 'hidden',
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 12,
-  },
-  exCardGlowLine: { position: 'absolute', top: 0, left: 0, right: 0, height: 1.5, opacity: 0.5 },
-  exCardInner: { alignItems: 'center', padding: DS.space.lg },
-  exCardHeader: { alignItems: 'center', gap: DS.space.xs, marginBottom: DS.space.xs },
-  exNumBadge: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
-  exNum: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
-  exTarget: { fontSize: 10, fontWeight: '700', letterSpacing: 2 },
-  exName: { fontSize: 32, fontWeight: '900', letterSpacing: -0.5, textAlign: 'center', marginVertical: DS.space.sm },
-  exInputWrap: { borderWidth: 2, borderRadius: 100, marginBottom: DS.space.md, overflow: 'hidden', width: '80%' },
-  exInput: { width: '100%', textAlign: 'center', fontSize: 26, fontWeight: '800', paddingVertical: 14, color: TXT1 },
-  exBtns: { flexDirection: 'row', gap: DS.space.sm, alignItems: 'center' },
-  logBtn: {
-    paddingHorizontal: DS.space.xl,
-    paddingVertical: DS.space.sm + 4,
-    borderRadius: 100,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  logBtnTxt: { fontSize: 11, fontWeight: '900', letterSpacing: 2.5 },
-  skipBtn: { paddingHorizontal: DS.space.lg, paddingVertical: DS.space.sm + 4, borderRadius: 100, borderWidth: 1.5 },
-  skipBtnTxt: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: TXT3 },
-  intensitySection: { alignItems: 'center', marginBottom: DS.space.md },
-  intensityRow: { flexDirection: 'row', alignItems: 'center', gap: DS.space.sm, marginBottom: DS.space.sm },
-  intensityLabel: { fontSize: 8, fontWeight: '700', letterSpacing: 4, color: TXT3 },
-  intensityValue: { fontSize: 12, fontWeight: '800', letterSpacing: 1 },
-  intensityBtns: { flexDirection: 'row', gap: DS.space.sm },
-  intBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    alignItems: 'center',
     justifyContent: 'center',
+    gap: DS.space.xl,
   },
-  intBtnTxt: { fontSize: 16, fontWeight: '800', color: TXT3 },
-  endSection: { alignItems: 'center', marginTop: DS.space.xs },
-  endBtn: { paddingHorizontal: DS.space.lg, paddingVertical: DS.space.sm, borderRadius: 100, borderWidth: 1 },
-  endBtnText: { color: '#E52030', fontSize: 8.5, letterSpacing: 4, fontWeight: '700' },
-  trainDone: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: DS.space.lg },
-  doneGlowRing: { position: 'absolute', width: 180, height: 180, borderRadius: 90, borderWidth: 1, opacity: 0.1 },
-  doneBadge: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 2,
+  textButton: { padding: DS.space.sm },
+  textButtonLabel: { color: TXT3, fontSize: 14, fontWeight: '800' },
+  restLabel: {
+    color: TXT3,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: DS.space.xxl,
+  },
+  restTimer: {
+    textAlign: 'center',
+    fontSize: 116,
+    lineHeight: 126,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  restCopy: {
+    color: TXT2,
+    textAlign: 'center',
+    fontSize: 16,
+    lineHeight: 24,
+    marginHorizontal: DS.space.lg,
+    marginBottom: DS.space.xl,
+  },
+  nextPanel: { marginBottom: DS.space.lg },
+  nextLabel: { color: TXT3, fontSize: 12, fontWeight: '800' },
+  nextName: { color: TXT1, fontSize: 24, fontWeight: '900', marginTop: 4 },
+  nextTarget: { color: TXT3, fontSize: 14, marginTop: 4 },
+  doneScreen: {
+    flex: 1,
+    paddingHorizontal: DS.space.md,
+    paddingBottom: TAB_BAR_H + DS.space.sm,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: DS.space.lg,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 16,
   },
-  doneKanji: { fontSize: 44, fontWeight: '900', letterSpacing: -2 },
-  doneTitle: { fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
-  doneTitleJp: { fontSize: 12, color: TXT3, marginTop: DS.space.xs, letterSpacing: 1 },
-  doneStats: { flexDirection: 'row', gap: DS.space.md, marginTop: DS.space.lg },
-  doneStatChip: { borderWidth: 1, borderRadius: DS.radius.md, paddingHorizontal: DS.space.lg, paddingVertical: DS.space.sm, alignItems: 'center', minWidth: 90 },
-  doneStatVal: { fontSize: 24, fontWeight: '900' },
-  doneStatLabel: { fontSize: 7, fontWeight: '700', letterSpacing: 2.5, color: TXT3, marginTop: 4 },
-  breathSection: { width: '100%', gap: DS.space.xs },
-  breathSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: DS.space.sm, marginBottom: DS.space.sm },
-  breathDivider: { flex: 1, height: 1 },
-  breathSectionTitleBox: { width: 28, height: 28, borderRadius: 6, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  breathSectionKanji: { fontSize: 14, fontWeight: '900' },
-  breathSectionTitle: { fontSize: 7.5, fontWeight: '700', letterSpacing: 3, color: TXT3 },
-  breathCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: DS.radius.lg, padding: DS.space.md, backgroundColor: 'rgba(0,0,0,0.3)' },
-  breathKanjiBox: { width: 48, height: 48, borderRadius: DS.radius.md, alignItems: 'center', justifyContent: 'center' },
-  breathKanji: { fontSize: 24, fontWeight: '900' },
-  breathInfo: { flex: 1, marginLeft: DS.space.sm },
-  breathName: { fontSize: 15, fontWeight: '800', color: TXT1 },
-  breathPattern: { fontSize: 10, color: TXT3, marginTop: 3 },
-  breathMeta: { alignItems: 'flex-end', gap: 3 },
-  breathDur: { fontSize: 20, fontWeight: '900' },
-  breathXP: { fontSize: 8, fontWeight: '700', letterSpacing: 1.5, color: TXT3 },
+  finishAura: {
+    position: 'absolute',
+    top: SB_H + 78,
+    width: 230,
+    height: 230,
+    borderRadius: 115,
+    borderWidth: 24,
+    opacity: 0.5,
+  },
+  doneKanji: {
+    fontSize: 104,
+    fontWeight: '900',
+    marginTop: DS.space.xxl,
+  },
+  doneTitle: { color: TXT1, fontSize: 32, fontWeight: '900', letterSpacing: 0 },
+  doneSubtitle: { color: TXT3, fontSize: 15, marginTop: DS.space.xs, marginBottom: DS.space.xl },
+  doneMetrics: { flexDirection: 'row', gap: DS.space.sm, width: '100%', marginBottom: DS.space.md },
+  rankMoment: { width: '100%', marginBottom: DS.space.lg },
+  rankMomentTitle: { fontSize: 18, fontWeight: '900' },
+  rankMomentCopy: { color: TXT3, fontSize: 13, lineHeight: 20, marginTop: 5 },
 });
 
-const TAB_BAR_H = 72;
+export default React.memo(TrainScreen);

@@ -50,6 +50,10 @@ export interface Session {
   calories: number;
   intensity: number;
   xpEarned: number;
+  // Set only while a session is in progress (i.e. on Progress.currentSession).
+  // Lets TrainScreen restore the user's place if the app is killed mid-session.
+  // Stripped on applySessionEnd — completed entries in `sessions[]` never carry this.
+  exerciseIndex?: number;
 }
 
 export interface LoggedExercise {

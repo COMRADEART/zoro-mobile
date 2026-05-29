@@ -1,11 +1,12 @@
 import React, { memo, useRef, useEffect } from 'react';
 import { View, Pressable, StyleSheet, Animated, Easing } from 'react-native';
-import { SURF, BORD } from '../../theme/tokens';
+import { BORD } from '../../theme/tokens';
 import { DS } from '../../theme/designSystem';
 
 const GlassCard = memo(function GlassCard({ accent, children, style, onPress, elevation = 'medium', glowIntensity = 0.6 }) {
   const borderColor = accent ? accent + '40' : BORD;
   const shadowColor = accent || '#ffffff';
+  const glowPeak = 0.08 + Math.min(1, Math.max(0, glowIntensity)) * 0.17;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
@@ -35,7 +36,7 @@ const GlassCard = memo(function GlassCard({ accent, children, style, onPress, el
     };
   }, [accent, glowAnim, shimmerAnim, elevation]);
 
-  const cardShadow = {
+  const shadowLevels = {
     sm: {
       shadowOpacity: 0.15,
       shadowRadius: 4,
@@ -59,7 +60,8 @@ const GlassCard = memo(function GlassCard({ accent, children, style, onPress, el
       shadowRadius: 0,
       elevation: 0,
     },
-  }[elevation] || cardShadow?.medium;
+  };
+  const cardShadow = shadowLevels[elevation] || shadowLevels.medium;
 
   const cardStyle = [
     styles.card,
@@ -77,7 +79,7 @@ const GlassCard = memo(function GlassCard({ accent, children, style, onPress, el
     left: -2,
     right: -2,
     bottom: -2,
-    borderRadius: 23,
+    borderRadius: DS.radius.xl + 3,
     borderWidth: 1,
     borderColor: accent + '18',
   } : null;
@@ -88,8 +90,8 @@ const GlassCard = memo(function GlassCard({ accent, children, style, onPress, el
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 20,
-    opacity: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.08, 0.25] }),
+    borderRadius: DS.radius.xl,
+    opacity: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.08, glowPeak] }),
     backgroundColor: accent,
   } : null;
 
@@ -98,10 +100,11 @@ const GlassCard = memo(function GlassCard({ accent, children, style, onPress, el
     top: 0,
     left: 0,
     right: 0,
-    height: '100%',
-    borderRadius: 20,
+    width: 92,
+    height: '140%',
+    borderRadius: DS.radius.full,
     opacity: shimmerAnim.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 0.12, 0] }),
-    backgroundColor: `linear-gradient(90deg, transparent, ${accent}50, transparent)`,
+    backgroundColor: accent + '65',
     transform: [
       {
         translateX: shimmerAnim.interpolate({
@@ -109,6 +112,7 @@ const GlassCard = memo(function GlassCard({ accent, children, style, onPress, el
           outputRange: [-200, 200],
         }),
       },
+      { rotate: '-18deg' },
     ],
   } : null;
 
@@ -119,8 +123,8 @@ const GlassCard = memo(function GlassCard({ accent, children, style, onPress, el
     right: 0,
     height: 3,
     backgroundColor: accent + '30',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: DS.radius.xl,
+    borderBottomRightRadius: DS.radius.xl,
   } : null;
 
   const content = (
@@ -140,7 +144,6 @@ const GlassCard = memo(function GlassCard({ accent, children, style, onPress, el
       onPress={onPress}
       style={({ pressed }) => [
         { opacity: pressed ? 0.88 : 1 },
-        DS.motion.fast && { transition: `opacity ${DS.motion.fast}ms` },
       ]}
     >
       {content}
@@ -152,10 +155,10 @@ export default GlassCard;
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: SURF,
+    backgroundColor: 'rgba(10,12,14,0.72)',
     borderWidth: 1,
     borderColor: BORD,
-    borderRadius: 20,
+    borderRadius: DS.radius.xl,
     marginBottom: DS.space.sm,
     overflow: 'hidden',
   },

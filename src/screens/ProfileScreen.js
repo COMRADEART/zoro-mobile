@@ -1,30 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, StyleSheet } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
+import { computeDreamArchetype, DREAM_ARCHETYPES, getReadinessColor, getReadinessLevel, updateBodyStats, updateRecoveryFromSleep, updateMood, parseDateKey, toDateKey, generateVoyageChronicle } from '../logic/progression';
+import { THEMES, DEFAULT_THEME } from '../theme/themes';
+import { TXT1, TXT2, TXT3, BORD, DS, TAB_BAR_H, SB_H } from '../theme/tokens';
+import { HeroCard } from '../components/premium/PremiumUI';
 import SectionLabel from '../components/shared/SectionLabel';
 import { SleepStagesWeek } from '../components/shared/charts/SleepStagesChart';
-import { THEMES, DEFAULT_THEME } from '../theme/themes';
-import { TXT1, TXT2, TXT3, BORD, SB_H, TAB_BAR_H } from '../theme/tokens';
-import { DS } from '../theme/designSystem';
-import {
-  updateRecoveryFromSleep, updateMood, updateBodyStats,
-  getReadinessLevel, getReadinessColor,
-  computeDreamArchetype, DREAM_ARCHETYPES,
-  generateVoyageChronicle,
-} from '../logic/progression';
 import { POWER_MEALS } from '../data/gameData';
 import { playClick } from '../services/audioService';
 
-function HeroCard({ accent, children, style }) {
-  return (
-    <View style={[s.heroCard, { borderColor: accent + '30' }, style]}>
-      <View style={[s.heroGlow, { backgroundColor: accent }]} />
-      {children}
-    </View>
-  );
-}
-
-export default function ProfileScreen() {
+function ProfileScreen() {
   const { progress, today, theme, handleUpdate } = useProgress();
 
   const [weight, setWeight] = useState(String(progress.bodyStats?.weight || 70));
@@ -220,10 +206,10 @@ export default function ProfileScreen() {
 
         {(() => {
           const weekSleep = [];
-          const end = new Date(today + 'T00:00:00');
+          const end = parseDateKey(today);
           for (let i = 6; i >= 0; i--) {
-            const d = new Date(end); d.setUTCDate(end.getUTCDate() - i);
-            const dk = d.toISOString().slice(0, 10);
+            const d = new Date(end); d.setDate(end.getDate() - i);
+            const dk = toDateKey(d);
             weekSleep.push({ date: dk, sleepData: progress.sleepLog?.[dk] || null });
           }
           return weekSleep.some(d => d.sleepData) ? (
@@ -520,8 +506,21 @@ export default function ProfileScreen() {
 
 const s = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
-  heroCard: { backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderRadius: DS.radius.xl, padding: DS.space.lg, position: 'relative', overflow: 'hidden' },
-  heroGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, opacity: 0.4 },
+  heroCard: {
+    backgroundColor: 'rgba(8,10,12,0.74)',
+    borderWidth: 1,
+    borderBottomWidth: 1.5,
+    borderRadius: DS.radius.xl,
+    padding: DS.space.lg,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  heroGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 2, opacity: 0.6 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   screenTitle: { fontSize: 9, fontWeight: '700', letterSpacing: 5, color: TXT3 },
   screenSub: { fontSize: 11, color: TXT3, marginTop: 4, letterSpacing: 0.5 },
@@ -530,12 +529,12 @@ const s = StyleSheet.create({
   allTimeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   allTimeCard: { flex: 1, alignItems: 'center', paddingVertical: 20, marginBottom: 0 },
   cardTopAccent: { position: 'absolute', top: 0, left: '25%', right: '25%', height: 2, borderRadius: 1 },
-  allTimeNum: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5, marginTop: 8 },
+  allTimeNum: { fontSize: 20, fontWeight: '900', letterSpacing: 0, marginTop: 8 },
   allTimeLabel: { fontSize: 7.5, fontWeight: '700', letterSpacing: 2, color: TXT3, marginTop: 6 },
   recoveryCard: { marginBottom: 10 },
   recoveryTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
   recoveryHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  recoveryScore: { fontSize: 52, fontWeight: '900', letterSpacing: -2 },
+  recoveryScore: { fontSize: 52, fontWeight: '900', letterSpacing: 0 },
   recoveryBadge: { width: 32, height: 32, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   recoveryBadgeText: { fontSize: 16, fontWeight: '900' },
   recoveryLabel: { fontSize: 8, letterSpacing: 2.5, color: TXT3, fontWeight: '700', marginTop: 4 },
@@ -572,7 +571,7 @@ const s = StyleSheet.create({
   numInputWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 12, backgroundColor: 'rgba(0,0,0,0.3)' },
   archetypeRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   archetypeIcon: { fontSize: 44 },
-  archetypeName: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  archetypeName: { fontSize: 20, fontWeight: '900', letterSpacing: 0 },
   archetypeDesc: { fontSize: 13, color: TXT2, lineHeight: 21, marginTop: 5 },
   cupsRow: { flexDirection: 'row', gap: 10, justifyContent: 'center', marginTop: 14, marginBottom: 10 },
   cupIcon: { fontSize: 30 },
@@ -580,7 +579,7 @@ const s = StyleSheet.create({
   cupsBarFill: { height: 5, borderRadius: 3 },
   macroRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
   macroItem: { alignItems: 'center', gap: 4 },
-  macroVal: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+  macroVal: { fontSize: 22, fontWeight: '900', letterSpacing: 0 },
   macroLabel: { fontSize: 7.5, fontWeight: '700', letterSpacing: 2, color: TXT3 },
   mealsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   mealPill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.3)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', gap: 3 },
@@ -596,3 +595,5 @@ const s = StyleSheet.create({
   chronicleNarrative: { fontSize: 14, color: TXT2, lineHeight: 22, fontStyle: 'italic', marginBottom: 10 },
   chronicleStats: { fontSize: 10, color: TXT3, fontWeight: '600' },
 });
+
+export default React.memo(ProfileScreen);

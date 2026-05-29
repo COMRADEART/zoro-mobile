@@ -1,15 +1,13 @@
 import React, { useRef } from 'react';
 import { View, Text, Pressable, Animated, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { TXT3, TAB_BAR_H } from '../theme/tokens';
+import { NAV_SAFE_BOTTOM, TXT3, TAB_BAR_H } from '../theme/tokens';
 
 export const TABS = [
-  { key: 'home', label: 'HOME · ホーム', icon: '⛩', kanji: 'home' },
-  { key: 'train', label: 'TRAIN · 修行', icon: '⚔', kanji: 'train' },
-  { key: 'skill', label: 'SKILL · 技', icon: '◎', kanji: 'skill' },
-  { key: 'profile', label: 'PROFILE · 士', icon: '◯', kanji: 'profile' },
-  { key: 'voyage', label: 'VOYAGE · 航海', icon: '⚓', kanji: 'voyage' },
-  { key: 'config', label: 'CONFIG · 設定', icon: '⊙', kanji: 'config' },
+  { key: 'home', label: 'Home', icon: '家', hint: 'Home dashboard' },
+  { key: 'train', label: 'Train', icon: '剣', hint: 'Training session' },
+  { key: 'skill', label: 'Skills', icon: '技', hint: 'Skill map' },
+  { key: 'progress', label: 'Progress', icon: '録', hint: 'Progress and settings' },
 ];
 
 export default function DojoTabBar({ tab, setTab, indicatorLeft, t }) {
@@ -27,8 +25,18 @@ export default function DojoTabBar({ tab, setTab, indicatorLeft, t }) {
   };
 
   return (
-    <View style={[s.tabBar, { borderTopColor: accent + '18' }]} accessibilityRole="tablist">
+    <View
+      style={[
+        s.tabBar,
+        {
+          borderColor: accent + '18',
+          shadowColor: accent,
+        },
+      ]}
+      accessibilityRole="tablist"
+    >
       <Animated.View
+        pointerEvents="none"
         style={[
           s.tabPill,
           {
@@ -37,7 +45,7 @@ export default function DojoTabBar({ tab, setTab, indicatorLeft, t }) {
               { scale: scaleAnim },
             ],
             width: `${TAB_W_PERCENT * 0.84}%`,
-            backgroundColor: accent + '12',
+            backgroundColor: accent + '16',
             borderColor: accent + '35',
             borderBottomColor: accent + '55',
           },
@@ -52,9 +60,11 @@ export default function DojoTabBar({ tab, setTab, indicatorLeft, t }) {
             onPress={() => handleTabPress(tb.key)}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
-            accessibilityLabel={tb.label}
+            accessibilityLabel={tb.hint}
+            android_ripple={{ color: accent + '22', borderless: false }}
+            hitSlop={8}
           >
-            <View style={[s.iconContainer, active && { backgroundColor: accent + '16' }]}>
+            <View style={[s.iconContainer, active && { backgroundColor: accent + '18' }]}>
               <Text style={[s.tabIcon, active && { color: accent }]}>{tb.icon}</Text>
             </View>
             <Text style={[s.tabLabel, active && { color: accent }]}>{tb.label}</Text>
@@ -68,46 +78,52 @@ export default function DojoTabBar({ tab, setTab, indicatorLeft, t }) {
 const s = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: TAB_BAR_H,
-    backgroundColor: 'rgba(4,4,4,0.98)',
-    borderTopWidth: StyleSheet.hairlineWidth,
+    bottom: NAV_SAFE_BOTTOM,
+    left: 10,
+    right: 10,
+    height: TAB_BAR_H - NAV_SAFE_BOTTOM - 12,
+    backgroundColor: 'rgba(7,8,10,0.86)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 26,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 2,
+    paddingHorizontal: 7,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.24,
+    shadowRadius: 30,
+    elevation: 18,
+    zIndex: 20,
   },
   tabPill: {
     position: 'absolute',
-    top: 5,
-    height: TAB_BAR_H - 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderBottomWidth: 2.5,
+    top: 7,
+    height: TAB_BAR_H - NAV_SAFE_BOTTOM - 26,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    paddingVertical: 5,
+    gap: 5,
+    minHeight: 58,
   },
   iconContainer: {
-    width: 34,
-    height: 26,
+    width: 38,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 7,
+    borderRadius: 13,
   },
   tabIcon: {
-    fontSize: 18,
+    fontSize: 19,
+    fontWeight: '900',
     color: TXT3,
   },
   tabLabel: {
-    fontSize: 5.8,
-    fontWeight: '800',
-    letterSpacing: 0.6,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0,
     color: TXT3,
   },
 });

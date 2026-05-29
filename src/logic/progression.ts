@@ -874,7 +874,9 @@ export function applySessionEnd(progress: Progress, { sessionId, exercises, inte
     }
   }
 
-  const durationMs = endedAt - session.startedAt;
+  // Floor at 0: a wrong device clock (endedAt < startedAt) or a missing endedAt
+  // must never produce negative duration → negative XP / inflated recovery.
+  const durationMs = Math.max(0, endedAt - session.startedAt);
   const durationHours = durationMs / (1000 * 60 * 60);
   const xpFromSession = Math.round(XP_PER_SESSION_HOUR * durationHours * (intensity / 5));
 
@@ -1095,13 +1097,14 @@ export function evaluateBossCompletion(progress: Progress, bossId: string, date:
   const challenge = progress.bossChallenges[challengeIdx];
   if (challenge.completedAt) return { progress, events: [] }; // already done
 
-  // Verify all exercises were done today
+  // Verify every required exercise was logged today, under the boss's own
+  // discipline. Exact `discipline-name` key match: the previous substring check
+  // (`k.includes(ex.name)`) let e.g. a Shusui "Endurance Run" satisfy Sandai's
+  // "Run" requirement — a cross-discipline false-positive completion.
   const todayExercises = progress.completedByDate[date] || {};
-  const allDone = boss.exercises.every(ex => {
-    const dayEntries = Object.keys(todayExercises);
-    // For simplicity, check if any session in the last 24h covered this
-    return dayEntries.some(k => k.includes(ex.name));
-  });
+  const allDone = boss.exercises.every(
+    ex => todayExercises[`${boss.discipline}-${ex.name}`] === true,
+  );
 
   if (!allDone) return { progress, events: [] };
 
@@ -1122,7 +1125,7 @@ export function evaluateBossCompletion(progress: Progress, bossId: string, date:
   return { progress: next, events };
 }
 
-function weekOfYear(dateStr) {
+export function weekOfYear(dateStr) {
   const d = new Date(dateStr + 'T00:00:00Z');
   const dayOfWeek = d.getUTCDay();
   const sunday = new Date(d);

@@ -54,6 +54,13 @@ describe('THEME_UNLOCK_CONDITIONS', () => {
     expect(THEME_UNLOCK_CONDITIONS.abyss(p)).toBe(true);
   });
 
+  test('marimo gated on totalXP >= 500', () => {
+    const p = defaultProgress();
+    expect(THEME_UNLOCK_CONDITIONS.marimo(p)).toBe(false);
+    p.totalXP = 500;
+    expect(THEME_UNLOCK_CONDITIONS.marimo(p)).toBe(true);
+  });
+
   test('failed bosses do not count as defeats', () => {
     const p = defaultProgress();
     p.bossChallenges = [
@@ -71,6 +78,7 @@ describe('THEME_UNLOCK_HINTS', () => {
     expect(THEME_UNLOCK_HINTS.hollow).toMatch(/boss/i);
     expect(THEME_UNLOCK_HINTS.solar).toMatch(/skill/i);
     expect(THEME_UNLOCK_HINTS.abyss).toMatch(/boss/i);
+    expect(THEME_UNLOCK_HINTS.marimo).toMatch(/hunter|xp/i);
   });
 });
 
@@ -95,8 +103,9 @@ describe('getUnlockedThemes', () => {
     expect(getUnlockedThemes(p)).toEqual(['wado', 'sandai', 'shusui', 'hollow', 'abyss']);
   });
 
-  test('full progression unlocks all 6 themes', () => {
+  test('full progression unlocks all 7 themes', () => {
     const p = defaultProgress();
+    p.totalXP = 500;
     p.bossChallenges = [
       { id: 'a', weekOf: 'w1', completedAt: '2026-01-01', failed: false },
       { id: 'b', weekOf: 'w2', completedAt: '2026-01-08', failed: false },
@@ -107,7 +116,7 @@ describe('getUnlockedThemes', () => {
       sandai: allSkillUnlocksFor('sandai'),
       shusui: allSkillUnlocksFor('shusui'),
     };
-    expect(getUnlockedThemes(p).sort()).toEqual(['abyss', 'hollow', 'sandai', 'shusui', 'solar', 'wado']);
+    expect(getUnlockedThemes(p).sort()).toEqual(['abyss', 'hollow', 'marimo', 'sandai', 'shusui', 'solar', 'wado']);
   });
 });
 

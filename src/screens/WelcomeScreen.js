@@ -38,7 +38,7 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
   const [step, setStep] = useState('choose'); // 'choose' | 'name'
   const [name, setName] = useState('');
-  const fade = useRef(new Animated.Value(0)).current;
+  const fade = useRef(new Animated.Value(1)).current;
   // One-shot latch: a fast double-tap can't fire onSignIn twice.
   const submitGate = useRef(createSubmitGate()).current;
 
@@ -58,7 +58,7 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
   };
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: t.bg }]}>
       <StatusBar barStyle={statusBarStyleForTheme(theme)} backgroundColor="transparent" translucent />
       <AmbientBG theme={theme} />
       <FloatingParticles theme={theme} count={14} />
@@ -69,16 +69,29 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
       >
         <Animated.View style={[s.content, { opacity: fade }]}>
           <View style={s.hero}>
+            <View style={[s.bladeRail, { borderColor: t.accent + '20' }]}>
+              <View style={[s.bladeRailLine, { backgroundColor: t.accent }]} />
+              <View style={[s.bladeRailLine, { backgroundColor: t.accent2 || t.accent }]} />
+              <View style={[s.bladeRailLine, { backgroundColor: t.accent }]} />
+            </View>
             <View style={[s.kanjiBadge, { backgroundColor: t.accent + '15', borderColor: t.accent + '30' }]}>
               <Text style={[s.kanjiBadgeText, { color: t.accent }]}>三刀流</Text>
             </View>
-            <Text style={s.title}>SANTORYU FITNESS</Text>
+            <Text style={s.title}>SANTORYU</Text>
+            <Text style={[s.titleAccent, { color: t.accent }]}>FITNESS</Text>
             <Text style={s.subtitle}>世界一の大剣豪への道</Text>
             <Text style={s.tagline}>
               {step === 'choose'
                 ? 'Carve your name into the dojo.'
                 : 'What should the dojo call you?'}
             </Text>
+            <View style={s.trustRow}>
+              {['LOCAL', 'PRIVATE', 'OFFLINE'].map(item => (
+                <View key={item} style={[s.trustPill, { borderColor: t.accent + '24' }]}>
+                  <Text style={[s.trustPillText, { color: t.accent }]}>{item}</Text>
+                </View>
+              ))}
+            </View>
           </View>
 
           {step === 'choose' ? (
@@ -92,6 +105,7 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
                 onPress={goName}
                 accessibilityRole="button"
                 accessibilityLabel="Create your dojo profile"
+                android_ripple={{ color: t.accent + '20', borderless: false }}
               >
                 <SantoryuMark size={20} color={t.accent} />
                 <Text style={[s.primaryBtnTxt, { color: t.accent }]}>Create your dojo profile</Text>
@@ -102,6 +116,7 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
                 onPress={() => { lightImpact(); onSkip(); }}
                 accessibilityRole="button"
                 accessibilityLabel="Skip for now, continue without a profile"
+                android_ripple={{ color: t.accent + '12', borderless: true }}
                 hitSlop={DS.hitSlop}
               >
                 <Text style={s.skipTxt}>Skip for now</Text>
@@ -133,6 +148,7 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
                 disabled={!valid}
                 accessibilityRole="button"
                 accessibilityLabel="Confirm name and enter the dojo"
+                android_ripple={{ color: '#00000022', borderless: false }}
               >
                 <Text style={[s.confirmTxt, !valid && { color: TXT3 }]}>ENTER THE DOJO</Text>
               </Pressable>
@@ -141,6 +157,7 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
                 onPress={() => { lightImpact(); setStep('choose'); }}
                 accessibilityRole="button"
                 accessibilityLabel="Go back"
+                android_ripple={{ color: t.accent + '12', borderless: true }}
                 hitSlop={DS.hitSlop}
               >
                 <Text style={s.skipTxt}>Back</Text>
@@ -148,9 +165,9 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
             </View>
           )}
 
-          <Text style={s.footnote}>
-            Stored only on this device. No account, no sync.
-          </Text>
+          <View style={[s.footnoteBox, { borderColor: t.accent + '18' }]}>
+            <Text style={s.footnote}>Stored only on this device. No account, no sync.</Text>
+          </View>
         </Animated.View>
       </KeyboardAvoidingView>
     </View>
@@ -159,39 +176,66 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
 
 const s = StyleSheet.create({
   root: { flex: 1 },
-  flex: { flex: 1 },
+  flex: { flex: 1, position: 'relative', zIndex: 1 },
   content: {
     flex: 1,
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     paddingTop: SB_H + 24,
-    paddingBottom: 36,
+    paddingBottom: 28,
     justifyContent: 'space-between',
   },
-  hero: { alignItems: 'center', marginTop: H * 0.10 },
+  hero: { alignItems: 'center', marginTop: H * 0.07 },
+  bladeRail: {
+    width: '78%',
+    height: 36,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    marginBottom: 20,
+    justifyContent: 'space-around',
+    paddingVertical: 7,
+    opacity: 0.95,
+  },
+  bladeRailLine: { height: 2, width: '100%', opacity: 0.72 },
   kanjiBadge: {
-    width: 96, height: 96, borderRadius: DS.radius.xl, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 28,
+    width: 104, height: 104, borderRadius: DS.radius.xl, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
   },
   kanjiBadgeText: { fontSize: 30, fontWeight: '900', letterSpacing: 1 },
-  title: { fontSize: 22, fontWeight: '900', letterSpacing: 4, color: TXT1, textAlign: 'center' },
+  title: { fontSize: 34, fontWeight: '900', letterSpacing: 3, color: TXT1, textAlign: 'center', lineHeight: 38 },
+  titleAccent: { fontSize: 11, fontWeight: '900', letterSpacing: 7, textAlign: 'center', marginTop: 4 },
   subtitle: { fontSize: 12, color: TXT3, marginTop: 10, letterSpacing: 1 },
   tagline: { fontSize: 13, color: TXT3, marginTop: 22, textAlign: 'center', lineHeight: 19 },
+  trustRow: { flexDirection: 'row', gap: 8, marginTop: 20 },
+  trustPill: {
+    borderWidth: 1,
+    borderRadius: DS.radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(0,0,0,0.24)',
+  },
+  trustPillText: { fontSize: 8, fontWeight: '900', letterSpacing: 1.5 },
 
-  actions: { gap: 14 },
+  actions: { gap: 14, marginBottom: 8 },
   primaryBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
     borderWidth: 1.5, borderRadius: DS.radius.full,
-    paddingVertical: 15, paddingHorizontal: 20,
+    paddingVertical: 16, paddingHorizontal: 20,
+    minHeight: 54,
+    backgroundColor: 'rgba(9,10,12,0.68)',
   },
   primaryBtnTxt: { fontSize: 15, fontWeight: '800', letterSpacing: 0.4 },
 
   input: {
-    backgroundColor: 'rgba(0,0,0,0.4)', borderWidth: 1.5, borderRadius: DS.radius.lg,
+    backgroundColor: 'rgba(9,10,12,0.72)', borderWidth: 1.5, borderRadius: DS.radius.lg,
     paddingVertical: 15, paddingHorizontal: 18, color: TXT1, fontSize: 16, fontWeight: '600',
   },
   confirmBtn: {
     borderWidth: 1.5, borderRadius: DS.radius.full,
-    paddingVertical: 15, alignItems: 'center',
+    paddingVertical: 15, alignItems: 'center', minHeight: 52,
   },
   confirmBtnDisabled: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: BORD },
   confirmTxt: { color: '#0a0a0a', fontSize: 13, fontWeight: '900', letterSpacing: 2 },
@@ -199,5 +243,12 @@ const s = StyleSheet.create({
   skipBtn: { alignItems: 'center', paddingVertical: 12 },
   skipTxt: { color: TXT3, fontSize: 13, fontWeight: '600', letterSpacing: 1 },
 
+  footnoteBox: {
+    borderWidth: 1,
+    borderRadius: DS.radius.lg,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+  },
   footnote: { color: TXT3, fontSize: 11, textAlign: 'center', letterSpacing: 0.3 },
 });

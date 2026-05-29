@@ -21,6 +21,9 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# local QA artifacts (screenshots, emulator/expo logs, metro cache)
+artifacts/
+
 # debug
 npm-debug.*
 yarn-debug.*

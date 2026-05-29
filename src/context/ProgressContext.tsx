@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Progress, ProgressionEvent } from '../types';
-import { loadProgress, saveProgress, resetProgress, checkThemeUnlocks, DEFAULT_UNLOCKED_THEMES } from '../storage/progressStore';
+import { loadProgress, saveProgress, saveProgressImmediate, resetProgress, checkThemeUnlocks, DEFAULT_UNLOCKED_THEMES } from '../storage/progressStore';
 import { evaluateBountyMissions, evaluateArcWeekCompletion, evaluateBossExpiry, evaluateAllActiveBossChallenges, toDateKey } from '../logic/progression';
 import { TRAINING_ARCS } from '../data/gameData';
 
@@ -11,6 +11,7 @@ export interface ProgressContextValue {
   tab: string;
   t: (key: string) => string;
   handleUpdate: (updater: Progress | ((prev: Progress) => Progress)) => void;
+  handleUpdateImmediate: (updater: Progress | ((prev: Progress) => Progress)) => void;
   handleSessionEnd: (next: Progress, events: ProgressionEvent[]) => void;
   showToast: (msg: { title: string; body: string }) => void;
   setTab: (tab: string) => void;
@@ -67,7 +68,10 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
     });
   }, []);
 
-  const handleUpdate = useCallback((updater: Progress | ((prev: Progress) => Progress)) => {
+  const applyAndSave = useCallback((
+    updater: Progress | ((prev: Progress) => Progress),
+    save: (p: Progress) => unknown,
+  ) => {
     setProgress(prev => {
       const raw = typeof updater === 'function' ? updater(prev!) : updater;
       let next = raw;
@@ -77,13 +81,23 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
           ? { ...withThemes, _pendingEvents: [...(withThemes._pendingEvents ?? []), ...events] }
           : withThemes;
       }
-      saveProgress(next);
+      save(next);
       if (next.settings?.theme !== prev?.settings?.theme) {
         setTheme(next.settings?.theme || 'sandai');
       }
       return next;
     });
   }, []);
+
+  const handleUpdate = useCallback((updater: Progress | ((prev: Progress) => Progress)) => {
+    applyAndSave(updater, saveProgress);
+  }, [applyAndSave]);
+
+  // Critical writes that must survive an immediate app kill (session start,
+  // explicit save points). Bypasses the 500 ms debounce in saveProgress.
+  const handleUpdateImmediate = useCallback((updater: Progress | ((prev: Progress) => Progress)) => {
+    applyAndSave(updater, saveProgressImmediate);
+  }, [applyAndSave]);
 
   const clearPendingEvents = useCallback(() => {
     setProgress(prev => prev ? { ...prev, _pendingEvents: [] } : prev);
@@ -126,7 +140,10 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
 
     finalProgress = { ...finalProgress, _pendingEvents: allEvents };
 
-    saveProgress(finalProgress);
+    // Session end can produce rank-ups, boss completions, theme unlocks, and
+    // arc transitions — losing any of that to a debounce window if the user
+    // closes the app would be a bad user experience. Flush synchronously.
+    saveProgressImmediate(finalProgress);
     setProgress(finalProgress);
     if (finalProgress.settings?.theme !== progressRef.current?.settings?.theme) {
       setTheme(finalProgress.settings?.theme || 'sandai');
@@ -146,21 +163,28 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
 
   const t = useCallback((key: string): string => key, []);
 
-  if (!progress) return null;
+  // Hooks must run unconditionally — build the value, then gate the render below.
+  // Memoized so settings-only updates (which keep bossChallenges/skillUnlocks
+  // refs) don't churn the object identity and re-render every screen consumer.
+  const value: ProgressContextValue | null = useMemo(
+    () => progress && {
+      progress,
+      today,
+      theme,
+      tab,
+      t,
+      handleUpdate,
+      handleUpdateImmediate,
+      handleSessionEnd,
+      showToast,
+      setTab,
+      onReset,
+      clearPendingEvents,
+    },
+    [progress, today, theme, tab, t, handleUpdate, handleUpdateImmediate, handleSessionEnd, showToast, setTab, onReset, clearPendingEvents],
+  );
 
-  const value: ProgressContextValue = {
-    progress,
-    today,
-    theme,
-    tab,
-    t,
-    handleUpdate,
-    handleSessionEnd,
-    showToast,
-    setTab,
-    onReset,
-    clearPendingEvents,
-  };
+  if (!value) return null;
 
   return (
     <ProgressContext.Provider value={value}>

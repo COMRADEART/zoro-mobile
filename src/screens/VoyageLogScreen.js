@@ -9,10 +9,24 @@ import { SleepStagesWeek } from '../components/shared/charts/SleepStagesChart';
 import { TXT1, TXT2, TXT3, SB_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import {
-  computeRingProgress,
-  generateVoyageChronicle,
-  computeActivityRings,
+computeRingProgress,
+generateVoyageChronicle,
+computeActivityRings,
+toDateKey,
+parseDateKey,
 } from '../logic/progression';
+import {
+getLastNDays,
+shortDay,
+shortDate,
+calculateXpTrend,
+calculateCalorieTrend,
+calculateStepTrend,
+calculateSharpnessTrend,
+calculateSleepTrend,
+calculateWeightTrend,
+calculateRingClosureTrend,
+} from '../utils/trendCalculations';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
 
 const { width: W } = Dimensions.get('window');
@@ -21,42 +35,18 @@ const CHART_W = W - 48;
 const DISC_COLORS = { wado: '#D4A853', sandai: '#E52030', shusui: '#8EAABE' };
 const RING_COLORS = { move: '#FB7185', exercise: '#4ADE80', stand: '#60A5FA' };
 
-function toDateKey(d) {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-}
-
 function getCurrentWeekDays(today) {
-  const d = new Date(today + 'T00:00:00Z');
-  const dayOfWeek = d.getUTCDay();
+  const d = parseDateKey(today);
+  const dayOfWeek = d.getDay();
   const sunday = new Date(d);
-  sunday.setUTCDate(d.getUTCDate() - dayOfWeek);
+  sunday.setDate(d.getDate() - dayOfWeek);
   const days = [];
   for (let i = 0; i < 7; i++) {
     const dayDate = new Date(sunday);
-    dayDate.setUTCDate(sunday.getUTCDate() + i);
+    dayDate.setDate(sunday.getDate() + i);
     days.push(toDateKey(dayDate));
   }
   return days;
-}
-
-function getLastNDays(today, n) {
-  const days = [];
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(today + 'T00:00:00Z');
-    d.setUTCDate(d.getUTCDate() - i);
-    days.push(toDateKey(d));
-  }
-  return days;
-}
-
-function shortDay(dateKey) {
-  const d = new Date(dateKey + 'T00:00:00Z');
-  return ['S', 'M', 'T', 'W', 'T', 'F', 'S'][d.getUTCDay()];
-}
-
-function shortDate(dateKey) {
-  const d = new Date(dateKey + 'T00:00:00Z');
-  return `${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
 }
 
 function HeroCard({ accent, children, style }) {
@@ -114,54 +104,17 @@ const [view, setView] = useState('weekly');
     (progress.sessions || []).filter(s => weekDays.includes(toDateKey(new Date(s.endedAt)))).length,
     [progress, weekDays]);
 
-  const trendXP = useMemo(() =>
-    trendDays.map(d => {
-      const dayXP = (progress.sessions || [])
-        .filter(s => toDateKey(new Date(s.endedAt)) === d)
-        .reduce((a, s) => a + (s.xpEarned || 0), 0);
-      return dayXP;
-    }), [progress, trendDays]);
+  const trendXP = useMemo(() => calculateXpTrend(progress, trendDays), [progress, trendDays]);
+  const trendCal = useMemo(() => calculateCalorieTrend(progress, trendDays), [progress, trendDays]);
+  const trendSteps = useMemo(() => calculateStepTrend(progress, trendDays), [progress, trendDays]);
+  const trendSharp = useMemo(() => calculateSharpnessTrend(progress, trendDays), [progress, trendDays]);
+const trendSleepHours = useMemo(() => calculateSleepTrend(progress, trendDays), [progress, trendDays]);
+const trendWeight = useMemo(() => calculateWeightTrend(progress, trendDays), [progress, trendDays]);
+const trendRingClosure = useMemo(() => calculateRingClosureTrend(progress, trendDays), [progress, trendDays]);
 
-  const trendCal = useMemo(() =>
-    trendDays.map(d => {
-      return (progress.sessions || [])
-        .filter(s => toDateKey(new Date(s.endedAt)) === d)
-        .reduce((a, s) => a + (s.calories || 0), 0);
-    }), [progress, trendDays]);
-
-  const trendSteps = useMemo(() =>
-    trendDays.map(d => progress.stepLog?.[d]?.steps ?? 0),
-    [progress, trendDays]);
-
-  const trendSharp = useMemo(() =>
-    trendDays.map(d => progress.swordSharpnessLog?.[d] ?? null),
-    [progress, trendDays]);
-
-  const trendSleepHours = useMemo(() =>
-    trendDays.map(d => progress.sleepLog?.[d]?.hours ?? null),
-    [progress, trendDays]);
-
-  const trendWeight = useMemo(() => {
-    const weights = {};
-    for (const s of progress.sessions || []) {
-      const d = toDateKey(new Date(s.endedAt));
-      if (!weights[d] && progress.bodyStats?.weight) {
-        weights[d] = progress.bodyStats.weight;
-      }
-    }
-    return trendDays.map(d => weights[d] ?? null);
-  }, [progress, trendDays]);
-
-  const trendRingClosure = useMemo(() =>
-    trendDays.map(d => {
-      const r = computeActivityRings(progress, d);
-      return (r.move.pct >= 1 && r.exercise.pct >= 1 && r.stand.pct >= 1) ? 100 :
-        Math.round(((r.move.pct + r.exercise.pct + r.stand.pct) / 3) * 100);
-    }), [progress, trendDays]);
-
-  const now = new Date(today + 'T00:00:00Z');
-  now.setUTCMonth(now.getUTCMonth() + monthOffset);
-  const currentMonthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+  const now = parseDateKey(today);
+  now.setMonth(now.getMonth() + monthOffset);
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const [year, month] = currentMonthKey.split('-').map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
   const monthDates = useMemo(() => {
@@ -489,9 +442,9 @@ const [view, setView] = useState('weekly');
           <HeroCard accent="#7C3AED">
             {(() => {
               const weekSleep = [];
-              const end = new Date(today + 'T00:00:00');
+              const end = parseDateKey(today);
               for (let i = 6; i >= 0; i--) {
-                const d = new Date(end); d.setUTCDate(end.getUTCDate() - i);
+                const d = new Date(end); d.setDate(end.getDate() - i);
                 const dk = toDateKey(d);
                 weekSleep.push({ date: dk, sleepData: progress.sleepLog?.[dk] || null });
               }
@@ -555,8 +508,21 @@ const s = StyleSheet.create({
   kanjiBadge: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   kanjiBadgeText: { fontSize: 20, fontWeight: '900' },
 
-  heroCard: { backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderRadius: DS.radius.xl, padding: DS.space.lg, position: 'relative', overflow: 'hidden' },
-  heroGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, opacity: 0.4 },
+  heroCard: {
+    backgroundColor: 'rgba(8,10,12,0.74)',
+    borderWidth: 1,
+    borderBottomWidth: 1.5,
+    borderRadius: DS.radius.xl,
+    padding: DS.space.lg,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  heroGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 2, opacity: 0.6 },
 
   toggleRow: { flexDirection: 'row', gap: 8, marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 11, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
@@ -574,7 +540,7 @@ const s = StyleSheet.create({
   statRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
   statCard: { flex: 1, alignItems: 'center', paddingVertical: 16, marginBottom: 0 },
   statTopAccent: { position: 'absolute', top: 0, left: '25%', right: '25%', height: 2, borderRadius: 1 },
-  statNum: { fontSize: 18, fontWeight: '900', letterSpacing: -0.5, marginTop: 6 },
+  statNum: { fontSize: 18, fontWeight: '900', letterSpacing: 0, marginTop: 6 },
   statLbl: { fontSize: 7, fontWeight: '700', letterSpacing: 2, color: TXT3, marginTop: 4 },
 
   sparkLabels: { flexDirection: 'row', width: '100%', marginTop: 8 },
@@ -602,7 +568,7 @@ const s = StyleSheet.create({
   monthLabel: { fontSize: 15, fontWeight: '800', color: TXT1 },
 
   dominantLabel: { fontSize: 8, fontWeight: '700', letterSpacing: 3, marginBottom: 4 },
-  dominantVal: { fontSize: 30, fontWeight: '900', letterSpacing: -0.5 },
+  dominantVal: { fontSize: 30, fontWeight: '900', letterSpacing: 0 },
 
   heatDot: { width: 20, height: 20, borderRadius: 4, margin: 2 },
 

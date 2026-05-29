@@ -168,7 +168,7 @@ const s = StyleSheet.create({
   orbInner: { width: 100, height: 100, borderRadius: 50, position: 'absolute' },
   orbCore: { width: 44, height: 44, borderRadius: 22, position: 'absolute', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 10, elevation: 5 },
   countdownWrap: { position: 'absolute' },
-  countdownNum: { fontSize: 56, fontWeight: '900', letterSpacing: -2 },
+  countdownNum: { fontSize: 56, fontWeight: '900', letterSpacing: 0 },
   phaseSection: { alignItems: 'center', marginBottom: 8 },
   phaseLabel: { fontSize: 22, fontWeight: '900', letterSpacing: 2 },
   phaseSub: { fontSize: 9, fontWeight: '700', letterSpacing: 4, color: TXT3, marginTop: 4 },
