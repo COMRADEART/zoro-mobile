@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, Animated, TextInput, ScrollView, StyleSheet } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
-import { Panel, PrimaryButton, SwordSelector, MetricTile, ProgressRail } from '../components/premium/PremiumUI';
+import { Panel, PrimaryButton, SwordSelector, ProgressRail, SWORD_GLYPH } from '../components/premium/PremiumUI';
 import { TXT1, TXT2, TXT3, SB_H, TAB_BAR_H, STEEL } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import { applySessionStart, applySessionEnd, logBreathingSession, rankIndexFor } from '../logic/progression';
@@ -13,6 +13,22 @@ import { playClick, playSuccess } from '../services/audioService';
 import useReducedMotion from '../hooks/useReducedMotion';
 
 const REST_SECONDS = 20;
+
+// Text-forward stat band (shared visual language with Home) — replaces the
+// old identical MetricTile grids.
+function StatBand({ items }) {
+  return (
+    <View style={s.statBand}>
+      {items.map((it, i) => (
+        <View key={it.label} style={[s.statCol, i > 0 && s.statColDivider]}>
+          <Text style={[s.statMark, { color: it.accent }]}>{it.mark}</Text>
+          <Text style={s.statValue} numberOfLines={1}>{it.value}</Text>
+          <Text style={s.statUnit} numberOfLines={1}>{it.label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 const MOOD = {
   wado: 'Calm breath. Clean movement. No wasted force.',
@@ -48,7 +64,7 @@ function TrainScreen({ onFocusModeChange }) {
   const fadeSlide = useRef(new Animated.Value(0)).current;
 
   const sword = SWORDS[activeSword];
-  const swordMark = sword.kanji?.slice(0, 1) || sword.name?.slice(0, 1) || '?';
+  const swordMark = SWORD_GLYPH[activeSword] || sword.kanji?.slice(0, 1) || sword.name?.slice(0, 1) || '?';
   const exercises = getSwordExercises(activeSword, progress.skillUnlocks);
   const currentEx = exercises[exerciseIndex];
   const nextEx = exercises[exerciseIndex + 1];
@@ -239,22 +255,28 @@ function TrainScreen({ onFocusModeChange }) {
 
           <Animated.View style={contentMotion}>
             <Panel accent={sword.accent} style={s.hero}>
-              <Animated.View style={[s.symbolWrap, { transform: [{ scale: pulse }] }]}>
-                <View style={[s.symbolAura, { borderColor: sword.accent + '36' }]} />
-                <Text style={[s.heroSymbol, { color: sword.accent }]}>{swordMark}</Text>
+              <Text style={[s.heroSeal, { color: sword.accent }]} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                {swordMark}
+              </Text>
+              <Animated.View style={[s.sealWrap, { transform: [{ scale: pulse }] }]}>
+                <View style={[s.sealRing, { borderColor: sword.accent + '2E' }]} />
+                <Text style={[s.sealKanji, { color: sword.accent }]}>{swordMark}</Text>
               </Animated.View>
-              <Text style={[s.disciplineName, { color: sword.accent }]}>{sword.name}</Text>
+              <Text style={s.heroEyebrow}>TODAY&apos;S DISCIPLINE</Text>
+              <Text style={[s.disciplineName, { color: sword.accent }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{sword.name}</Text>
               <Text style={s.disciplineMeta}>{sword.discipline}</Text>
               <Text style={s.moodPhrase}>{MOOD[activeSword]}</Text>
 
-              <View style={s.heroMetrics}>
-                <MetricTile label="Moves" value={exercises.length} detail="today" accent={sword.accent} mark="型" />
-                <MetricTile label="Default" value={`${intensity}/10`} detail="intensity" accent={sword.accent} mark="力" />
-              </View>
+              <StatBand
+                items={[
+                  { mark: '型', value: `${exercises.length}`, label: 'moves today', accent: sword.accent },
+                  { mark: '力', value: `${intensity}/10`, label: 'intensity', accent: sword.accent },
+                ]}
+              />
 
               <PrimaryButton
                 label="BEGIN SESSION"
-                sublabel="Focus mode"
+                sublabel="Enter focus mode"
                 accent={sword.accent}
                 onPress={startSession}
                 darkText={sword.accent !== STEEL}
@@ -394,8 +416,12 @@ function TrainScreen({ onFocusModeChange }) {
           <Text style={s.doneSubtitle}>The blade remembers today.</Text>
 
           <View style={s.doneMetrics}>
-            <MetricTile label="XP gained" value={`+${earnedXP}`} accent={sword.accent} mark="力" />
-            <MetricTile label="Logged" value={completedExercises.length} detail="moves" accent={rank.color} mark="型" />
+            <StatBand
+              items={[
+                { mark: '力', value: `+${earnedXP}`, label: 'XP gained', accent: sword.accent },
+                { mark: '型', value: `${completedExercises.length}`, label: 'moves logged', accent: rank.color },
+              ]}
+            />
           </View>
 
           <Panel accent={rank.color} dim style={s.rankMoment}>
@@ -447,51 +473,92 @@ const s = StyleSheet.create({
     paddingTop: DS.space.xl,
     paddingBottom: DS.space.lg,
   },
-  symbolWrap: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+  heroSeal: {
+    position: 'absolute',
+    right: -18,
+    top: -30,
+    fontSize: 180,
+    fontWeight: '900',
+    opacity: 0.05,
+  },
+  sealWrap: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: DS.space.md,
   },
-  symbolAura: {
+  sealRing: {
     position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    borderWidth: 18,
-    opacity: 0.9,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  heroSymbol: {
-    fontSize: 76,
+  sealKanji: {
+    fontSize: 52,
     fontWeight: '900',
+  },
+  heroEyebrow: {
+    color: TXT3,
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 2,
+    marginBottom: 8,
   },
   disciplineName: {
-    fontSize: 30,
-    fontWeight: '900',
-    letterSpacing: 0,
+    fontFamily: DS.font.display,
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: 0.2,
     textAlign: 'center',
   },
   disciplineMeta: {
     color: TXT3,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    marginTop: 5,
+    letterSpacing: 1.4,
+    marginTop: 6,
   },
   moodPhrase: {
+    fontFamily: DS.font.display,
     color: TXT2,
     textAlign: 'center',
     fontSize: 15,
     lineHeight: 23,
+    fontStyle: 'italic',
     marginTop: DS.space.md,
     maxWidth: 286,
   },
-  heroMetrics: {
+  statBand: {
     flexDirection: 'row',
-    gap: DS.space.sm,
-    marginTop: DS.space.lg,
     width: '100%',
+    marginTop: DS.space.lg,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    paddingVertical: 16,
+  },
+  statCol: { flex: 1, alignItems: 'center', gap: 5 },
+  statColDivider: {
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: 'rgba(255,255,255,0.08)',
+  },
+  statMark: { fontSize: 14, fontWeight: '900' },
+  statValue: {
+    fontFamily: DS.font.display,
+    color: TXT1,
+    fontSize: 23,
+    lineHeight: 26,
+    fontWeight: '700',
+  },
+  statUnit: {
+    color: TXT3,
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
   beginButton: { marginTop: DS.space.lg, width: '100%' },
   previewPanel: { marginTop: DS.space.md, gap: DS.space.sm },
@@ -537,7 +604,7 @@ const s = StyleSheet.create({
     alignItems: 'flex-end',
     marginBottom: DS.space.sm,
   },
-  focusTimer: { color: TXT1, fontSize: 36, fontWeight: '900', letterSpacing: 0 },
+  focusTimer: { fontFamily: DS.font.display, color: TXT1, fontSize: 40, fontWeight: '700', letterSpacing: 0.5 },
   focusCount: { color: TXT3, fontSize: 13, fontWeight: '800', marginBottom: 7 },
   exerciseStage: {
     flex: 1,
@@ -548,11 +615,12 @@ const s = StyleSheet.create({
   exerciseMark: { fontSize: 78, fontWeight: '900', marginBottom: DS.space.sm },
   exerciseLabel: { color: TXT3, fontSize: 13, fontWeight: '700', marginBottom: DS.space.xs },
   exerciseName: {
+    fontFamily: DS.font.display,
     fontSize: 42,
     lineHeight: 48,
-    fontWeight: '900',
+    fontWeight: '700',
     textAlign: 'center',
-    letterSpacing: 0,
+    letterSpacing: 0.2,
   },
   exerciseTarget: { color: TXT2, fontSize: 17, marginTop: DS.space.sm, fontWeight: '700' },
   amountInput: {
@@ -584,10 +652,11 @@ const s = StyleSheet.create({
     marginTop: DS.space.xxl,
   },
   restTimer: {
+    fontFamily: DS.font.display,
     textAlign: 'center',
     fontSize: 116,
     lineHeight: 126,
-    fontWeight: '900',
+    fontWeight: '700',
     letterSpacing: 0,
   },
   restCopy: {
@@ -600,7 +669,7 @@ const s = StyleSheet.create({
   },
   nextPanel: { marginBottom: DS.space.lg },
   nextLabel: { color: TXT3, fontSize: 12, fontWeight: '800' },
-  nextName: { color: TXT1, fontSize: 24, fontWeight: '900', marginTop: 4 },
+  nextName: { fontFamily: DS.font.display, color: TXT1, fontSize: 24, fontWeight: '700', marginTop: 4 },
   nextTarget: { color: TXT3, fontSize: 14, marginTop: 4 },
   doneScreen: {
     flex: 1,
@@ -622,9 +691,9 @@ const s = StyleSheet.create({
     fontWeight: '900',
     marginTop: DS.space.xxl,
   },
-  doneTitle: { color: TXT1, fontSize: 32, fontWeight: '900', letterSpacing: 0 },
-  doneSubtitle: { color: TXT3, fontSize: 15, marginTop: DS.space.xs, marginBottom: DS.space.xl },
-  doneMetrics: { flexDirection: 'row', gap: DS.space.sm, width: '100%', marginBottom: DS.space.md },
+  doneTitle: { fontFamily: DS.font.display, color: TXT1, fontSize: 32, fontWeight: '700', letterSpacing: 0.2 },
+  doneSubtitle: { fontFamily: DS.font.display, color: TXT3, fontSize: 15, fontStyle: 'italic', marginTop: DS.space.xs, marginBottom: DS.space.xl },
+  doneMetrics: { width: '100%', marginBottom: DS.space.md },
   rankMoment: { width: '100%', marginBottom: DS.space.lg },
   rankMomentTitle: { fontSize: 18, fontWeight: '900' },
   rankMomentCopy: { color: TXT3, fontSize: 13, lineHeight: 20, marginTop: 5 },

@@ -6,6 +6,10 @@ import { SWORDS } from '../../data/gameData';
 
 export const SWORD_ORDER = ['wado', 'sandai', 'shusui'];
 
+// One iconic glyph per blade for compact marks. Sandai's literal first char
+// (三) reads as menu bars, so the demon-blade 鬼 stands in.
+export const SWORD_GLYPH = { wado: '和', sandai: '鬼', shusui: '秋' };
+
 export function Panel({ accent = '#F0444F', children, style, dim = false }) {
   return (
     <View style={[s.panel, dim && s.panelDim, { borderColor: accent + '18' }, style]}>
@@ -149,11 +153,12 @@ const s = StyleSheet.create({
     marginBottom: 6,
   },
   headerTitle: {
+    fontFamily: DS.font.display,
     color: TXT1,
-    fontSize: 34,
-    lineHeight: 38,
-    fontWeight: '900',
-    letterSpacing: 0,
+    fontSize: 33,
+    lineHeight: 37,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   headerSubtitle: {
     color: TXT3,
@@ -217,8 +222,9 @@ const s = StyleSheet.create({
     fontWeight: '700',
   },
   metricValue: {
-    fontSize: 25,
-    fontWeight: '900',
+    fontFamily: DS.font.display,
+    fontSize: 26,
+    fontWeight: '700',
     letterSpacing: 0,
   },
   metricDetail: {

@@ -6,7 +6,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import { AmbientBG, FloatingParticles } from '../components/shared/AmbientBG';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
-import { TXT1, TXT3, BORD, SB_H } from '../theme/tokens';
+import { TXT1, TXT2, TXT3, BORD, SB_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import { lightImpact } from '../utils/haptics';
 import { isEnterableName, DISPLAY_NAME_MAX } from '../logic/progression';
@@ -208,7 +208,7 @@ const s = StyleSheet.create({
   title: { fontSize: 34, fontWeight: '900', letterSpacing: 3, color: TXT1, textAlign: 'center', lineHeight: 38 },
   titleAccent: { fontSize: 11, fontWeight: '900', letterSpacing: 7, textAlign: 'center', marginTop: 4 },
   subtitle: { fontSize: 12, color: TXT3, marginTop: 10, letterSpacing: 1 },
-  tagline: { fontSize: 13, color: TXT3, marginTop: 22, textAlign: 'center', lineHeight: 19 },
+  tagline: { fontFamily: DS.font.display, fontSize: 15, fontStyle: 'italic', color: TXT2, marginTop: 22, textAlign: 'center', lineHeight: 22 },
   trustRow: { flexDirection: 'row', gap: 8, marginTop: 20 },
   trustPill: {
     borderWidth: 1,

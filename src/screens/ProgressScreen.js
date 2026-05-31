@@ -474,7 +474,7 @@ const s = StyleSheet.create({
   segmentText: { color: TXT3, fontSize: 13, fontWeight: '800' },
   rankPanel: { gap: DS.space.md },
   rankHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  rankTitle: { fontSize: 26, fontWeight: '900', letterSpacing: 0 },
+  rankTitle: { fontFamily: DS.font.display, fontSize: 26, fontWeight: '700', letterSpacing: 0.2 },
   rankSub: { color: TXT3, marginTop: 5, fontSize: 13 },
   rankGlyph: { fontSize: 48, fontWeight: '900' },
   rankRail: { marginTop: 2 },

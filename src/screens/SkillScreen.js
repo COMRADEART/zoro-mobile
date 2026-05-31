@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
-import { Panel, ProgressRail, ScreenHeader, SwordSelector } from '../components/premium/PremiumUI';
+import { Panel, ProgressRail, ScreenHeader, SwordSelector, SWORD_GLYPH } from '../components/premium/PremiumUI';
 import { TXT1, TXT2, TXT3, SB_H, TAB_BAR_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import { rankIndexFor, disciplineXPFor, getActiveBountyMissions } from '../logic/progression';
@@ -53,7 +53,7 @@ function SkillScreen() {
         title="Blade growth"
         subtitle="One discipline at a time. Unlocks emerge as your training story deepens."
         accent={sword.accent}
-        mark={sword.kanji?.slice(0, 1)}
+        mark={SWORD_GLYPH[selected] || sword.kanji?.slice(0, 1)}
       />
 
       <SwordSelector value={selected} onChange={(key) => { playClick(); setSelected(key); }} compact />
@@ -196,12 +196,12 @@ const s = StyleSheet.create({
     alignItems: 'flex-start',
     gap: DS.space.md,
   },
-  mapTitle: { fontSize: 26, fontWeight: '900', letterSpacing: 0 },
+  mapTitle: { fontFamily: DS.font.display, fontSize: 26, fontWeight: '700', letterSpacing: 0.2 },
   mapSub: { color: TXT3, fontSize: 13, marginTop: 5 },
   completionBubble: {
     alignItems: 'flex-end',
   },
-  completionValue: { fontSize: 26, fontWeight: '900' },
+  completionValue: { fontFamily: DS.font.display, fontSize: 26, fontWeight: '700' },
   completionLabel: { color: TXT3, fontSize: 11, fontWeight: '700' },
   mapRail: { marginTop: DS.space.md, marginBottom: DS.space.lg },
   nodeMap: {
@@ -255,12 +255,12 @@ const s = StyleSheet.create({
   nextUnlockRow: { flexDirection: 'row', alignItems: 'center', gap: DS.space.md },
   nextGlyph: { width: 52, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   nextGlyphText: { fontSize: 23, fontWeight: '900' },
-  nextName: { color: TXT1, fontSize: 17, fontWeight: '900' },
+  nextName: { fontFamily: DS.font.display, color: TXT1, fontSize: 18, fontWeight: '700' },
   nextDesc: { color: TXT3, fontSize: 13, marginTop: 4 },
   emptyCopy: { color: TXT3, fontSize: 13, lineHeight: 20 },
   supportGrid: { flexDirection: 'row', gap: DS.space.sm },
   supportPanel: { flex: 1, minHeight: 132 },
-  supportValue: { fontSize: 20, fontWeight: '900' },
+  supportValue: { fontFamily: DS.font.display, fontSize: 21, fontWeight: '700' },
   supportCopy: { color: TXT3, fontSize: 12, marginTop: 8 },
   techRow: { flexDirection: 'row', gap: DS.space.sm },
   techChip: {
