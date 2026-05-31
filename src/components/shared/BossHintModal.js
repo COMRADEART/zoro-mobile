@@ -20,7 +20,7 @@ export default function BossHintModal({ visible, bossName, onDismiss }) {
 
   if (!visible) return null;
 
-  const ACCENT = '#DC143C';
+  const ACCENT = '#F0F0F0';
 
   return (
     <Modal transparent visible={visible} animationType="fade">

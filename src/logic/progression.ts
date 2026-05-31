@@ -1352,10 +1352,13 @@ export function getReadinessLevel(progress: Progress): 'READY' | 'PUSH' | 'RECOV
  * @returns hex color string
  */
 export function getReadinessColor(progress: Progress): string {
+  // Monochrome: readiness valence is carried by the LABEL text (READY/PUSH/
+  // RECOVER), kept bright so "recover" never reads as dim/ignorable. The colour
+  // stays a bright neutral; only READY gets the brightest ink.
   const r = progress.recoveryScore;
-  if (r >= 70) return '#4ade80';
-  if (r >= 40) return '#fbbf24';
-  return '#f87171';
+  if (r >= 70) return '#F4F4F4';
+  if (r >= 40) return '#D0D0D0';
+  return '#D0D0D0';
 }
 
 // ─── SWORD SHARPNESS SCORE ───────────────────────────────────────────────────
@@ -1434,20 +1437,22 @@ export function getSharpnessLabel(score: number): string {
  * @returns hex color string
  */
 export function getSharpnessColor(score: number): string {
-  if (score >= 85) return '#4ade80';
-  if (score >= 65) return '#a3e635';
-  if (score >= 45) return '#fbbf24';
-  if (score >= 25) return '#f97316';
-  return '#f87171';
+  // Monochrome magnitude ramp: brighter = sharper. Floor kept legible because
+  // this colours the large gauge numeral and state label (no hue).
+  if (score >= 85) return '#FAFAFA';
+  if (score >= 65) return '#E2E2E2';
+  if (score >= 45) return '#C2C2C2';
+  if (score >= 25) return '#A0A0A0';
+  return '#828282';
 }
 
 // ─── DREAM SWORDSMAN ARCHETYPE ───────────────────────────────────────────────
 
 export const DREAM_ARCHETYPES = {
-  Guardian:  { icon: '盾', color: '#4ade80', desc: 'Deep, consistent rest. Your blade is always ready.' },
-  Ronin:     { icon: '浪', color: '#D4A853', desc: 'A wandering sleeper. Good enough, but untamed.' },
-  Ghost:     { icon: '霊', color: '#8EAABE', desc: 'Sleep-starved. You fight well, but at what cost?' },
-  Berserker: { icon: '狂', color: '#E52030', desc: 'Chaotic sleep. Raw power with no guarantee of sharpness.' },
+  Guardian:  { icon: '盾', color: '#EAEAEA', desc: 'Deep, consistent rest. Your blade is always ready.' },
+  Ronin:     { icon: '浪', color: '#D2D2D2', desc: 'A wandering sleeper. Good enough, but untamed.' },
+  Ghost:     { icon: '霊', color: '#B4B4B4', desc: 'Sleep-starved. You fight well, but at what cost?' },
+  Berserker: { icon: '狂', color: '#F2F2F2', desc: 'Chaotic sleep. Raw power with no guarantee of sharpness.' },
 };
 
 /**

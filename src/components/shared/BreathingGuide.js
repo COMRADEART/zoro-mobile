@@ -3,10 +3,10 @@ import { View, Text, Pressable, Modal, Animated, StyleSheet, Easing } from 'reac
 import { TXT1, TXT3 } from '../../theme/tokens';
 
 const PHASE_LABELS = {
-  inhale: { text: '吸う', sub: 'BREATHE IN', color: '#4A9EFF' },
-  holdIn: { text: '保つ', sub: 'HOLD', color: '#D4A853' },
-  exhale: { text: '吐く', sub: 'BREATHE OUT', color: '#38bdf8' },
-  holdOut: { text: '保つ', sub: 'HOLD', color: '#8EAABE' },
+  inhale: { text: '吸う', sub: 'BREATHE IN', color: '#F2F2F2' },
+  holdIn: { text: '保つ', sub: 'HOLD', color: '#B8B8B8' },
+  exhale: { text: '吐く', sub: 'BREATHE OUT', color: '#D8D8D8' },
+  holdOut: { text: '保つ', sub: 'HOLD', color: '#A4A4A4' },
 };
 
 export default function BreathingGuide({ program, onComplete, onDismiss }) {

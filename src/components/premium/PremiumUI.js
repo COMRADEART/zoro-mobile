@@ -10,7 +10,7 @@ export const SWORD_ORDER = ['wado', 'sandai', 'shusui'];
 // (三) reads as menu bars, so the demon-blade 鬼 stands in.
 export const SWORD_GLYPH = { wado: '和', sandai: '鬼', shusui: '秋' };
 
-export function Panel({ accent = '#F0444F', children, style, dim = false }) {
+export function Panel({ accent = '#F0F0F0', children, style, dim = false }) {
   return (
     <View style={[s.panel, dim && s.panelDim, { borderColor: accent + '18' }, style]}>
       <View pointerEvents="none" style={[s.panelLight, { backgroundColor: accent }]} />
@@ -19,7 +19,7 @@ export function Panel({ accent = '#F0444F', children, style, dim = false }) {
   );
 }
 
-export function ScreenHeader({ eyebrow, title, subtitle, mark, accent = '#F0444F', right }) {
+export function ScreenHeader({ eyebrow, title, subtitle, mark, accent = '#F0F0F0', right }) {
   return (
     <View style={s.screenHeader}>
       <View style={s.headerCopy}>
@@ -36,7 +36,7 @@ export function ScreenHeader({ eyebrow, title, subtitle, mark, accent = '#F0444F
   );
 }
 
-export function PrimaryButton({ label, sublabel, accent = '#F0444F', onPress, darkText = true, style }) {
+export function PrimaryButton({ label, sublabel, accent = '#F0F0F0', onPress, darkText = true, style }) {
   return (
     <Pressable
       onPress={onPress}
@@ -58,7 +58,7 @@ export function PrimaryButton({ label, sublabel, accent = '#F0444F', onPress, da
   );
 }
 
-export function MetricTile({ label, value, detail, accent = '#F0444F', mark, style }) {
+export function MetricTile({ label, value, detail, accent = '#F0F0F0', mark, style }) {
   return (
     <View style={[s.metricTile, { backgroundColor: accent + '0B' }, style]}>
       <View style={s.metricTop}>
@@ -71,7 +71,7 @@ export function MetricTile({ label, value, detail, accent = '#F0444F', mark, sty
   );
 }
 
-export function ProgressRail({ pct = 0, accent = '#F0444F', style }) {
+export function ProgressRail({ pct = 0, accent = '#F0F0F0', style }) {
   const clamped = Math.max(0, Math.min(1, pct));
   return (
     <View style={[s.rail, style]}>

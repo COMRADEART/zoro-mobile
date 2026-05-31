@@ -1,7 +1,7 @@
 import React from 'react';
 import Svg, { Polyline, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
-export default function SparkLine({ data = [], color = '#4A9EFF', width = 120, height = 32, dotRadius = 2.5 }) {
+export default function SparkLine({ data = [], color = '#C8C8C8', width = 120, height = 32, dotRadius = 2.5 }) {
   const vals = data.map(v => (v == null ? 0 : v));
   const min = Math.min(...vals);
   const max = Math.max(...vals);

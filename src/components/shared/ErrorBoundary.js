@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   button: {
-    backgroundColor: '#E52030',
+    backgroundColor: '#EDEDED',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: '#0A0A0A',
     fontSize: 16,
     fontWeight: '600',
   },

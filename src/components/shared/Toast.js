@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Text, StyleSheet, View } from 'react-native';
 import { TXT1, SB_H } from '../../theme/tokens';
 
-export default function Toast({ toast, toastAnim, accent = '#E52030', duration = 3500 }) {
+export default function Toast({ toast, toastAnim, accent = '#F0F0F0', duration = 3500 }) {
   const progress = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {

@@ -183,8 +183,8 @@ function ProgressScreen() {
             <MetricTile label="Sessions" value={(progress.sessions || []).length} detail="all time" accent={t.accent} mark="戦" />
           </View>
           <View style={s.metricRow}>
-            <MetricTile label="Calories" value={Math.round(totalCalories).toLocaleString()} detail="burned" accent="#F59E0B" mark="火" />
-            <MetricTile label="Chronicles" value={(progress.voyageChronicles || []).length} detail="stories" accent="#B967FF" mark="記" />
+            <MetricTile label="Calories" value={Math.round(totalCalories).toLocaleString()} detail="burned" accent="#CFCFCF" mark="火" />
+            <MetricTile label="Chronicles" value={(progress.voyageChronicles || []).length} detail="stories" accent="#D8D8D8" mark="記" />
           </View>
 
           <Panel accent={t.accent} dim>
@@ -208,20 +208,20 @@ function ProgressScreen() {
             </View>
           </Panel>
 
-          <Panel accent="#B967FF" dim>
+          <Panel accent="#D8D8D8" dim>
             <View style={s.panelHeaderRow}>
               <Text style={s.sectionTitle}>XP history</Text>
               <Text style={s.sectionMeta}>14 days</Text>
             </View>
-            <SparkLine data={xpTrend} color="#B967FF" width={CHART_W} height={58} dotRadius={2.5} />
+            <SparkLine data={xpTrend} color="#D8D8D8" width={CHART_W} height={58} dotRadius={2.5} />
           </Panel>
 
-          <Panel accent="#B967FF" dim>
+          <Panel accent="#D8D8D8" dim>
             <View style={s.panelHeaderRow}>
               <Text style={s.sectionTitle}>Voyage chronicle</Text>
               {!currentChronicle && (
                 <Pressable onPress={generateStory}>
-                  <Text style={[s.actionText, { color: '#B967FF' }]}>Generate</Text>
+                  <Text style={[s.actionText, { color: '#D8D8D8' }]}>Generate</Text>
                 </Pressable>
               )}
             </View>
@@ -252,7 +252,7 @@ function ProgressScreen() {
             })}
           </Panel>
 
-          <Panel accent="#F59E0B" dim>
+          <Panel accent="#CFCFCF" dim>
             <Text style={s.sectionTitle}>Achievement gallery</Text>
             <View style={s.gallery}>
               {(progress.earnedTitles || []).slice(-4).map(title => {
@@ -268,7 +268,7 @@ function ProgressScreen() {
               })}
               {earnedRewards.map(reward => (
                 <View key={reward.id} style={s.galleryItem}>
-                  <Text style={[s.galleryKanji, { color: '#B967FF' }]}>{reward.kanji}</Text>
+                  <Text style={[s.galleryKanji, { color: '#D8D8D8' }]}>{reward.kanji}</Text>
                   <Text style={s.galleryName} numberOfLines={2}>{reward.name}</Text>
                 </View>
               ))}
@@ -286,11 +286,11 @@ function ProgressScreen() {
             <Text style={s.sectionTitle}>Body signal</Text>
             <View style={s.metricRowNoMargin}>
               <MetricTile label="Recovery" value={progress.recoveryScore} detail="readiness" accent={t.accent} mark="気" />
-              <MetricTile label="Weight" value={progress.bodyStats?.weight || '—'} detail={progress.bodyStats?.unit || 'kg'} accent="#F59E0B" mark="体" />
+              <MetricTile label="Weight" value={progress.bodyStats?.weight || '—'} detail={progress.bodyStats?.unit || 'kg'} accent="#CFCFCF" mark="体" />
             </View>
           </Panel>
 
-          <Panel accent="#C5A059" dim>
+          <Panel accent="#C8C8C8" dim>
             <Text style={s.sectionTitle}>Sake & Hydration Barrel · 酒樽</Text>
             <View style={s.hydrationRow}>
               {[1, 2, 3, 4, 5, 6, 7, 8].map(cup => {
@@ -318,7 +318,7 @@ function ProgressScreen() {
             </View>
           </Panel>
 
-          <Panel accent="#D4A853" dim>
+          <Panel accent="#D0D0D0" dim>
             <Text style={s.sectionTitle}>Sleep and mood</Text>
             <View style={s.bodyRows}>
               <View style={s.bodyRow}>
@@ -373,9 +373,9 @@ function ProgressScreen() {
           </Panel>
 
           {[
-            ['soundEnabled', 'Sound effects', '#B967FF', value => setSoundEnabled(value)],
-            ['hapticsEnabled', 'Haptics', '#F59E0B', value => setHapticsEnabled(value)],
-            ['autoTheme', 'Auto theme', '#38BDF8'],
+            ['soundEnabled', 'Sound effects', '#D8D8D8', value => setSoundEnabled(value)],
+            ['hapticsEnabled', 'Haptics', '#CFCFCF', value => setHapticsEnabled(value)],
+            ['autoTheme', 'Auto theme', '#C8C8C8'],
           ].map(([key, label, color, sideEffect]) => {
             const enabled = key === 'soundEnabled' || key === 'hapticsEnabled'
               ? settings[key] !== false
@@ -422,15 +422,15 @@ function ProgressScreen() {
                 <Pressable
                   key={v}
                   onPress={() => setSetting('stepGoal', v)}
-                  style={[s.optionPill, settings.stepGoal === v && { backgroundColor: '#FB7185' + '18' }]}
+                  style={[s.optionPill, settings.stepGoal === v && { backgroundColor: '#D0D0D0' + '18' }]}
                 >
-                  <Text style={[s.optionText, settings.stepGoal === v && { color: '#FB7185' }]}>{v >= 10000 ? `${v / 1000}K` : v}</Text>
+                  <Text style={[s.optionText, settings.stepGoal === v && { color: '#D0D0D0' }]}>{v >= 10000 ? `${v / 1000}K` : v}</Text>
                 </Pressable>
               ))}
             </View>
           </Panel>
 
-          <Panel accent="#C5A059" dim>
+          <Panel accent="#C8C8C8" dim>
             <Text style={s.settingTitle}>Lost your way? · 迷子</Text>
             <Text style={s.settingSub}>Zoro&apos;s compass is always spinning. Tap here if you are lost.</Text>
             <Pressable onPress={handleLostQuote} style={s.lostButton}>
@@ -438,7 +438,7 @@ function ProgressScreen() {
             </Pressable>
           </Panel>
 
-          <Panel accent="#F87171" dim>
+          <Panel accent="#D6D6D6" dim>
             <Text style={s.settingTitle}>Reset progress</Text>
             <Text style={s.settingSub}>Clears your local training story.</Text>
             <Pressable onPress={onReset} style={s.resetButton}>
@@ -507,13 +507,13 @@ const s = StyleSheet.create({
     height: 32,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#C5A059',
+    borderColor: '#C8C8C8',
     backgroundColor: 'rgba(197, 160, 89, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   masuCupFilled: {
-    backgroundColor: '#C5A059',
+    backgroundColor: '#C8C8C8',
   },
   masuText: {
     fontSize: 12,
@@ -541,7 +541,7 @@ const s = StyleSheet.create({
   optionPill: { flex: 1, minHeight: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)' },
   optionText: { color: TXT3, fontSize: 14, fontWeight: '900' },
   resetButton: { marginTop: DS.space.md, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,113,113,0.14)' },
-  resetText: { color: '#F87171', fontSize: 13, fontWeight: '900' },
+  resetText: { color: '#D6D6D6', fontSize: 13, fontWeight: '900' },
   lostButton: {
     marginTop: DS.space.md,
     minHeight: 50,

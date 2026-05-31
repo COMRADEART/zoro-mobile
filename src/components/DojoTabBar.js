@@ -12,7 +12,7 @@ export const TABS = [
 
 export default function DojoTabBar({ tab, setTab, indicatorLeft, t }) {
   const TAB_W_PERCENT = 100 / TABS.length;
-  const accent = t?.accent || '#E52030';
+  const accent = t?.accent || '#F0F0F0';
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handleTabPress = (key) => {

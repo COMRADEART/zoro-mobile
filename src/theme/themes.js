@@ -1,87 +1,91 @@
+// Monochrome system. Every theme is a neutral grayscale (R=G=B, no hue) so the
+// whole app reads as a modern black-and-white editorial surface. Magnitude is
+// carried by brightness elsewhere; here themes vary only by paper value, so the
+// picker still does something without ever introducing colour.
 export const THEMES = {
   wado: {
-    bg: '#0A0B0A',        // Sumi-iro Charcoal Black
-    bg2: '#121412',
-    panel: '#1A1D1A',
-    accent: '#C5A059',    // Kuchiba-iro Gold (Tsuba)
-    accent2: '#F3F1EC',   // Gofun-iro Shell White (Saya/Ito)
-    particle: '#F3F1EC',
-    wash: '#8A6D3B',      // Aged Gold
+    bg: '#0C0C0C',
+    bg2: '#161616',
+    panel: '#1C1C1C',
+    accent: '#ECECEC',
+    accent2: '#FAFAFA',
+    particle: '#E0E0E0',
+    wash: '#2A2A2A',
     pattern: 'seigaiha',
     name: 'Wado · 和道',
-    desc: 'Calm precision (Gofun White & Gold)',
+    desc: 'Paper white on charcoal',
   },
   sandai: {
-    bg: '#0B0808',        // Pitch Black
-    bg2: '#1A0F0F',       // Deep Cinnabar Shadow
-    panel: '#251414',
-    accent: '#C33B32',    // Shinshu Cinnabar Red
-    accent2: '#EF452A',   // Kakicho Flame Scarlet
-    particle: '#EF452A',
-    wash: '#5E1914',      // Shinkuu Blood Red
+    bg: '#0A0A0A',
+    bg2: '#141414',
+    panel: '#1A1A1A',
+    accent: '#F4F4F4',
+    accent2: '#FAFAFA',
+    particle: '#EAEAEA',
+    wash: '#2C2C2C',
     pattern: 'kaen',
     name: 'Sandai · 鬼徹',
-    desc: 'Crimson force (Cinnabar & Flame)',
+    desc: 'High-contrast ink',
   },
   shusui: {
-    bg: '#090C0E',        // Kurogane Steel Black
-    bg2: '#12181C',
-    panel: '#182025',
-    accent: '#4A2E80',    // Koki-murasaki Deep Purple
-    accent2: '#B9A1D8',   // Shion-iro Aster Purple
-    particle: '#8F77B5',
-    wash: '#251C3A',      // Deep Purple Shadow
+    bg: '#0E0E0E',
+    bg2: '#181818',
+    panel: '#1E1E1E',
+    accent: '#DCDCDC',
+    accent2: '#F2F2F2',
+    particle: '#D2D2D2',
+    wash: '#282828',
     pattern: 'kumo',
     name: 'Shusui · 秋水',
-    desc: 'Steel resolve (Kurogane & Murasaki)',
+    desc: 'Soft graphite',
   },
   hollow: {
-    bg: '#0A0915',        // Shinya-iro Midnight Blue-Black
-    bg2: '#131124',
-    panel: '#1A182F',
-    accent: '#8E6CA6',    // Fuji-murasaki Wisteria
-    accent2: '#A890D3',   // Light Lavender
-    particle: '#A890D3',
-    wash: '#35214D',      // Deep Twilight Purple
+    bg: '#080808',
+    bg2: '#121212',
+    panel: '#181818',
+    accent: '#E4E4E4',
+    accent2: '#F4F4F4',
+    particle: '#DADADA',
+    wash: '#262626',
     pattern: 'kasumi',
     name: 'Hollow · 虚',
-    desc: 'Night focus (Fuji-murasaki & Lavender)',
+    desc: 'Deep matte black',
   },
   solar: {
-    bg: '#0E0803',        // Dark Amber
-    bg2: '#1F1106',
-    panel: '#2B1A0A',
-    accent: '#B7282E',    // Akane-iro Madder Crimson
-    accent2: '#E28D2B',   // Kohaku-iro Amber Gold
-    particle: '#E28D2B',
-    wash: '#6B1B1E',      // Dark Crimson
+    bg: '#101010',
+    bg2: '#1C1C1C',
+    panel: '#222222',
+    accent: '#FAFAFA',
+    accent2: '#FCFCFC',
+    particle: '#F0F0F0',
+    wash: '#303030',
     pattern: 'asahi',
     name: 'Solar · 陽',
-    desc: 'High output (Akane Red & Amber)',
+    desc: 'Brightest chalk',
   },
   abyss: {
-    bg: '#030A12',        // Deep Ruri Indigo Black
-    bg2: '#081729',
-    panel: '#0E233C',
-    accent: '#1B4D7E',    // Gunjo-iro Ultramarine Blue
-    accent2: '#B4E0E8',   // Mizu-iro Clear Water Blue
-    particle: '#B4E0E8',
-    wash: '#0E2C4D',      // Submerged Blue
+    bg: '#060606',
+    bg2: '#101010',
+    panel: '#161616',
+    accent: '#DADADA',
+    accent2: '#EEEEEE',
+    particle: '#CFCFCF',
+    wash: '#242424',
     pattern: 'uzumaki',
     name: 'Abyss · 深淵',
-    desc: 'Deep focus (Ultramarine & Mizu)',
+    desc: 'Near-black obsidian',
   },
   marimo: {
-    bg: '#080C08',        // Deep Forest Moss Black
-    bg2: '#0E160E',
-    panel: '#152415',
-    accent: '#2E7D32',    // Marimo Moss Green
-    accent2: '#81C784',   // Light Moss Green
-    particle: '#81C784',
-    wash: '#1B5E20',      // Shadow Moss Green
+    bg: '#0B0B0B',
+    bg2: '#151515',
+    panel: '#1B1B1B',
+    accent: '#E0E0E0',
+    accent2: '#F2F2F2',
+    particle: '#D6D6D6',
+    wash: '#2A2A2A',
     pattern: 'uzumaki',
     name: 'Marimo · 藻頭',
-    desc: 'Moss head training (Moss Green & Obsidian)',
+    desc: 'Neutral slate',
   },
 };
 

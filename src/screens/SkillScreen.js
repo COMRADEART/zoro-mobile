@@ -138,15 +138,15 @@ function SkillScreen() {
           <Text style={[s.supportValue, { color: rank.color }]}>{rank.name}</Text>
           <Text style={s.supportCopy}>{(progress.totalXP ?? 0).toLocaleString()} total XP</Text>
         </Panel>
-        <Panel accent="#B967FF" dim style={s.supportPanel}>
+        <Panel accent="#D8D8D8" dim style={s.supportPanel}>
           <Text style={s.sectionTitle}>Techniques</Text>
-          <Text style={[s.supportValue, { color: '#B967FF' }]}>{progress.unlocked?.length || 0}</Text>
+          <Text style={[s.supportValue, { color: '#D8D8D8' }]}>{progress.unlocked?.length || 0}</Text>
           <Text style={s.supportCopy}>earned unlocks</Text>
         </Panel>
       </View>
 
       {unlockedRewards.length > 0 && (
-        <Panel accent="#B967FF" dim>
+        <Panel accent="#D8D8D8" dim>
           <Text style={s.sectionTitle}>Recent techniques</Text>
           <View style={s.techRow}>
             {unlockedRewards.map(reward => (
@@ -160,7 +160,7 @@ function SkillScreen() {
       )}
 
       {bounties.length > 0 && (
-        <Panel accent="#F59E0B" dim>
+        <Panel accent="#CFCFCF" dim>
           <Text style={s.sectionTitle}>Active trials</Text>
           {bounties.map(bounty => (
             <View
