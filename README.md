@@ -67,6 +67,21 @@ All game mechanics live in one file with zero React or AsyncStorage imports. Thi
 
 Saves are debounced at 500 ms to avoid write-thrashing during rapid state updates. On load, `progressStore.ts` checks for a `v4` key first, then falls back to migrating a `v3` record — adding 9 new fields (`hydrationLog`, `foodLog`, `bodyComposition`, `breathingLog`, `arcProgress`, `bountyMissions`, `swordSharpnessLog`, `dreamArchetypeLog`, `voyageChronicles`). After migration the v3 key is deleted. `normalizeProgress` then fills any remaining gaps from `defaultProgress`, so the app always operates on a fully-shaped object regardless of save age.
 
+### Optional cloud backup (Android Auto Backup)
+
+Progress is stored locally in an AsyncStorage SQLite database (`RKStorage`). On Android, that database is **optionally** backed up to the user's own Google Drive through [Android Auto Backup](https://developer.android.com/identity/data/autobackup) (delivered via Google Play services) and restored automatically on reinstall or new-device setup.
+
+This is opt-in **on the user's side**, not the app's: it only runs when the user is signed into a Google account with "Back up to Google Drive" enabled in Android Settings. There is a ~25 MB per-app cap and **no API keys, OAuth, or sign-in code** — it is pure manifest configuration:
+
+- `app.json` → `android.allowBackup: true` (declared explicitly so it survives `expo prebuild`)
+- `android/app/src/main/res/xml/data_extraction_rules.xml` (Android 12+) and `backup_rules.xml` (≤ Android 11), referenced from the manifest `<application>` tag
+
+Because the `/android` dir is gitignored prebuild output, the manifest attributes and both rule XMLs are pinned by a local Expo config plugin — [`plugins/withAndroidBackup.js`](plugins/withAndroidBackup.js) (registered in `app.json` → `expo.plugins`). It rewrites them to the reviewed form on **every** `expo prebuild`, so they can't silently regress to Expo's default template across a clean checkout, CI build, or async-storage upgrade.
+
+The rule files intentionally declare **no `<include>` elements** — any `<include>` would switch Android to allow-list mode and could silently drop the `RKStorage` database if its filename changes across `react-native-async-storage` or new-architecture upgrades. Leaving them permissive keeps the progress store covered by the default "back up all eligible app data" behavior. This invariant is enforced by `tests/androidBackup.test.js`.
+
+Verify on-device after a build: `adb shell bmgr backupnow com.santoryu.fitness`, then uninstall/reinstall (or `adb shell bmgr restore`) and confirm progress is restored.
+
 ## Testing
 
 Unit tests cover the pure-logic layer directly — no component mounting required. 143 test cases across 3 files:
@@ -115,6 +130,6 @@ npm start
 
 ## Future Work
 
-- **Cloud sync** — replace the AsyncStorage layer with a backend-backed store; the `Progress` type and `normalizeProgress` already act as a schema contract that would survive the swap.
+- **Live multi-device sync** — single-device backup/restore is already covered by Android Auto Backup (see Persistence & Data Migration). The remaining gap is real-time sync across devices, which would replace the AsyncStorage layer with a backend-backed store; the `Progress` type and `normalizeProgress` already act as a schema contract that would survive the swap.
 - **Wearable integration** — the activity ring goals (`MOVE_GOAL`, `EXERCISE_GOAL`, `STAND_GOAL`) are already constants; feeding real step/HR data from a Health API would require only a new ingestion path, not a logic rewrite.
 - **Social layer** — boss challenges already define week requirements and technique rewards; leaderboard-style competition would fit naturally into the existing `ProgressionEvent` system.

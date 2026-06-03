@@ -5,6 +5,10 @@ import useReducedMotion from '../../hooks/useReducedMotion';
 
 const { width: W, height: H } = Dimensions.get('window');
 
+// Hard ceiling on decorative particles regardless of theme — keeps the
+// per-frame JS/native work bounded on lower-end devices (perf: P2).
+const MAX_PARTICLES = 16;
+
 export function AmbientBG({ theme }) {
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
   const reducedMotion = useReducedMotion();
@@ -122,7 +126,7 @@ export function FloatingParticles({ theme, count = 16 }) {
   }, []);
 
   const particles = useRef(
-    Array.from({ length: count }, (_, i) => ({
+    Array.from({ length: Math.min(count, MAX_PARTICLES) }, (_, i) => ({
       id: i,
       x: Math.random() * W,
       startY: H + 10 + Math.random() * 40,

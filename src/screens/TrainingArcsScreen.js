@@ -33,7 +33,13 @@ export default function TrainingArcsScreen({ onBack }) {
     return (
       <ScrollView contentContainerStyle={[s.detailScroll, { paddingTop: SB_H + 16 }]} showsVerticalScrollIndicator={false}>
         <View style={s.detailHeader}>
-          <Pressable style={s.backBtn} onPress={() => setSelected(null)}>
+          <Pressable
+            style={s.backBtn}
+            onPress={() => setSelected(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Back to arcs list"
+            hitSlop={8}
+          >
             <Text style={s.backTxt}>← ARCS · 修行</Text>
           </Pressable>
         </View>
@@ -84,7 +90,12 @@ export default function TrainingArcsScreen({ onBack }) {
         })}
 
         {!arcData && currentRank >= selected.requiredRank && (
-          <Pressable style={[s.startBtn, { backgroundColor: selected.color }]} onPress={() => startArc(selected)}>
+          <Pressable
+            style={[s.startBtn, { backgroundColor: selected.color }]}
+            onPress={() => startArc(selected)}
+            accessibilityRole="button"
+            accessibilityLabel={`Start arc ${selected.name}`}
+          >
             <Text style={s.startBtnTxt}>START ARC · 開始</Text>
           </Pressable>
         )}
@@ -104,7 +115,13 @@ export default function TrainingArcsScreen({ onBack }) {
           </View>
         )}
 
-        <Pressable style={s.backBtnBottom} onPress={onBack}>
+        <Pressable
+          style={s.backBtnBottom}
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Back to train"
+          hitSlop={8}
+        >
           <Text style={s.backTxt}>← BACK TO TRAIN · 訓練に戻る</Text>
         </Pressable>
       </ScrollView>
@@ -131,7 +148,18 @@ export default function TrainingArcsScreen({ onBack }) {
         const completedWeeks = arcData?.completedWeeks?.length || 0;
 
         return (
-          <Pressable key={arc.id} onPress={() => !locked && setSelected(arc)}>
+          <Pressable
+            key={arc.id}
+            onPress={() => !locked && setSelected(arc)}
+            accessibilityRole="button"
+            accessibilityLabel={`${arc.name}. ${
+              locked ? `Locked, rank ${arc.requiredRank} required`
+                : completed ? 'Completed'
+                : active ? `In progress, ${completedWeeks} of ${arc.durationWeeks} weeks`
+                : 'Available'
+            }`}
+            accessibilityState={{ disabled: locked }}
+          >
             <GlassCard accent={locked ? BORD : arc.color} style={[s.arcCard, locked && s.arcCardLocked]}>
               <View style={s.arcCardHeader}>
                 <View style={[s.arcCardKanjiBox, { backgroundColor: (locked ? BORD : arc.color) + '15' }]}>

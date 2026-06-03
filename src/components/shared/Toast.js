@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Text, StyleSheet, View } from 'react-native';
 import { TXT1, SB_H } from '../../theme/tokens';
+import { DS } from '../../theme/designSystem';
 
 export default function Toast({ toast, toastAnim, accent = '#F0F0F0', duration = 3500 }) {
   const progress = useRef(new Animated.Value(1)).current;
@@ -23,19 +24,17 @@ export default function Toast({ toast, toastAnim, accent = '#F0F0F0', duration =
         transform: [{
           translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }),
         }, {
-          scale: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }),
+          scale: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }),
         }],
       },
     ]}>
-      <View style={[styles.accentBar, { backgroundColor: accent }]} />
+      <View style={[styles.topRule, { backgroundColor: accent }]} />
       <View style={styles.toastInner}>
+        <View style={[styles.kanjiBadge, { backgroundColor: accent + '22', borderColor: accent + '40' }]}>
+          <Text style={[styles.kanjiText, { color: accent }]}>刃</Text>
+        </View>
         <View style={styles.toastContent}>
-          <View style={styles.titleRow}>
-            <View style={[styles.kanjiAccent, { backgroundColor: accent + '30' }]}>
-              <Text style={[styles.kanjiText, { color: accent }]}>刃</Text>
-            </View>
-            <Text style={styles.toastTitle}>{toast.title}</Text>
-          </View>
+          <Text style={[styles.toastTitle, { color: accent }]}>{toast.title}</Text>
           <Text style={styles.toastBody}>{toast.body}</Text>
         </View>
       </View>
@@ -58,64 +57,55 @@ const styles = StyleSheet.create({
     top: SB_H + 12,
     left: 16,
     right: 16,
-    backgroundColor: 'rgba(8,8,8,0.98)',
-    borderRadius: 14,
+    backgroundColor: 'rgba(10,10,11,0.98)',
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.6,
+    shadowOpacity: 0.55,
     shadowRadius: 24,
     elevation: 25,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.10)',
   },
-  accentBar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
+  topRule: {
+    height: 2.5,
+    width: '100%',
     opacity: 0.9,
   },
   toastInner: {
-    padding: 16,
-    paddingLeft: 18,
-  },
-  toastContent: {
-    paddingRight: 4,
-  },
-  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 4,
+    gap: 12,
+    padding: 16,
   },
-  kanjiAccent: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+  kanjiBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 9,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
   kanjiText: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '900',
   },
+  toastContent: {
+    flex: 1,
+  },
   toastTitle: {
-    fontSize: 8.5,
-    fontWeight: '800',
-    letterSpacing: 2.5,
-    color: 'rgba(255,255,255,0.5)',
+    ...DS.type.label,
+    marginBottom: 3,
   },
   toastBody: {
     fontSize: 16,
     fontWeight: '700',
     color: TXT1,
-    marginTop: 2,
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   toastProgress: {
     height: 2.5,
-    opacity: 0.7,
+    opacity: 0.6,
   },
 });

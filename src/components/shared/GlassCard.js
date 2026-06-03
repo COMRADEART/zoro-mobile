@@ -4,7 +4,7 @@ import { BORD } from '../../theme/tokens';
 import { DS } from '../../theme/designSystem';
 import useReducedMotion from '../../hooks/useReducedMotion';
 
-const GlassCard = memo(function GlassCard({ accent, children, style, onPress, elevation = 'medium', glowIntensity = 0.6 }) {
+const GlassCard = memo(function GlassCard({ accent, children, style, onPress, elevation = 'medium', glowIntensity = 0.6, accessibilityLabel }) {
   const reducedMotion = useReducedMotion();
   const borderColor = accent ? accent + '40' : BORD;
   const shadowColor = accent || '#ffffff';
@@ -144,6 +144,8 @@ const GlassCard = memo(function GlassCard({ accent, children, style, onPress, el
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [
         { opacity: pressed ? 0.88 : 1 },
       ]}

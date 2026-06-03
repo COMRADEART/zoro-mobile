@@ -1,22 +1,29 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Modal, Pressable, Animated, Easing, StyleSheet } from 'react-native';
-import { TXT3 } from '../../theme/tokens';
+import { TXT1, TXT2, TXT3 } from '../../theme/tokens';
+import { DS } from '../../theme/designSystem';
 import { BOSS_HINT_FAIL_THRESHOLD } from '../../logic/progression';
+import useReducedMotion from '../../hooks/useReducedMotion';
 
 export default function BossHintModal({ visible, bossName, onDismiss }) {
   const scale = useRef(new Animated.Value(0)).current;
   const glow = useRef(new Animated.Value(0)).current;
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
-    if (visible) {
-      scale.setValue(0);
-      glow.setValue(0);
-      Animated.parallel([
-        Animated.spring(scale, { toValue: 1, tension: 40, friction: 5, useNativeDriver: true }),
-        Animated.timing(glow, { toValue: 1, duration: 1000, easing: Easing.out(Easing.ease), useNativeDriver: false }),
-      ]).start();
+    if (!visible) return;
+    if (reducedMotion) {
+      scale.setValue(1);
+      glow.setValue(1);
+      return;
     }
-  }, [visible, scale, glow]);
+    scale.setValue(0);
+    glow.setValue(0);
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, tension: 40, friction: 5, useNativeDriver: true }),
+      Animated.timing(glow, { toValue: 1, duration: 1000, easing: Easing.out(Easing.ease), useNativeDriver: false }),
+    ]).start();
+  }, [visible, scale, glow, reducedMotion]);
 
   if (!visible) return null;
 
@@ -35,7 +42,7 @@ export default function BossHintModal({ visible, bossName, onDismiss }) {
         }]}>
           <View style={[s.topAccent, { backgroundColor: ACCENT }]} />
 
-          <Text style={s.icon}>⚠</Text>
+          <Text style={[s.icon, { color: ACCENT }]}>危</Text>
           <Text style={[s.eyebrow, { color: ACCENT }]}>— {BOSS_HINT_FAIL_THRESHOLD} CONSECUTIVE DEFEATS —</Text>
 
           <View style={[s.divider, { backgroundColor: ACCENT + '40' }]} />
@@ -74,12 +81,12 @@ const s = StyleSheet.create({
     width: 300,
   },
   topAccent: { position: 'absolute', top: 0, left: '20%', right: '20%', height: 3, borderBottomLeftRadius: 2, borderBottomRightRadius: 2 },
-  icon: { fontSize: 36, marginBottom: 16 },
-  eyebrow: { fontSize: 8, fontWeight: '800', letterSpacing: 5, textAlign: 'center' },
-  divider: { height: 1, width: 100, marginVertical: 20 },
-  bossName: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: 1, marginBottom: 16, textAlign: 'center' },
-  body: { fontSize: 12, color: TXT3, textAlign: 'center', lineHeight: 20, letterSpacing: 0.3 },
+  icon: { fontSize: 40, fontWeight: '900', marginBottom: 16 },
+  eyebrow: { ...DS.type.label, letterSpacing: 2.5, textAlign: 'center' },
+  divider: { height: StyleSheet.hairlineWidth, width: 100, marginVertical: 20 },
+  bossName: { fontSize: 17, fontWeight: '900', color: TXT1, letterSpacing: 0.5, marginBottom: 16, textAlign: 'center' },
+  body: { ...DS.type.bodySm, color: TXT2, textAlign: 'center', lineHeight: 21, letterSpacing: 0.2 },
   kanji: { fontSize: 28, fontWeight: '900', letterSpacing: 4, marginTop: 4 },
-  kanjisub: { fontSize: 9, color: TXT3, marginTop: 6, letterSpacing: 1.5 },
-  hint: { fontSize: 9, color: TXT3, letterSpacing: 2.5, marginTop: 20 },
+  kanjisub: { fontSize: 12, color: TXT3, marginTop: 7, letterSpacing: 1 },
+  hint: { ...DS.type.micro, color: TXT2, letterSpacing: 2, marginTop: 20 },
 });
