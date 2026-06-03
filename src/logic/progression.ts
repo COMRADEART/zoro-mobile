@@ -13,6 +13,12 @@ export const BOSS_ATTEMPT_HISTORY_CAP = 50;
 
 export const XP_PER_EXERCISE = 100;
 
+// Skill-tree "discipline XP" credits sessions per discipline. Cap the credit any
+// single day can contribute so a burst of many tiny same-day sessions can't farm
+// unlocks. 4/day is generous headroom for honest training (1–2/day) and keeps
+// the SKILL_TREES threshold scale (count × 100) intact.
+export const MAX_DISCIPLINE_SESSIONS_PER_DAY = 4;
+
 // ─── ACTIVITY RINGS GOALS ─────────────────────────────────────────────────────
 
 export const MOVE_GOAL   = 500;  // kcal burned per day
@@ -82,7 +88,21 @@ export const RECOVERY_GAIN_PER_HOUR_SLEEP = 20;
  * @returns date string in YYYY-MM-DD format
  */
 export function toDateKey(date: Date = new Date()): string {
-  return date.toISOString().slice(0, 10);
+  // Local calendar date (NOT UTC) so a day boundary matches the user's wall
+  // clock — an evening session never buckets into "tomorrow" for users far from
+  // UTC. All date-keyed maps + the streak/week walks below use this convention.
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// Inverse of toDateKey: a YYYY-MM-DD key back to local midnight of that day.
+// Replaces the old `new Date(key + 'T00:00:00Z')` (UTC) parses so re-hydrated
+// keys round-trip under the local convention.
+export function parseDateKey(dateStr: string): Date {
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
 }
 
 export const DISPLAY_NAME_MAX = 40;
@@ -151,7 +171,9 @@ export function shouldShowWelcome(
  * @returns hour string in YYYY-MM-DDTHH format
  */
 export function toHourKey(date: Date = new Date()): string {
-  return date.toISOString().slice(0, 13);
+  // Local hour key, consistent with toDateKey's local-day convention.
+  const h = String(date.getHours()).padStart(2, '0');
+  return `${toDateKey(date)}T${h}`;
 }
 
 // ─── DEFAULT / NORMALIZE ─────────────────────────────────────────────────────
@@ -766,11 +788,11 @@ export function applyToggle(progress: Progress, action: { sword: Discipline; exe
 // ─── WEEK COMPLETION ─────────────────────────────────────────────────────────
 
 function evaluateWeekCompletion(progress, date) {
-  const end = new Date(date + 'T00:00:00Z');
+  const end = parseDateKey(date);
   const days = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(end);
-    d.setUTCDate(end.getUTCDate() - i);
+    d.setDate(end.getDate() - i);
     days.push(toDateKey(d));
   }
 
@@ -1042,10 +1064,14 @@ export function evaluateSkillUnlock(progress: Progress, discipline: Discipline) 
 }
 
 export function disciplineXPFor(progress, discipline) {
-  // Approximate XP spent in a discipline by counting dayLog entries
+  // Skill-point currency = sessions logged in this discipline, but each day's
+  // contribution is capped (see MAX_DISCIPLINE_SESSIONS_PER_DAY) so spamming many
+  // tiny same-day sessions can't farm skill-tree unlocks. Honest training is
+  // unaffected; existing unlocks are sticky (never revoked) so lowering this for
+  // a past heavy day can't take an already-earned node away.
   let total = 0;
   for (const day of Object.values(progress.dayLog)) {
-    total += day[discipline] || 0;
+    total += Math.min(MAX_DISCIPLINE_SESSIONS_PER_DAY, day[discipline] || 0);
   }
   return total * XP_PER_EXERCISE;
 }
@@ -1126,13 +1152,13 @@ export function evaluateBossCompletion(progress: Progress, bossId: string, date:
 }
 
 export function weekOfYear(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00Z');
-  const dayOfWeek = d.getUTCDay();
+  const d = parseDateKey(dateStr);
+  const dayOfWeek = d.getDay();
   const sunday = new Date(d);
-  sunday.setUTCDate(d.getUTCDate() - dayOfWeek);
-  const yearStart = new Date(Date.UTC(sunday.getUTCFullYear(), 0, 1));
+  sunday.setDate(d.getDate() - dayOfWeek);
+  const yearStart = new Date(sunday.getFullYear(), 0, 1);
   const dayOfYear = Math.floor((sunday - yearStart) / 86400000) + 1;
-  return `${sunday.getUTCFullYear()}-W${Math.floor((dayOfYear - 1) / 7) + 1}`;
+  return `${sunday.getFullYear()}-W${Math.floor((dayOfYear - 1) / 7) + 1}`;
 }
 
 // ─── DAILY RECOMMENDATION ENGINE ─────────────────────────────────────────────
@@ -1241,13 +1267,13 @@ export function completionsForDate(progress: Progress, date: string): number {
  */
 export function currentStreak(progress: Progress, date: string): number {
   let streak = 0;
-  const d = new Date(date + 'T00:00:00Z');
+  const d = parseDateKey(date);
   while (true) {
     const key = toDateKey(d);
     const day = progress.dayLog[key];
     if (!day || (day.wado + day.sandai + day.shusui === 0)) break;
     streak++;
-    d.setUTCDate(d.getUTCDate() - 1);
+    d.setDate(d.getDate() - 1);
     if (streak > 400) break;
   }
   return streak;
@@ -1260,14 +1286,14 @@ export function currentStreak(progress: Progress, date: string): number {
  * @returns array of day objects with date, log, total, dominant, isToday
  */
 export function currentWeekView(progress: Progress, date: string) {
-  const d = new Date(date + 'T00:00:00Z');
-  const dayOfWeek = d.getUTCDay();
+  const d = parseDateKey(date);
+  const dayOfWeek = d.getDay();
   const sunday = new Date(d);
-  sunday.setUTCDate(d.getUTCDate() - dayOfWeek);
+  sunday.setDate(d.getDate() - dayOfWeek);
   const days = [];
   for (let i = 0; i < 7; i++) {
     const dayDate = new Date(sunday);
-    dayDate.setUTCDate(sunday.getUTCDate() + i);
+    dayDate.setDate(sunday.getDate() + i);
     const key = toDateKey(dayDate);
     const log = progress.dayLog[key] || { wado: 0, sandai: 0, shusui: 0 };
     const total = log.wado + log.sandai + log.shusui;
@@ -1286,13 +1312,13 @@ export function currentWeekView(progress: Progress, date: string) {
  * @returns total count for the week
  */
 export function weeklyVolume(progress: Progress, discipline: Discipline, date: string): number {
-  const d = new Date(date + 'T00:00:00Z');
+  const d = parseDateKey(date);
   const sunday = new Date(d);
-  sunday.setUTCDate(d.getUTCDate() - d.getUTCDay());
+  sunday.setDate(d.getDate() - d.getDay());
   let total = 0;
   for (let i = 0; i < 7; i++) {
     const dayDate = new Date(sunday);
-    dayDate.setUTCDate(sunday.getUTCDate() + i);
+    dayDate.setDate(sunday.getDate() + i);
     const key = toDateKey(dayDate);
     total += (progress.dayLog[key]?.[discipline] || 0);
   }
@@ -1306,13 +1332,13 @@ export function weeklyVolume(progress: Progress, discipline: Discipline, date: s
  * @returns object with wado, sandai, shusui totals
  */
 export function totalWeeklyVolume(progress: Progress, date: string) {
-  const d = new Date(date + 'T00:00:00Z');
+  const d = parseDateKey(date);
   const sunday = new Date(d);
-  sunday.setUTCDate(d.getUTCDate() - d.getUTCDay());
+  sunday.setDate(d.getDate() - d.getDay());
   let totals = { wado: 0, sandai: 0, shusui: 0 };
   for (let i = 0; i < 7; i++) {
     const dayDate = new Date(sunday);
-    dayDate.setUTCDate(sunday.getUTCDate() + i);
+    dayDate.setDate(sunday.getDate() + i);
     const key = toDateKey(dayDate);
     const log = progress.dayLog[key];
     if (log) {
@@ -1365,12 +1391,12 @@ export function getReadinessColor(progress: Progress): string {
 
 function getLast3DaysSleep(progress, date) {
   const results = [];
-  const d = new Date(date + 'T00:00:00Z');
+  const d = parseDateKey(date);
   for (let i = 0; i < 3; i++) {
     const key = toDateKey(d);
     const entry = progress.sleepLog[key];
     if (entry) results.push(entry);
-    d.setUTCDate(d.getUTCDate() - 1);
+    d.setDate(d.getDate() - 1);
   }
   return results;
 }
@@ -1463,12 +1489,12 @@ export const DREAM_ARCHETYPES = {
  */
 export function computeDreamArchetype(progress: Progress, date: string): string {
   const logs = [];
-  const d = new Date(date + 'T00:00:00Z');
+  const d = parseDateKey(date);
   for (let i = 0; i < 7; i++) {
     const key = toDateKey(d);
     const entry = progress.sleepLog?.[key];
     if (entry) logs.push(entry);
-    d.setUTCDate(d.getUTCDate() - 1);
+    d.setDate(d.getDate() - 1);
   }
   if (logs.length === 0) return 'Ronin';
 
@@ -1531,12 +1557,14 @@ export function computeRingProgress(progress: Progress, date: string) {
 
 // ─── BATTLE INTENSITY ZONES ──────────────────────────────────────────────────
 
+// Monochrome: zone "color" rides a brightness ramp so intensity reads as value
+// (dim → bright), never hue — consistent with the rest of the grayscale system.
 export const INTENSITY_ZONES = [
-  { zone: 1, name: 'Ittoryu Warm-up', kanji: '一刀流', range: [1, 2],  color: '#60a5fa', desc: 'Light activation. The blade barely wakes.' },
-  { zone: 2, name: 'Nitoryu Rhythm',  kanji: '二刀流', range: [3, 4],  color: '#4ade80', desc: 'Steady effort. Building momentum.' },
-  { zone: 3, name: 'Santoryu Tempo',  kanji: '三刀流', range: [5, 6],  color: '#fbbf24', desc: 'Controlled intensity. The three blades synchronize.' },
-  { zone: 4, name: 'Asura Surge',     kanji: '阿修羅', range: [7, 8],  color: '#f97316', desc: 'High-output. The demon spirit rises.' },
-  { zone: 5, name: 'King of Hell',    kanji: '閻魔',   range: [9, 10], color: '#dc143c', desc: 'Maximum effort. Beyond human limits.' },
+  { zone: 1, name: 'Ittoryu Warm-up', kanji: '一刀流', range: [1, 2],  color: '#8A8A8A', desc: 'Light activation. The blade barely wakes.' },
+  { zone: 2, name: 'Nitoryu Rhythm',  kanji: '二刀流', range: [3, 4],  color: '#A8A8A8', desc: 'Steady effort. Building momentum.' },
+  { zone: 3, name: 'Santoryu Tempo',  kanji: '三刀流', range: [5, 6],  color: '#C6C6C6', desc: 'Controlled intensity. The three blades synchronize.' },
+  { zone: 4, name: 'Asura Surge',     kanji: '阿修羅', range: [7, 8],  color: '#E2E2E2', desc: 'High-output. The demon spirit rises.' },
+  { zone: 5, name: 'King of Hell',    kanji: '閻魔',   range: [9, 10], color: '#FAFAFA', desc: 'Maximum effort. Beyond human limits.' },
 ];
 
 /**
@@ -1690,10 +1718,10 @@ function checkBountyCompletion(progress, bm, date) {
       return today && today.wado > 0 && today.sandai > 0 && today.shusui > 0;
     }
     case 'weekly_kcal': {
-      const end = new Date(date + 'T00:00:00Z');
+      const end = parseDateKey(date);
       let total = 0;
       for (let i = 6; i >= 0; i--) {
-        const d = new Date(end); d.setUTCDate(end.getUTCDate() - i);
+        const d = new Date(end); d.setDate(end.getDate() - i);
         const daySessions = (progress.sessions || []).filter(s => toDateKey(new Date(s.endedAt)) === toDateKey(d));
         total += daySessions.reduce((a, s) => a + (s.calories || 0), 0);
       }
@@ -1701,34 +1729,34 @@ function checkBountyCompletion(progress, bm, date) {
     }
     case 'discipline_streak': {
       let streak = 0;
-      const d = new Date(date + 'T00:00:00Z');
+      const d = parseDateKey(date);
       while (streak < req.value) {
         const key = toDateKey(d);
         if (!(progress.dayLog?.[key]?.[req.discipline] > 0)) break;
         streak++;
-        d.setUTCDate(d.getUTCDate() - 1);
+        d.setDate(d.getDate() - 1);
       }
       return streak >= req.value;
     }
     case 'sharpness_streak': {
       let streak = 0;
-      const d = new Date(date + 'T00:00:00Z');
+      const d = parseDateKey(date);
       while (streak < req.days) {
         const key = toDateKey(d);
         if ((progress.swordSharpnessLog?.[key] || 0) < req.value) break;
         streak++;
-        d.setUTCDate(d.getUTCDate() - 1);
+        d.setDate(d.getDate() - 1);
       }
       return streak >= req.days;
     }
     case 'hydration_streak': {
       let streak = 0;
-      const d = new Date(date + 'T00:00:00Z');
+      const d = parseDateKey(date);
       while (streak < req.days) {
         const key = toDateKey(d);
         if ((progress.hydrationLog?.[key]?.cups || 0) < req.cups) break;
         streak++;
-        d.setUTCDate(d.getUTCDate() - 1);
+        d.setDate(d.getDate() - 1);
       }
       return streak >= req.days;
     }
@@ -1757,10 +1785,10 @@ export function evaluateArcWeekCompletion(progress: Progress, arcId: string, wee
   if (!weekDef) return { progress, events: [] };
   const targets = weekDef.targets;
 
-  const end = new Date(date + 'T00:00:00Z');
+  const end = parseDateKey(date);
   let weekSessions = 0;
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(end); d.setUTCDate(end.getUTCDate() - i);
+    const d = new Date(end); d.setDate(end.getDate() - i);
     const sesDate = toDateKey(d);
     const daySessions = (progress.sessions || []).filter(s => {
       const sd = toDateKey(new Date(s.endedAt));
@@ -1805,8 +1833,8 @@ export function getArcProgress(progress: Progress): Record<string, any> {
 }
 
 export function computeTrends(progress: Progress, startDate: string, endDate: string): { volumeTrend: number; calorieTrend: number } {
-  const start = new Date(startDate + 'T00:00:00Z').getTime();
-  const end   = new Date(endDate   + 'T23:59:59Z').getTime();
+  const start = parseDateKey(startDate).getTime();
+  const end   = parseDateKey(endDate).getTime() + 86399999; // inclusive end of local day
   const sessions = (progress.sessions || []).filter(s => {
     const t = s.endedAt || 0;
     return t >= start && t <= end;

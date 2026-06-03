@@ -52,8 +52,8 @@ export default function TrainingArcsScreen({ onBack }) {
             <Text style={[s.metaVal, { color: selected.color }]}>{selected.durationWeeks}wk</Text>
             <Text style={s.metaLbl}>DURATION · 期間</Text>
           </View>
-          <View style={[s.metaPill, { backgroundColor: '#B967FF12' }]}>
-            <Text style={[s.metaVal, { color: '#B967FF' }]}>{selected.xpReward.toLocaleString()}</Text>
+          <View style={[s.metaPill, { backgroundColor: '#E0E0E012' }]}>
+            <Text style={[s.metaVal, { color: '#E0E0E0' }]}>{selected.xpReward.toLocaleString()}</Text>
             <Text style={s.metaLbl}>XP REWARD</Text>
           </View>
           <View style={[s.metaPill, { backgroundColor: selected.color + '12' }]}>

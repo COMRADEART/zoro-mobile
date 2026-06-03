@@ -217,7 +217,7 @@ const s = StyleSheet.create({
     paddingVertical: 6,
     backgroundColor: 'rgba(0,0,0,0.24)',
   },
-  trustPillText: { fontSize: 8, fontWeight: '900', letterSpacing: 1.5 },
+  trustPillText: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
 
   actions: { gap: 14, marginBottom: 8 },
   primaryBtn: {

@@ -13,16 +13,24 @@ import {
   rankIndexFor,
   recentSessions,
   toDateKey,
-  parseDateKey,
 } from '../logic/progression';
 import { RANKS, SWORDS, REWARDS, TITLE_PATHS } from '../data/gameData';
 import { getUnlockedThemes, THEME_UNLOCK_HINTS } from '../storage/progressStore';
-import { lightImpact, mediumImpact, heavyImpact, setHapticsEnabled } from '../utils/haptics';
+import { lightImpact, heavyImpact, setHapticsEnabled } from '../utils/haptics';
 import { setSoundEnabled } from '../services/audioService';
+import { scheduleTrainingReminder, cancelAllReminders } from '../services/notificationService';
 import { getLastNDays, shortDay } from '../utils/trendCalculations';
 
 const { width: W } = Dimensions.get('window');
 const CHART_W = W - 64;
+
+const REMINDER_TIMES = [
+  { value: '07:00', label: '7 AM' },
+  { value: '12:00', label: '12 PM' },
+  { value: '18:00', label: '6 PM' },
+  { value: '21:00', label: '9 PM' },
+];
+const DEFAULT_REMINDER_TIME = '18:00';
 
 function Segment({ value, onChange, accent }) {
   const items = [
@@ -91,7 +99,10 @@ function ProgressScreen() {
   const week = currentWeekView(progress, today);
   const sessions = recentSessions(progress, 5);
   const streak = currentStreak(progress, today);
-  const totalCalories = (progress.sessions || []).reduce((sum, session) => sum + (session.calories || 0), 0);
+  const totalCalories = useMemo(
+    () => (progress.sessions || []).reduce((sum, session) => sum + (session.calories || 0), 0),
+    [progress.sessions],
+  );
   const days14 = useMemo(() => getLastNDays(today, 14), [today]);
   const xpTrend = useMemo(() => days14.map(day =>
     (progress.sessions || [])
@@ -145,6 +156,51 @@ function ProgressScreen() {
     const existing = (progress.voyageChronicles || []).filter(c => c.monthKey !== currentMonthKey);
     handleUpdate(prev => ({ ...prev, voyageChronicles: [...existing, chronicle].slice(-36) }));
     lightImpact();
+  };
+
+  // Reminders are opt-in: enabling requests OS permission and only flips the
+  // setting if a reminder was actually scheduled, so the toggle never lies.
+  const reminderTime = settings.reminderTime || DEFAULT_REMINDER_TIME;
+  const reminderLabel = REMINDER_TIMES.find(r => r.value === reminderTime)?.label || '6 PM';
+
+  const toggleTrainingReminder = async () => {
+    lightImpact();
+    if (settings.trainingReminder) {
+      await cancelAllReminders();
+      setSetting('trainingReminder', false);
+      return;
+    }
+    const scheduled = await scheduleTrainingReminder(reminderTime);
+    if (scheduled) {
+      setSetting('trainingReminder', true);
+    } else {
+      Alert.alert(
+        'Reminders need notifications',
+        'Allow notifications for Santoryu in your device settings to get a daily training reminder. (Reminders require a development or production build, not Expo Go.)',
+      );
+    }
+  };
+
+  const changeReminderTime = async (time) => {
+    lightImpact();
+    setSetting('reminderTime', time);
+    if (settings.trainingReminder) {
+      await scheduleTrainingReminder(time);
+    }
+  };
+
+  // Reset wipes all local data irreversibly — require an explicit confirm so a
+  // single mis-tap can't destroy a user's training story.
+  const confirmReset = () => {
+    heavyImpact();
+    Alert.alert(
+      'Reset all progress?',
+      'This permanently clears your ranks, streaks, sessions, and unlocks on this device. A safety backup is kept, but this cannot be undone from the app.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reset everything', style: 'destructive', onPress: onReset },
+      ],
+    );
   };
 
   return (
@@ -365,7 +421,7 @@ function ProgressScreen() {
                   >
                     <View style={[s.themeSwatch, { backgroundColor: tc.accent }]} />
                     <Text style={[s.themeName, active && { color: tc.accent }]}>{tc.name.split('·')[0].trim()}</Text>
-                    <Text style={s.themeHint} numberOfLines={2}>{locked ? THEME_UNLOCK_HINTS[key] || 'Locked' : tc.desc}</Text>
+                    <Text style={s.themeHint} numberOfLines={3}>{locked ? THEME_UNLOCK_HINTS[key] || 'Locked' : tc.desc}</Text>
                   </Pressable>
                 );
               })}
@@ -402,6 +458,39 @@ function ProgressScreen() {
               </Panel>
             );
           })}
+
+          <Panel accent="#D8D8D8" dim>
+            <View style={s.settingRow}>
+              <View style={{ flex: 1, paddingRight: DS.space.md }}>
+                <Text style={s.settingTitle}>Daily training reminder</Text>
+                <Text style={s.settingSub}>
+                  {settings.trainingReminder ? `A nudge every day at ${reminderLabel}` : 'Off — no notifications'}
+                </Text>
+              </View>
+              <Toggle
+                value={!!settings.trainingReminder}
+                accent="#D8D8D8"
+                label="Daily training reminder"
+                onPress={toggleTrainingReminder}
+              />
+            </View>
+            {settings.trainingReminder && (
+              <View style={[s.optionRow, { marginTop: DS.space.md }]}>
+                {REMINDER_TIMES.map(({ value, label }) => (
+                  <Pressable
+                    key={value}
+                    onPress={() => changeReminderTime(value)}
+                    style={[s.optionPill, reminderTime === value && { backgroundColor: '#D8D8D8' + '18' }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Reminder time ${label}`}
+                    accessibilityState={{ selected: reminderTime === value }}
+                  >
+                    <Text style={[s.optionText, reminderTime === value && { color: '#D8D8D8' }]}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </Panel>
 
           <Panel accent={t.accent} dim>
             <Text style={s.sectionTitle}>Training defaults</Text>
@@ -440,8 +529,8 @@ function ProgressScreen() {
 
           <Panel accent="#D6D6D6" dim>
             <Text style={s.settingTitle}>Reset progress</Text>
-            <Text style={s.settingSub}>Clears your local training story.</Text>
-            <Pressable onPress={onReset} style={s.resetButton}>
+            <Text style={s.settingSub}>Clears your local training story. This cannot be undone.</Text>
+            <Pressable onPress={confirmReset} style={s.resetButton} accessibilityRole="button" accessibilityLabel="Reset all progress">
               <Text style={s.resetText}>Reset all progress</Text>
             </Pressable>
           </Panel>
@@ -507,31 +596,32 @@ const s = StyleSheet.create({
     height: 32,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#C8C8C8',
-    backgroundColor: 'rgba(197, 160, 89, 0.08)',
+    borderColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   masuCupFilled: {
     backgroundColor: '#C8C8C8',
+    borderColor: '#C8C8C8',
   },
   masuText: {
     fontSize: 12,
     fontWeight: '800',
-    color: 'rgba(197, 160, 89, 0.5)',
+    color: 'rgba(255,255,255,0.5)',
   },
   masuTextFilled: {
-    color: '#0A0B0A',
+    color: '#0A0A0A',
   },
   bodyRows: { gap: DS.space.md },
   bodyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   bodyLabel: { color: TXT3, fontSize: 13, fontWeight: '800' },
   bodyValue: { color: TXT1, fontSize: 18, fontWeight: '900' },
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: DS.space.sm },
-  themeTile: { width: (W - 32 - 24) / 3, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.08)', padding: 12, minHeight: 116, backgroundColor: 'rgba(255,255,255,0.035)' },
+  themeTile: { width: (W - 32 - 24) / 3, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.08)', padding: 12, minHeight: 132, backgroundColor: 'rgba(255,255,255,0.035)' },
   themeSwatch: { width: 28, height: 28, borderRadius: 14, marginBottom: 9 },
   themeName: { color: TXT1, fontSize: 11, fontWeight: '900' },
-  themeHint: { color: TXT3, fontSize: 9, lineHeight: 13, marginTop: 5 },
+  themeHint: { color: TXT3, fontSize: 11, lineHeight: 14, marginTop: 5 },
   settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   settingTitle: { color: TXT1, fontSize: 15, fontWeight: '900' },
   settingSub: { color: TXT3, fontSize: 12, marginTop: 4 },
@@ -540,15 +630,15 @@ const s = StyleSheet.create({
   optionRow: { flexDirection: 'row', gap: DS.space.sm },
   optionPill: { flex: 1, minHeight: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)' },
   optionText: { color: TXT3, fontSize: 14, fontWeight: '900' },
-  resetButton: { marginTop: DS.space.md, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,113,113,0.14)' },
-  resetText: { color: '#D6D6D6', fontSize: 13, fontWeight: '900' },
+  resetButton: { marginTop: DS.space.md, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.22)' },
+  resetText: { color: TXT1, fontSize: 13, fontWeight: '900', letterSpacing: 0.3 },
   lostButton: {
     marginTop: DS.space.md,
     minHeight: 50,
     borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(197, 160, 89, 0.14)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
   lostText: {
     fontSize: 13,

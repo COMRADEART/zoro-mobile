@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Animated, Easing, StyleSheet, Dimensions, AppState } from 'react-native';
 import { THEMES, DEFAULT_THEME } from '../../theme/themes';
+import useReducedMotion from '../../hooks/useReducedMotion';
 
 const { width: W, height: H } = Dimensions.get('window');
 
 export function AmbientBG({ theme }) {
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
+  const reducedMotion = useReducedMotion();
   const pulse = useRef(new Animated.Value(0)).current;
   const radialPulse = useRef(new Animated.Value(0)).current;
   const drift = useRef(new Animated.Value(0)).current;
@@ -14,6 +16,14 @@ export function AmbientBG({ theme }) {
   const driftRef = useRef(null);
 
   useEffect(() => {
+    // Reduced motion: hold the layers at a gentle static mid-state instead of
+    // running three perpetual loops.
+    if (reducedMotion) {
+      pulse.setValue(0.5);
+      radialPulse.setValue(0.3);
+      drift.setValue(0.5);
+      return undefined;
+    }
     loopRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, { toValue: 1, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
@@ -52,7 +62,7 @@ export function AmbientBG({ theme }) {
       driftRef.current?.stop();
       sub.remove();
     };
-  }, [pulse, radialPulse, drift]);
+  }, [pulse, radialPulse, drift, reducedMotion]);
 
   const radialScale = radialPulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 2.8] });
   const radialOpacity = radialPulse.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.07, 0] });
@@ -103,6 +113,7 @@ export function AmbientBG({ theme }) {
 
 export function FloatingParticles({ theme, count = 16 }) {
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
+  const reducedMotion = useReducedMotion();
   const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
@@ -122,6 +133,9 @@ export function FloatingParticles({ theme, count = 16 }) {
       opacity: 0.05 + Math.random() * 0.18,
     }))
   ).current;
+
+  // Reduced motion: skip the entire perpetual particle field.
+  if (reducedMotion) return null;
 
   return (
     <>
@@ -152,10 +166,12 @@ function AnimatedParticle({ p, color, isActive }) {
       y.setValue(p.startY);
       x.setValue(p.x);
       opacity.setValue(p.opacity * 0.5);
+      // translateX/translateY/opacity are all native-driver compatible and no
+      // listener reads these values — run them off the JS thread.
       animRef.current = Animated.parallel([
-        Animated.timing(y, { toValue: -30, duration: p.speed * 1000 / 12, easing: Easing.linear, useNativeDriver: false }),
-        Animated.timing(x, { toValue: p.x + p.drift, duration: p.speed * 1000 / 12, easing: Easing.linear, useNativeDriver: false }),
-        Animated.timing(opacity, { toValue: p.opacity, duration: p.speed * 1000 / 24, useNativeDriver: false }),
+        Animated.timing(y, { toValue: -30, duration: p.speed * 1000 / 12, easing: Easing.linear, useNativeDriver: true }),
+        Animated.timing(x, { toValue: p.x + p.drift, duration: p.speed * 1000 / 12, easing: Easing.linear, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: p.opacity, duration: p.speed * 1000 / 24, useNativeDriver: true }),
       ]);
       animRef.current.start(({ finished }) => {
         if (!mounted || !finished) return;

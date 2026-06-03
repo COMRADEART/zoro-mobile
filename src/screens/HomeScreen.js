@@ -286,7 +286,7 @@ const gaugeStyles = StyleSheet.create({
   },
   scale: {
     color: TXT3,
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: 2,
     fontWeight: '700',
     marginTop: 1,

@@ -250,7 +250,7 @@ const s = StyleSheet.create({
   nodeXP: { fontSize: 11, fontWeight: '900' },
   nodeName: { color: TXT2, fontSize: 14, lineHeight: 18, fontWeight: '800' },
   nodeBranch: { color: TXT3, fontSize: 11, marginTop: 6 },
-  lockFog: { color: TXT3, fontSize: 10, marginTop: 8, fontWeight: '700' },
+  lockFog: { color: TXT3, fontSize: 11, marginTop: 8, fontWeight: '700' },
   sectionTitle: { color: TXT3, fontSize: 12, fontWeight: '800', marginBottom: DS.space.sm },
   nextUnlockRow: { flexDirection: 'row', alignItems: 'center', gap: DS.space.md },
   nextGlyph: { width: 52, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },

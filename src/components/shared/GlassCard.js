@@ -2,8 +2,10 @@ import React, { memo, useRef, useEffect } from 'react';
 import { View, Pressable, StyleSheet, Animated, Easing } from 'react-native';
 import { BORD } from '../../theme/tokens';
 import { DS } from '../../theme/designSystem';
+import useReducedMotion from '../../hooks/useReducedMotion';
 
 const GlassCard = memo(function GlassCard({ accent, children, style, onPress, elevation = 'medium', glowIntensity = 0.6 }) {
+  const reducedMotion = useReducedMotion();
   const borderColor = accent ? accent + '40' : BORD;
   const shadowColor = accent || '#ffffff';
   const glowPeak = 0.08 + Math.min(1, Math.max(0, glowIntensity)) * 0.17;
@@ -11,7 +13,7 @@ const GlassCard = memo(function GlassCard({ accent, children, style, onPress, el
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (!accent || elevation === 'none') return;
+    if (!accent || elevation === 'none' || reducedMotion) return;
 
     const glowLoop = Animated.loop(
       Animated.sequence([
@@ -34,7 +36,7 @@ const GlassCard = memo(function GlassCard({ accent, children, style, onPress, el
       glowLoop.stop();
       shimmerLoop.stop();
     };
-  }, [accent, glowAnim, shimmerAnim, elevation]);
+  }, [accent, glowAnim, shimmerAnim, elevation, reducedMotion]);
 
   const shadowLevels = {
     sm: {

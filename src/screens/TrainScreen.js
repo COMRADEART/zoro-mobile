@@ -37,13 +37,13 @@ const MOOD = {
 };
 
 function TrainScreen({ onFocusModeChange }) {
-  const { progress, today, handleSessionEnd, showToast, handleUpdate, handleUpdateImmediate } = useProgress();
+  const { progress, today, handleSessionEnd, showToast, handleUpdate, handleUpdateImmediate, setTab } = useProgress();
   const reducedMotion = useReducedMotion();
   // If a session was in progress when the app last died, resume it. Reading
   // currentSession at first render avoids a flash of the idle hero card before
   // we restore focus mode.
   const resumeSession = progress.currentSession ?? null;
-  const [activeSword, setActiveSword] = useState(resumeSession?.discipline || progress.activeSword || 'sandai');
+  const activeSword = resumeSession?.discipline || progress.activeSword || 'sandai';
   const [phase, setPhase] = useState(resumeSession ? 'active' : 'idle');
   const [sessionId, setSessionId] = useState(resumeSession?.id ?? null);
   const [breathProgram, setBreathProgram] = useState(null);
@@ -119,7 +119,6 @@ function TrainScreen({ onFocusModeChange }) {
   }, [phase, pulse, reducedMotion]);
 
   const switchSword = (sw) => {
-    setActiveSword(sw);
     handleUpdate(prev => ({ ...prev, activeSword: sw }));
     lightImpact();
     playClick();
@@ -432,7 +431,7 @@ function TrainScreen({ onFocusModeChange }) {
           <PrimaryButton
             label="RETURN TO HOME"
             accent={sword.accent}
-            onPress={() => setPhase('idle')}
+            onPress={() => { setPhase('idle'); setTab('home'); }}
             darkText={sword.accent !== STEEL}
           />
         </Animated.View>

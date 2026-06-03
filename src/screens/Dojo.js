@@ -8,82 +8,25 @@ import BossHintModal from '../components/shared/BossHintModal';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
 import { TXT3, TAB_BAR_H } from '../theme/tokens';
 import { statusBarStyleForTheme } from '../theme/statusBar';
-import { SWORDS } from '../data/gameData';
 import HomeScreen from './HomeScreen';
 import TrainScreen from './TrainScreen';
 import SkillScreen from './SkillScreen';
 import ProgressScreen from './ProgressScreen';
 import WelcomeScreen from './WelcomeScreen';
 import DojoTabBar, { TABS } from '../components/DojoTabBar';
+import { useToast } from '../components/ToastWrapper';
 import ErrorBoundary from '../components/shared/ErrorBoundary';
 import { toDateKey, sanitizeDisplayName, shouldShowWelcome } from '../logic/progression';
-import { setHapticsEnabled, rankUp, bossDefeat, bossFail, themeUnlock } from '../utils/haptics';
-import { scheduleRestReminder } from '../services/notificationService';
-import { initAudio, playRankUp, setSoundEnabled } from '../services/audioService';
+import { buildEventHandlers } from '../logic/eventHandlers';
+import { setHapticsEnabled } from '../utils/haptics';
+import { initAudio, setSoundEnabled } from '../services/audioService';
 import { useAutoTheme } from '../hooks/useAutoTheme';
 
 const { width: W } = Dimensions.get('window');
 export const THEME_KEYS = Object.keys(THEMES);
 
-const EVENT_HANDLERS = {
-  rank_up: (ev, { showToast, setPendingRankUp }) => {
-    rankUp();
-    playRankUp();
-    setPendingRankUp(ev.rank);
-    showToast({ title: 'RANK UP', body: ev.rank.name });
-  },
-  boss_completed: (ev, { showToast }) => {
-    bossDefeat();
-    showToast({ title: 'BOSS DEFEATED', body: `${ev.boss?.name ?? 'Challenge'} · +${ev.boss?.xpReward?.toLocaleString() ?? '?'} XP` });
-  },
-  boss_failed: (_ev, { showToast }) => {
-    bossFail();
-    showToast({ title: 'NOTHING HAPPENED.', body: 'Train harder.' });
-  },
-  boss_hint: (ev, { setBossHint }) => {
-    bossFail();
-    setBossHint(ev.boss?.name ?? 'this challenge');
-  },
-  theme_unlocked: (ev, { showToast, setThemeFlash, flashAnim }) => {
-    themeUnlock();
-    const tc = THEMES[ev.themeKey];
-    if (tc) {
-      flashAnim.stopAnimation();
-      setThemeFlash({ color: tc.accent, key: ev.themeKey });
-      Animated.sequence([
-        Animated.timing(flashAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-        Animated.delay(600),
-        Animated.timing(flashAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
-      ]).start(({ finished }) => { if (finished) setThemeFlash(null); });
-    }
-    showToast({ title: 'THEME UNLOCKED', body: tc?.name ?? ev.themeKey });
-  },
-  data_reset: (_ev, { showToast }) => {
-    showToast({ title: 'DATA RESET', body: 'Progress was reset. A backup was saved.' });
-  },
-  technique_unlocked: (ev, { showToast }) => {
-    showToast({ title: 'TECHNIQUE UNLOCKED', body: `${ev.reward?.kanji} · ${ev.reward?.name}` });
-  },
-  title_earned: (ev, { showToast }) => {
-    showToast({ title: 'TITLE EARNED', body: `${ev.tier?.kanji} · ${ev.tier?.name}` });
-  },
-  week_completed: (ev, { showToast }) => {
-    showToast({ title: 'WEEK COMPLETE', body: `Week ${ev.weekNum} · ${SWORDS[ev.path]?.name}` });
-  },
-  bounty_completed: (ev, { showToast }) => {
-    showToast({ title: 'BOUNTY CLAIMED', body: `${ev.bounty?.kanji} · +${ev.bounty?.xpReward} XP` });
-  },
-  arc_week_complete: (ev, { showToast }) => {
-    showToast({ title: 'ARC WEEK DONE', body: `Week ${ev.weekNum} complete` });
-  },
-  arc_completed: (ev, { showToast }) => {
-    showToast({ title: 'ARC COMPLETE', body: `${ev.arc?.name} · +${ev.arc?.xpReward?.toLocaleString()} XP` });
-  },
-};
-
-function DojoInner() {
-  const { progress, tab, setTab, handleUpdate, clearPendingEvents } = useProgress();
-  const [toast, setToast] = useState(null);
+function DojoInner({ toast, toastOpacity }) {
+  const { progress, tab, setTab, handleUpdate, clearPendingEvents, showToast } = useProgress();
   // Session-only: Skip dismisses the gate for this launch only, so the welcome
   // screen reappears on the next cold start until the user actually signs in.
   const [authSkipped, setAuthSkipped] = useState(false);
@@ -92,8 +35,6 @@ function DojoInner() {
   const [themeFlash, setThemeFlash] = useState(null);
   const [trainingFocus, setTrainingFocus] = useState(false);
   const flashAnim = useRef(new Animated.Value(0)).current;
-  const toastOpacity = useRef(new Animated.Value(0)).current;
-  const toastTimer = useRef(null);
   // Driven by the pager's onScroll. Holds a fractional tab index (0..TABS.length-1)
   // so the indicator pill tracks the swipe gesture instead of jumping at the end.
   const tabAnim = useRef(new Animated.Value(0)).current;
@@ -132,34 +73,18 @@ function DojoInner() {
     ),
   ).current;
 
-  const showToast = useCallback(({ title, body }) => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast({ title, body });
-    toastOpacity.setValue(0);
-    Animated.timing(toastOpacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-    toastTimer.current = setTimeout(() => {
-      Animated.timing(toastOpacity, { toValue: 0, duration: 280, useNativeDriver: true }).start(() => setToast(null));
-    }, 3200);
-  }, [toastOpacity]);
-
   const handleTrainingFocus = useCallback((active) => {
     setTrainingFocus(active);
   }, []);
 
   useEffect(() => {
     if (!progress) return;
-    if ((progress.recoveryScore ?? 100) < 20 && progress.settings?.morningReminder) {
-      scheduleRestReminder(progress.settings.reminderTime || '20:00');
-    }
-  }, [progress]);
-
-  useEffect(() => {
-    if (!progress) return;
     const events = progress._pendingEvents || [];
     if (events.length === 0) return;
     const ctx = { showToast, setPendingRankUp, setBossHint, setThemeFlash, flashAnim };
+    const handlers = buildEventHandlers(ctx);
     for (const ev of events) {
-      EVENT_HANDLERS[ev.type]?.(ev, ctx);
+      handlers[ev.type]?.(ev);
     }
     clearPendingEvents();
   }, [progress, showToast, clearPendingEvents, flashAnim]);
@@ -265,9 +190,14 @@ function DojoInner() {
 }
 
 export default function Dojo() {
+  // The toast lives above the provider so context `showToast` (used by Train,
+  // breathing, and arc-start) routes to the same animated toast as the
+  // event-driven ones — previously the provider had no toastCallback and those
+  // toasts were silently dropped.
+  const { toast, toastOpacity, showToast } = useToast();
   return (
-    <ProgressProvider>
-      <DojoInner />
+    <ProgressProvider toastCallback={showToast}>
+      <DojoInner toast={toast} toastOpacity={toastOpacity} />
     </ProgressProvider>
   );
 }

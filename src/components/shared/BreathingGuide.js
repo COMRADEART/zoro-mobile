@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Pressable, Modal, Animated, StyleSheet, Easing } from 'react-native';
 import { TXT1, TXT3 } from '../../theme/tokens';
+import useReducedMotion from '../../hooks/useReducedMotion';
 
 const PHASE_LABELS = {
   inhale: { text: '吸う', sub: 'BREATHE IN', color: '#F2F2F2' },
@@ -10,6 +11,7 @@ const PHASE_LABELS = {
 };
 
 export default function BreathingGuide({ program, onComplete, onDismiss }) {
+  const reducedMotion = useReducedMotion();
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(0.5)).current;
   const ringPulse = useRef(new Animated.Value(0)).current;
@@ -40,10 +42,15 @@ export default function BreathingGuide({ program, onComplete, onDismiss }) {
   }, [program, scale, opacity]);
 
   useEffect(() => {
-    Animated.loop(
+    // Decorative ring pulse — capture the loop so it stops on unmount, and skip
+    // it entirely under reduced motion (the breathing orb itself still guides).
+    if (reducedMotion) { ringPulse.setValue(0); return undefined; }
+    const ring = Animated.loop(
       Animated.timing(ringPulse, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true })
-    ).start();
-  }, [ringPulse]);
+    );
+    ring.start();
+    return () => ring.stop();
+  }, [ringPulse, reducedMotion]);
 
   useEffect(() => {
     const phases = ['inhale', 'holdIn', 'exhale', 'holdOut'].filter(k => program.pattern[k] > 0);

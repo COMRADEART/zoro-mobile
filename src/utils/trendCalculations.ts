@@ -1,5 +1,5 @@
 import type { Progress, Session } from '../types';
-import { computeRingProgress, toDateKey } from '../logic/progression';
+import { computeRingProgress, toDateKey, parseDateKey } from '../logic/progression';
 
 /**
  * Buckets completed sessions by their end-date key (YYYY-MM-DD). Built once per
@@ -23,10 +23,11 @@ function sessionsByDate(progress: Progress): Record<string, Session[]> {
  */
 export function getLastNDays(today: string, n: number): string[] {
   const days = [];
+  const base = parseDateKey(today);
   for (let i = 1; i <= n; i++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    days.push(date.toISOString().split('T')[0]);
+    const date = new Date(base);
+    date.setDate(base.getDate() - i);
+    days.push(toDateKey(date));
   }
   return days;
 }
@@ -117,8 +118,7 @@ export function calculateRingClosureTrend(progress: Progress, days: string[]): n
  * @returns Shortened day abbreviation.
  */
 export function shortDay(dateKey: string): string {
-  const date = new Date(dateKey);
-  return date.toLocaleDateString('en-US', { weekday: 'short' });
+  return parseDateKey(dateKey).toLocaleDateString('en-US', { weekday: 'short' });
 }
 
 /**

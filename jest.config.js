@@ -9,6 +9,7 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   clearMocks: true,
   rootDir: '.',
+  setupFiles: ['<rootDir>/tests/setup.tz.js'],
   moduleNameMapper: {
     '^../src/(.*)\\.js$': '<rootDir>/src/$1.ts',
     '^@react-native-async-storage/async-storage$': '<rootDir>/node_modules/@react-native-async-storage/async-storage/jest/async-storage-mock',

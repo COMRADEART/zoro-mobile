@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { saveProgress } from '../storage/progressStore';
 
 export function useAutoTheme(progress, updateProgress) {
   const lastThemeRef = useRef(progress?.settings?.theme);
@@ -18,7 +17,6 @@ export function useAutoTheme(progress, updateProgress) {
       lastThemeRef.current = nextTheme;
       const next = { ...progress, settings: { ...progress.settings, theme: nextTheme } };
       updateProgressRef.current(next);
-      saveProgress(next);
     }
   }, [progress?.settings?.autoTheme, progress?.settings?.theme, progress]);
 }
