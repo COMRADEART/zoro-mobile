@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import XPBar from '../components/shared/XPBar';
@@ -82,6 +82,12 @@ export default function HomeScreen() {
   } = d;
   const sharpLabel = getSharpnessLabel(sharpness);
   const sharpColor = getSharpnessColor(sharpness);
+
+  // Situational grounding passed to the on-device sensei chat. Used when the
+  // chat is opened; SenseiChatModal falls back to `sensei` if AI is unavailable.
+  const aiCtx =
+    `${rank.name} · ${streak}-day streak · ${readiness} readiness · ` +
+    `today: ${rec.type === 'rest' ? 'rest day' : (SWORDS[rec.discipline]?.name || 'training')}`;
 
   const loggedSharpness = progress.swordSharpnessLog?.[today];
   useEffect(() => {
