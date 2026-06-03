@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, StatusBar, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { ProgressProvider, useProgress } from '../context/ProgressContext';
 import { AmbientBG, FloatingParticles } from '../components/shared/AmbientBG';
@@ -16,6 +16,7 @@ import ProfileScreen from './ProfileScreen';
 import ConfigScreen from './ConfigScreen';
 import VoyageLogScreen from './VoyageLogScreen';
 import DojoTabBar, { TABS } from '../components/DojoTabBar';
+import { useToast } from '../components/ToastWrapper';
 import { setHapticsEnabled, rankUp, bossDefeat, bossFail, themeUnlock } from '../utils/haptics';
 import { scheduleRestReminder } from '../services/notificationService';
 import { initAudio, playRankUp, setSoundEnabled } from '../services/audioService';
@@ -83,15 +84,12 @@ const EVENT_HANDLERS = {
   },
 };
 
-function DojoInner() {
-  const { progress, tab, setTab, handleUpdate, clearPendingEvents } = useProgress();
-  const [toast, setToast] = useState(null);
+function DojoInner({ toast, toastOpacity }) {
+  const { progress, tab, setTab, handleUpdate, clearPendingEvents, showToast } = useProgress();
   const [pendingRankUp, setPendingRankUp] = useState(null);
   const [bossHint, setBossHint] = useState(null);
   const [themeFlash, setThemeFlash] = useState(null);
   const flashAnim = useRef(new Animated.Value(0)).current;
-  const toastOpacity = useRef(new Animated.Value(0)).current;
-  const toastTimer = useRef(null);
   const tabAnim = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef(null);
   const reducedMotion = useReducedMotion();
@@ -124,16 +122,6 @@ function DojoInner() {
       scrollRef.current.scrollTo({ x: idx * W, animated: !reducedMotion, duration: 320 });
     }
   }, [tab, reducedMotion]);
-
-  const showToast = useCallback(({ title, body }) => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast({ title, body });
-    toastOpacity.setValue(0);
-    Animated.timing(toastOpacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-    toastTimer.current = setTimeout(() => {
-      Animated.timing(toastOpacity, { toValue: 0, duration: 280, useNativeDriver: true }).start(() => setToast(null));
-    }, 3200);
-  }, [toastOpacity]);
 
   useEffect(() => {
     if (!progress) return;
@@ -226,9 +214,14 @@ function DojoInner() {
 }
 
 export default function Dojo() {
+  // The toast lives above the provider so context `showToast` (used by Train,
+  // breathing, voyage, and config) routes to the same animated toast as the
+  // event-driven ones — previously the provider had no toastCallback and those
+  // context toasts were silently dropped.
+  const { toast, toastOpacity, showToast } = useToast();
   return (
-    <ProgressProvider>
-      <DojoInner />
+    <ProgressProvider toastCallback={showToast}>
+      <DojoInner toast={toast} toastOpacity={toastOpacity} />
     </ProgressProvider>
   );
 }

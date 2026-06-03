@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions, Alert } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import SectionLabel from '../components/shared/SectionLabel';
 import GlassCard from '../components/shared/GlassCard';
@@ -275,7 +275,19 @@ export default function ConfigScreen() {
         </View>
         <Pressable
           style={s.dangerBtn}
-          onPress={() => { lightImpact(); onReset(); }}
+          onPress={() => {
+            lightImpact();
+            // Reset wipes all local data irreversibly — require an explicit
+            // confirm so a single mis-tap can't destroy a user's training story.
+            Alert.alert(
+              'Reset all progress?',
+              'This permanently clears your ranks, streaks, sessions, and unlocks on this device. This cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Reset everything', style: 'destructive', onPress: onReset },
+              ],
+            );
+          }}
           accessibilityRole="button"
           accessibilityLabel="Reset all progress"
         >
