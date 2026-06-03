@@ -2,10 +2,11 @@ package expo.modules.gemininano
 
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.kotlin.functions.Coroutine
 import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.GenerativeModel
-import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.flow.collect
 
 /**
  * Thin wrapper over the on-device ML Kit GenAI Prompt API (Gemini Nano via
@@ -33,8 +34,9 @@ class ExpoGeminiNanoModule : Module() {
     Name("ExpoGeminiNano")
 
     // 'available' | 'unavailable' | 'downloading' | 'downloadable'
-    AsyncFunction("checkStatus") Coroutine@{ ->
-      when (model.checkStatus().await()) {
+    // checkStatus() is a suspend fun returning a @FeatureStatus Int.
+    AsyncFunction("checkStatus") Coroutine { ->
+      when (model.checkStatus()) {
         FeatureStatus.AVAILABLE -> "available"
         FeatureStatus.DOWNLOADING -> "downloading"
         FeatureStatus.DOWNLOADABLE -> "downloadable"
@@ -42,27 +44,29 @@ class ExpoGeminiNanoModule : Module() {
       }
     }
 
-    // Triggers the AICore-managed Gemini Nano model download. No-ops on
-    // the native side if already available; surfaced as a JS state change.
-    AsyncFunction("download") Coroutine@{ ->
-      model.download().await()
+    // Triggers the AICore-managed Gemini Nano model download. download()
+    // returns a cold Flow<DownloadStatus>; collecting it drives the
+    // download to completion, then the promise resolves on the JS side.
+    AsyncFunction("download") Coroutine { ->
+      model.download().collect { }
       true
     }
 
     // Free-form generation. Keep prompts within the documented limits;
     // the JS layer is responsible for trimming input and bounding output.
-    AsyncFunction("generate") Coroutine@{ prompt: String ->
-      model.generateContent(prompt).await().text ?: ""
+    // generateContent() is suspend; text lives on the first Candidate.
+    AsyncFunction("generate") Coroutine { prompt: String ->
+      model.generateContent(prompt).candidates.firstOrNull()?.text ?: ""
     }
 
     // Summarization is expressed as a constrained prompt instruction
     // rather than the separate genai-summarization artifact (its Kotlin
     // surface was not verified). Output stays short by instruction.
-    AsyncFunction("summarize") Coroutine@{ text: String ->
+    AsyncFunction("summarize") Coroutine { text: String ->
       val prompt =
         "Summarize the following into 2-3 vivid sentences. " +
         "Do not exceed 60 words. Text:\n$text"
-      model.generateContent(prompt).await().text ?: ""
+      model.generateContent(prompt).candidates.firstOrNull()?.text ?: ""
     }
   }
 }
