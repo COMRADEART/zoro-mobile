@@ -112,7 +112,19 @@ if (raw4) {
 try {
 const parsed = JSON.parse(raw4);
 if (validateV4State(parsed)) {
-return { progress: applyStartupExpiry(normalizeProgress(parsed)), wasReset: false };
+const normalized = normalizeProgress(parsed);
+const withExpiry = applyStartupExpiry(normalized);
+if (withExpiry !== normalized) {
+  // Boss expiry marked challenges failed — persist the failed state (minus the
+  // in-memory _pendingEvents) so the failure events aren't recomputed and
+  // re-emitted on every subsequent cold start.
+  try {
+    await AsyncStorage.setItem(KEY_V4, JSON.stringify({ ...withExpiry, _pendingEvents: undefined }));
+  } catch (saveError) {
+    console.error('[progressStore] Failed to persist startup boss-expiry:', saveError);
+  }
+}
+return { progress: withExpiry, wasReset: false };
 }
 console.error('[progressStore] v4 state failed validation; backing up and resetting');
 try {
@@ -129,8 +141,20 @@ console.error('[progressStore] Failed to save reset progress:', saveError);
 }
 return { progress: fresh, wasReset: true };
 } catch (parseError) {
-  console.error('[progressStore] Failed to parse v4 state:', parseError);
-  return { progress: defaultProgress(), wasReset: false };
+  console.error('[progressStore] Failed to parse v4 state; backing up and resetting:', parseError);
+  try {
+    await AsyncStorage.setItem(KEY_CORRUPTED, raw4);
+  } catch (backupError) {
+    console.error('[progressStore] Failed to back up corrupted v4 state:', backupError);
+  }
+  const fresh = defaultProgress();
+  fresh._pendingEvents = [{ type: 'data_reset' }];
+  try {
+    await AsyncStorage.setItem(KEY_V4, JSON.stringify({ ...fresh, _pendingEvents: undefined }));
+  } catch (saveError) {
+    console.error('[progressStore] Failed to save reset progress:', saveError);
+  }
+  return { progress: fresh, wasReset: true };
 }
 }
 
@@ -164,14 +188,14 @@ return { progress: fresh, wasReset: true };
 }
 // Normalize after validation to fill v4-only fields the v3 schema lacks
 // (unlockedThemes, bossAttemptHistory, stepLog, vitalsLog).
-const migrated = normalizeProgress(migratedRaw);
+const migrated = applyStartupExpiry(normalizeProgress(migratedRaw));
 try {
-await AsyncStorage.setItem(KEY_V4, JSON.stringify(migrated));
+await AsyncStorage.setItem(KEY_V4, JSON.stringify({ ...migrated, _pendingEvents: undefined }));
 await AsyncStorage.removeItem(KEY_V3);
 } catch (saveError) {
 console.error('[progressStore] Failed to save migrated progress:', saveError);
 }
-return { progress: applyStartupExpiry(migrated), wasReset: false };
+return { progress: migrated, wasReset: false };
 } catch (parseError) {
 console.error('[progressStore] Failed to parse or migrate v3 state:', parseError);
 const fresh = defaultProgress();

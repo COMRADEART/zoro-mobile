@@ -293,6 +293,7 @@ function ProgressScreen() {
             {sessions.length === 0 && <Text style={s.emptyText}>No sessions yet. Your first chapter starts with Begin Training.</Text>}
             {sessions.map((session, index) => {
               const sword = SWORDS[session.discipline];
+              if (!sword) return null;
               return (
                 <View key={session.id} style={s.timelineRow}>
                   <View style={[s.timelineDot, { backgroundColor: sword.accent }]} />

@@ -1,12 +1,12 @@
-// @ts-nocheck
 /**
  * Pure progression logic. No React, no Firebase, no side effects.
  * Copied unchanged from the web project and extended with session tracking,
  * recovery, skill trees, and boss challenges.
  */
 import { SWORDS, RANKS, REWARDS, TITLE_PATHS, SKILL_TREES, BOSS_CHALLENGES, BOUNTY_MISSIONS, TRAINING_ARCS, getExerciseById } from '../data/gameData';
-import type { Progress, Discipline, Session, LoggedExercise } from '../types';
+import type { Progress, Discipline, Session, LoggedExercise, ProgressionEvent } from '../types';
 import { DISCIPLINES } from '../types';
+import { THEME_KEYS } from '../theme/themes';
 
 export const BOSS_HINT_FAIL_THRESHOLD = 3;
 export const BOSS_ATTEMPT_HISTORY_CAP = 50;
@@ -303,7 +303,7 @@ export function normalizeProgress(raw: any): Progress {
   // dayLog
   if (raw.dayLog && typeof raw.dayLog === 'object') {
     const clean = {};
-    for (const [date, counts] of Object.entries(raw.dayLog)) {
+    for (const [date, counts] of Object.entries(raw.dayLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (!counts || typeof counts !== 'object') continue;
       clean[date] = {
@@ -318,7 +318,7 @@ export function normalizeProgress(raw: any): Progress {
   // unlocked (rewards)
   if (Array.isArray(raw.unlocked)) {
     const validIds = new Set(REWARDS.map(r => r.id));
-    out.unlocked = [...new Set(raw.unlocked.filter(id => validIds.has(id)))];
+    out.unlocked = [...new Set((raw.unlocked as string[]).filter(id => validIds.has(id)))];
   }
 
   // completedWeeks
@@ -352,7 +352,7 @@ export function normalizeProgress(raw: any): Progress {
   // sleepLog
   if (raw.sleepLog && typeof raw.sleepLog === 'object') {
     const clean = {};
-    for (const [date, data] of Object.entries(raw.sleepLog)) {
+    for (const [date, data] of Object.entries(raw.sleepLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (!data || typeof data !== 'object') continue;
       clean[date] = {
@@ -370,7 +370,7 @@ export function normalizeProgress(raw: any): Progress {
   // moodLog
   if (raw.moodLog && typeof raw.moodLog === 'object') {
     const clean = {};
-    for (const [date, data] of Object.entries(raw.moodLog)) {
+    for (const [date, data] of Object.entries(raw.moodLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (!data || typeof data !== 'object') continue;
       clean[date] = {
@@ -383,7 +383,7 @@ export function normalizeProgress(raw: any): Progress {
 
   // skillUnlocks
   if (raw.skillUnlocks && typeof raw.skillUnlocks === 'object') {
-    const clean = {};
+    const clean: Record<string, Record<string, string[]>> = {};
     for (const disc of ['wado', 'sandai', 'shusui']) {
       if (raw.skillUnlocks[disc] && typeof raw.skillUnlocks[disc] === 'object') {
         clean[disc] = {};
@@ -409,9 +409,9 @@ export function normalizeProgress(raw: any): Progress {
   }
 
   {
-    const valid = ['wado', 'sandai', 'shusui', 'hollow', 'solar', 'abyss'];
+    const validThemes = new Set(THEME_KEYS);
     const saved = Array.isArray(raw.unlockedThemes)
-      ? raw.unlockedThemes.filter((t: string) => valid.includes(t))
+      ? raw.unlockedThemes.filter((t: string) => validThemes.has(t))
       : [];
     out.unlockedThemes = [...new Set([...DISCIPLINES, ...saved])];
   }
@@ -433,7 +433,7 @@ export function normalizeProgress(raw: any): Progress {
   // v4: hydrationLog
   if (raw.hydrationLog && typeof raw.hydrationLog === 'object') {
     const clean = {};
-    for (const [date, data] of Object.entries(raw.hydrationLog)) {
+    for (const [date, data] of Object.entries(raw.hydrationLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (data && typeof data.cups === 'number') clean[date] = { cups: Math.max(0, Math.min(50, Math.floor(data.cups))) };
     }
@@ -443,7 +443,7 @@ export function normalizeProgress(raw: any): Progress {
   // v4: foodLog
   if (raw.foodLog && typeof raw.foodLog === 'object') {
     const clean = {};
-    for (const [date, entries] of Object.entries(raw.foodLog)) {
+    for (const [date, entries] of Object.entries(raw.foodLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (!Array.isArray(entries)) continue;
       clean[date] = entries
@@ -463,7 +463,7 @@ export function normalizeProgress(raw: any): Progress {
 
   // v4: bodyComposition
   if (raw.bodyComposition && typeof raw.bodyComposition === 'object') {
-    const bc = raw.bodyComposition;
+    const bc: any = raw.bodyComposition;
     const safeNullNum = v => (typeof v === 'number' && v > 0 && v < 1000) ? v : null;
     out.bodyComposition = {
       bodyFatPct:    safeNullNum(bc.bodyFatPct),
@@ -477,7 +477,7 @@ export function normalizeProgress(raw: any): Progress {
   // v4: breathingLog
   if (raw.breathingLog && typeof raw.breathingLog === 'object') {
     const clean = {};
-    for (const [date, sessions] of Object.entries(raw.breathingLog)) {
+    for (const [date, sessions] of Object.entries(raw.breathingLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (!Array.isArray(sessions)) continue;
       clean[date] = sessions.filter(s => s && typeof s.programId === 'string').slice(0, 20);
@@ -488,7 +488,7 @@ export function normalizeProgress(raw: any): Progress {
   // v4: arcProgress
   if (raw.arcProgress && typeof raw.arcProgress === 'object') {
     const clean = {};
-    for (const [arcId, data] of Object.entries(raw.arcProgress)) {
+    for (const [arcId, data] of Object.entries(raw.arcProgress) as [string, any][]) {
       if (!data || typeof arcId !== 'string') continue;
       clean[arcId] = {
         startedAt:      typeof data.startedAt === 'string' ? data.startedAt : null,
@@ -520,7 +520,7 @@ export function normalizeProgress(raw: any): Progress {
   if (raw.dreamArchetypeLog && typeof raw.dreamArchetypeLog === 'object') {
     const valid = new Set(['Ronin', 'Guardian', 'Ghost', 'Berserker']);
     const clean = {};
-    for (const [date, arch] of Object.entries(raw.dreamArchetypeLog)) {
+    for (const [date, arch] of Object.entries(raw.dreamArchetypeLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (valid.has(arch)) clean[date] = arch;
     }
@@ -530,7 +530,7 @@ export function normalizeProgress(raw: any): Progress {
   // v4: stepLog
   if (raw.stepLog && typeof raw.stepLog === 'object') {
     const clean = {};
-    for (const [date, data] of Object.entries(raw.stepLog)) {
+    for (const [date, data] of Object.entries(raw.stepLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (data && typeof data.steps === 'number') {
         clean[date] = { steps: Math.max(0, Math.floor(data.steps)) };
@@ -542,7 +542,7 @@ export function normalizeProgress(raw: any): Progress {
   // v4: vitalsLog
   if (raw.vitalsLog && typeof raw.vitalsLog === 'object') {
     const clean = {};
-    for (const [date, data] of Object.entries(raw.vitalsLog)) {
+    for (const [date, data] of Object.entries(raw.vitalsLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (data && typeof data === 'object') {
         clean[date] = {
@@ -593,6 +593,21 @@ export function normalizeProgress(raw: any): Progress {
         createdAt: typeof up.createdAt === 'string' ? up.createdAt : '',
       };
     }
+  }
+
+  // currentSession — an in-progress session (endedAt null) preserved across an
+  // app kill so TrainScreen can restore the user's place. Shape-guard it so a
+  // half-written or completed entry can't reach the resume path.
+  if (
+    raw.currentSession &&
+    typeof raw.currentSession === 'object' &&
+    typeof raw.currentSession.id === 'string' &&
+    SWORDS[raw.currentSession.discipline] &&
+    typeof raw.currentSession.startedAt === 'number' &&
+    raw.currentSession.endedAt === null &&
+    Array.isArray(raw.currentSession.exercises)
+  ) {
+    out.currentSession = raw.currentSession;
   }
 
   return out;
@@ -813,7 +828,7 @@ function evaluateWeekCompletion(progress, date) {
     { wado: 0, sandai: 0, shusui: 0 }
   );
 
-  const dominantPath = Object.entries(totals).sort((a, b) => b[1] - a[1])[0][0];
+  const dominantPath = Object.entries(totals).sort((a, b) => Number(b[1]) - Number(a[1]))[0][0];
   const weeksForPath = progress.completedWeeks.filter(w => w.path === dominantPath).length + 1;
 
   // deduplicate per path+date so two different paths can complete on the same day
@@ -825,7 +840,7 @@ function evaluateWeekCompletion(progress, date) {
     { path: dominantPath, weekNum: weeksForPath, completedAt: date },
   ];
 
-  const events = [{ type: 'week_completed' as const, path: dominantPath, weekNum: weeksForPath }];
+  const events: ProgressionEvent[] = [{ type: 'week_completed', path: dominantPath, weekNum: weeksForPath }];
 
   const path = TITLE_PATHS[dominantPath];
   const earnedTier = path.tiers.find(t => t.weeks === weeksForPath);
@@ -1140,7 +1155,7 @@ export function evaluateBossCompletion(progress: Progress, bossId: string, date:
   next.totalXP = progress.totalXP + boss.xpReward;
   next.peakXP = Math.max(next.peakXP, next.totalXP);
 
-  const events = [{ type: 'boss_completed' as const, boss }];
+  const events: ProgressionEvent[] = [{ type: 'boss_completed', boss }];
 
   if (boss.techniqueReward && !next.unlocked.includes(boss.techniqueReward)) {
     next.unlocked = [...next.unlocked, boss.techniqueReward];
@@ -1157,7 +1172,7 @@ export function weekOfYear(dateStr) {
   const sunday = new Date(d);
   sunday.setDate(d.getDate() - dayOfWeek);
   const yearStart = new Date(sunday.getFullYear(), 0, 1);
-  const dayOfYear = Math.floor((sunday - yearStart) / 86400000) + 1;
+  const dayOfYear = Math.floor((sunday.getTime() - yearStart.getTime()) / 86400000) + 1;
   return `${sunday.getFullYear()}-W${Math.floor((dayOfYear - 1) / 7) + 1}`;
 }
 
@@ -1243,7 +1258,7 @@ const recovery = progress.recoveryScore;
 function suggestDiscipline(progress, dateKey) {
   const key = dateKey || toDateKey(new Date());
   const today = progress.dayLog[key] || { wado: 0, sandai: 0, shusui: 0 };
-  const weakest = Object.entries(today).sort((a, b) => a[1] - b[1])[0];
+  const weakest = Object.entries(today).sort((a, b) => Number(a[1]) - Number(b[1]))[0];
   return weakest[0];
 }
 
@@ -1812,7 +1827,7 @@ if (targets.bossId) {
     [arcId]: { ...arcData, completedWeeks: updatedWeeks, status: isCompleted ? 'completed' : 'active' },
   };
 
-  const events = [{ type: 'arc_week_complete' as const, arcId, weekNum }];
+  const events: ProgressionEvent[] = [{ type: 'arc_week_complete', arcId, weekNum }];
 
   if (isCompleted) {
     next.totalXP = (progress.totalXP || 0) + arc.xpReward;

@@ -26,6 +26,17 @@ describe('normalizeProgress: unlockedThemes', () => {
     expect(n.unlockedThemes).toContain('hollow');
   });
 
+  test('preserves marimo (regression: was missing from the allowlist)', () => {
+    const raw = { ...defaultProgress(), unlockedThemes: ['wado', 'sandai', 'shusui', 'marimo'] };
+    expect(normalizeProgress(raw).unlockedThemes).toContain('marimo');
+  });
+
+  test('preserves every real theme key (allowlist tracks THEME_KEYS)', () => {
+    const all = ['wado', 'sandai', 'shusui', 'hollow', 'solar', 'abyss', 'marimo'];
+    const n = normalizeProgress({ ...defaultProgress(), unlockedThemes: all });
+    for (const k of all) expect(n.unlockedThemes).toContain(k);
+  });
+
   test('always re-adds bases if removed', () => {
     const raw = { ...defaultProgress(), unlockedThemes: ['hollow'] };
     const n = normalizeProgress(raw);

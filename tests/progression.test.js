@@ -666,6 +666,26 @@ describe('normalizeProgress', () => {
     expect(result.sessions.length).toBe(1);
   });
 
+  test('preserves a valid in-progress currentSession (crash-resume)', () => {
+    const cs = {
+      id: 'sess-1', discipline: 'wado', startedAt: Date.now(), endedAt: null,
+      exercises: [], calories: 0, intensity: 5, xpEarned: 0, exerciseIndex: 0,
+    };
+    expect(normalizeProgress({ currentSession: cs }).currentSession).toEqual(cs);
+  });
+
+  test('drops a malformed, completed, or absent currentSession', () => {
+    // completed (endedAt set) — must not resurrect as in-progress
+    expect(normalizeProgress({ currentSession: { id: 's', discipline: 'wado', startedAt: 1, endedAt: 2, exercises: [] } }).currentSession).toBeUndefined();
+    // invalid discipline
+    expect(normalizeProgress({ currentSession: { id: 's', discipline: 'nope', startedAt: 1, endedAt: null, exercises: [] } }).currentSession).toBeUndefined();
+    // missing id / missing exercises array
+    expect(normalizeProgress({ currentSession: { discipline: 'wado', startedAt: 1, endedAt: null, exercises: [] } }).currentSession).toBeUndefined();
+    expect(normalizeProgress({ currentSession: { id: 's', discipline: 'wado', startedAt: 1, endedAt: null } }).currentSession).toBeUndefined();
+    // absent entirely
+    expect(normalizeProgress({}).currentSession).toBeUndefined();
+  });
+
   test('validates sleepLog entries', () => {
     const result = normalizeProgress({
       sleepLog: {
