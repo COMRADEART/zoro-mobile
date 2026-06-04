@@ -225,12 +225,12 @@ const s = StyleSheet.create({
     borderWidth: 1.5, borderRadius: DS.radius.full,
     paddingVertical: 16, paddingHorizontal: 20,
     minHeight: 54,
-    backgroundColor: 'rgba(9,10,12,0.68)',
+    backgroundColor: 'rgba(10,10,10,0.68)',
   },
   primaryBtnTxt: { fontSize: 15, fontWeight: '800', letterSpacing: 0.4 },
 
   input: {
-    backgroundColor: 'rgba(9,10,12,0.72)', borderWidth: 1.5, borderRadius: DS.radius.lg,
+    backgroundColor: 'rgba(10,10,10,0.72)', borderWidth: 1.5, borderRadius: DS.radius.lg,
     paddingVertical: 15, paddingHorizontal: 18, color: TXT1, fontSize: 16, fontWeight: '600',
   },
   confirmBtn: {

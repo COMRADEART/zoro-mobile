@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     top: SB_H + 12,
     left: 16,
     right: 16,
-    backgroundColor: 'rgba(10,10,11,0.98)',
+    backgroundColor: 'rgba(10,10,10,0.98)',
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',

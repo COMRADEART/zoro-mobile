@@ -82,7 +82,7 @@ const s = StyleSheet.create({
     left: 10,
     right: 10,
     height: TAB_BAR_H - NAV_SAFE_BOTTOM - 12,
-    backgroundColor: 'rgba(7,8,10,0.86)',
+    backgroundColor: 'rgba(8,8,8,0.86)',
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 26,
     flexDirection: 'row',

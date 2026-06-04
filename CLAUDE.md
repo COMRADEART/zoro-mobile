@@ -72,7 +72,7 @@ npm run lint           # Run ESLint (eslint-config-expo)
 
 **Recovery:** Drains on training (15/hour), restores on sleep (20/hour × quality). Below 20 recovery → rest recommended.
 
-**Sword Sharpness:** Composite of recovery (50%), mood/energy (25%), sleep quality (25%). Logged daily.
+**Sword Sharpness:** Weighted composite — recovery 40%, mood/energy 25%, sleep quality 25% (base weights sum to 0.9) — plus additive sleep-stage (≤+20) and resting-HR (≤+10) bonuses, clamped to 0–100. Logged daily.
 
 **Three Sword Rings:** Daily targets — Wado 20min, Sandai 200reps, Shusui 15min. Computed from session exercises + breathing log.
 

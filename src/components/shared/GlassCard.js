@@ -159,7 +159,7 @@ export default GlassCard;
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(10,12,14,0.72)',
+    backgroundColor: 'rgba(12,12,12,0.72)',
     borderWidth: 1,
     borderColor: BORD,
     borderRadius: DS.radius.xl,

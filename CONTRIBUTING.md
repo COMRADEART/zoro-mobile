@@ -93,7 +93,7 @@ Edit `TRAINING_ARCS` array in `src/data/gameData.js`:
 
 ## Best Practices
 
-- **Performance**: Use `React.memo` for expensive components (ThreeSwordRings, CircularProgress, GlassCard, ShimmerXPBar)
+- **Performance**: Use `React.memo` for expensive components (e.g. `GlassCard`)
 - **Lists**: Use `FlatList` instead of `ScrollView` + `map` for long lists
 - **Animations**: Prefer `useNativeDriver: true` for non-layout animations
 - **State**: Use `useCallback`/`useMemo` for expensive computations in components

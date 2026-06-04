@@ -119,7 +119,7 @@ const s = StyleSheet.create({
   panel: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 22,
-    backgroundColor: 'rgba(8,10,12,0.70)',
+    backgroundColor: 'rgba(10,10,10,0.70)',
     padding: DS.space.lg,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -129,7 +129,7 @@ const s = StyleSheet.create({
     elevation: 12,
   },
   panelDim: {
-    backgroundColor: 'rgba(8,10,12,0.50)',
+    backgroundColor: 'rgba(10,10,10,0.50)',
   },
   panelLight: {
     position: 'absolute',
