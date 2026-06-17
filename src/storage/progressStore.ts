@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { defaultProgress, normalizeProgress, countBossDefeats, areAllSkillTreesComplete, evaluateBossExpiry, toDateKey } from '../logic/progression';
+import { defaultProgress, normalizeProgress, countBossDefeats, evaluateBossExpiry, toDateKey } from '../logic/progression';
 import type { Progress } from '../types';
 import { DISCIPLINES } from '../types';
 import { THEME_KEYS } from '../theme/themes';
@@ -60,13 +60,12 @@ export function validateV4State(state: unknown): state is Progress {
 
 // ─── THEME UNLOCK SYSTEM ─────────────────────────────────────────────────────
 
-// Predicates keyed by theme. THEME_KEYS not in this map default to "always unlocked"
-// so the three base disciplines never need explicit entries.
+// Predicates keyed by theme. THEME_KEYS not in this map default to "always unlocked".
 const THEME_UNLOCK_GATES: Partial<Record<string, (p: Progress) => boolean>> = {
-  hollow: (p) => countBossDefeats(p) >= 1,
-  solar:  (p) => areAllSkillTreesComplete(p),
-  abyss:  (p) => countBossDefeats(p) >= 3,
-  marimo: (p) => p.totalXP >= 500,
+  blue:   (p) => p.totalXP >= 500,
+  green:  (p) => Object.values(p.arcProgress ?? {}).some(a => a.status === 'completed'),
+  violet: (p) => p.totalXP >= 1500,
+  gold:   (p) => countBossDefeats(p) >= 3,
 };
 
 export const THEME_UNLOCK_CONDITIONS: Record<string, (p: Progress) => boolean> = Object.fromEntries(
@@ -74,10 +73,10 @@ export const THEME_UNLOCK_CONDITIONS: Record<string, (p: Progress) => boolean> =
 );
 
 export const THEME_UNLOCK_HINTS: Record<string, string> = {
-  hollow: 'Defeat your first boss challenge',
-  solar:  'Complete all three discipline skill trees',
-  abyss:  'Defeat all three boss challenges',
-  marimo: 'Reach Pirate Hunter rank (500 XP)',
+  blue:   'Reach 500 XP',
+  green:  'Complete any training arc',
+  violet: 'Reach 1500 XP',
+  gold:   'Defeat 3 boss challenges',
 };
 
 export const DEFAULT_UNLOCKED_THEMES: readonly string[] = THEME_KEYS.filter(k => !THEME_UNLOCK_GATES[k]);

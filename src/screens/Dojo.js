@@ -133,7 +133,7 @@ function DojoInner({ toast, toastOpacity }) {
     <View style={[s.root, { backgroundColor: themeData.bg }]}>
       <StatusBar barStyle={statusBarStyleForTheme(currentTheme)} backgroundColor="transparent" translucent />
       <AmbientBG theme={currentTheme} />
-      <FloatingParticles theme={currentTheme} count={currentTheme === 'hollow' ? 28 : currentTheme === 'solar' ? 32 : 16} />
+      <FloatingParticles theme={currentTheme} count={16} />
 
       <ScrollView
           ref={scrollRef}

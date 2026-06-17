@@ -82,7 +82,7 @@ export default function TrainingArcsScreen({ onBack }) {
                   <Text style={s.weekObjective}>{week.objective}</Text>
                 </View>
                 {done && <View style={[s.weekDoneBadge, { backgroundColor: selected.color + '20', borderColor: selected.color + '40' }]}>
-                  <Text style={[s.weekDone, { color: selected.color }]}>✓</Text>
+                  <Text style={[s.weekDone, { color: selected.color }]}>済</Text>
                 </View>}
               </View>
             </GlassCard>
@@ -111,7 +111,7 @@ export default function TrainingArcsScreen({ onBack }) {
         )}
         {arcData?.status === 'completed' && (
           <View style={[s.startBtn, { backgroundColor: selected.color + '20', borderWidth: 1.5, borderColor: selected.color + '50' }]}>
-            <Text style={[s.startBtnTxt, { color: selected.color }]}>ARC COMPLETE · 完了 ✓</Text>
+            <Text style={[s.startBtnTxt, { color: selected.color }]}>ARC COMPLETE · 完了</Text>
           </View>
         )}
 
@@ -176,13 +176,13 @@ export default function TrainingArcsScreen({ onBack }) {
                 </View>
                 <View style={s.arcCardStatus}>
                   {locked && <View style={[s.statusBadge, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
-                    <Text style={s.lockText}>🔒 {arc.requiredRank}</Text>
+                    <Text style={[s.statusBadgeText, { color: TXT3 }]}>LOCKED · {arc.requiredRank}</Text>
                   </View>}
                   {completed && <View style={[s.statusBadge, { backgroundColor: arc.color + '15', borderWidth: 1, borderColor: arc.color + '30' }]}>
-                    <Text style={[s.statusBadgeText, { color: arc.color }]}>✓ DONE · 完了</Text>
+                    <Text style={[s.statusBadgeText, { color: arc.color }]}>DONE · 完了</Text>
                   </View>}
                   {active && <View style={[s.statusBadge, { backgroundColor: arc.color + '15', borderWidth: 1, borderColor: arc.color + '30' }]}>
-                    <Text style={[s.statusBadgeText, { color: arc.color }]}>{completedWeeks}/{arc.durationWeeks}wk</Text>
+                    <Text style={[s.statusBadgeText, { color: arc.color }]}>{completedWeeks}/{arc.durationWeeks}wk · 進行中</Text>
                   </View>}
                   {!locked && !completed && !active && <View style={[s.statusBadge, { backgroundColor: arc.color + '15', borderWidth: 1, borderColor: arc.color + '30' }]}>
                     <Text style={[s.statusBadgeText, { color: arc.color }]}>AVAILABLE · 可用</Text>
@@ -240,7 +240,6 @@ const s = StyleSheet.create({
   arcCardStatus: { alignItems: 'flex-end', gap: 6 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   statusBadgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 1 },
-  lockText: { fontSize: 9, fontWeight: '700', color: TXT3 },
   arcProgressBar: { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', marginTop: 14 },
   arcProgressFill: { height: 4, borderRadius: 2 },
 

@@ -18,16 +18,19 @@ export default function Toast({ toast, toastAnim, accent = '#F0F0F0', duration =
   if (!toast) return null;
 
   return (
-    <Animated.View style={[
-      styles.toast, {
-        opacity: toastAnim,
-        transform: [{
-          translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }),
-        }, {
-          scale: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }),
-        }],
-      },
-    ]}>
+    <Animated.View
+      accessibilityLiveRegion="polite"
+      accessibilityRole="alert"
+      style={[
+        styles.toast, {
+          opacity: toastAnim,
+          transform: [{
+            translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }),
+          }, {
+            scale: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }),
+          }],
+        },
+      ]}>
       <View style={[styles.topRule, { backgroundColor: accent }]} />
       <View style={styles.toastInner}>
         <View style={[styles.kanjiBadge, { backgroundColor: accent + '22', borderColor: accent + '40' }]}>

@@ -204,7 +204,7 @@ describe('loadProgress corruption handling', () => {
     // v4-only fields filled in
     expect(progress.hydrationLog).toEqual({});
     expect(progress.bountyMissions).toEqual([]);
-    expect(progress.unlockedThemes).toEqual(expect.arrayContaining(['wado', 'sandai', 'shusui']));
+    expect(progress.unlockedThemes).toEqual(expect.arrayContaining(['black', 'white']));
     // v3 key cleared, v4 key written
     expect(await AsyncStorage.getItem(KEY_V3)).toBeNull();
     const stored = JSON.parse(await AsyncStorage.getItem(KEY_V4));

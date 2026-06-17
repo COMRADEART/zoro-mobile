@@ -3,6 +3,7 @@ import type { Progress, ProgressionEvent } from '../types';
 import { loadProgress, saveProgress, saveProgressImmediate, resetProgress, checkThemeUnlocks, DEFAULT_UNLOCKED_THEMES } from '../storage/progressStore';
 import { evaluateBountyMissions, evaluateArcWeekCompletion, evaluateBossExpiry, evaluateAllActiveBossChallenges, toDateKey } from '../logic/progression';
 import { TRAINING_ARCS } from '../data/gameData';
+import { DEFAULT_THEME } from '../theme/themes';
 
 export interface ProgressContextValue {
   progress: Progress;
@@ -55,7 +56,7 @@ function unlockSignatureChanged(prev: Progress | null, next: Progress): boolean 
 export function ProgressProvider({ children, toastCallback }: ProgressProviderProps) {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [today] = useState(toDateKey());
-  const [theme, setTheme] = useState('sandai');
+  const [theme, setTheme] = useState(DEFAULT_THEME);
   const [tab, setTab] = useState('home');
 
   const progressRef = useRef(progress);
@@ -83,7 +84,7 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
       }
       save(next);
       if (next.settings?.theme !== prev?.settings?.theme) {
-        setTheme(next.settings?.theme || 'sandai');
+        setTheme(next.settings?.theme || DEFAULT_THEME);
       }
       return next;
     });
@@ -146,7 +147,7 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
     saveProgressImmediate(finalProgress);
     setProgress(finalProgress);
     if (finalProgress.settings?.theme !== progressRef.current?.settings?.theme) {
-      setTheme(finalProgress.settings?.theme || 'sandai');
+      setTheme(finalProgress.settings?.theme || DEFAULT_THEME);
     }
   }, []);
 

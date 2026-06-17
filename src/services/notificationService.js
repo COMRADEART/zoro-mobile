@@ -1,27 +1,41 @@
-import * as Notifications from 'expo-notifications';
-import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import Constants from 'expo-constants';
 
 // Notifications don't work in Expo Go (SDK 53+ removed remote push there and
-// local scheduling is unreliable), so every entry point no-ops in that runtime.
+// local scheduling is unreliable). Lazy-load expo-notifications only in a
+// development build so Expo Go never executes its top-level side effects.
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
-Notifications.setNotificationHandler({
-  // SDK 54 shape: shouldShowAlert is deprecated in favour of banner + list.
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+let Notifications = null;
+let SchedulableTriggerInputTypes = null;
+
+function ensureNotifications() {
+  if (isExpoGo || Notifications) return Notifications;
+  try {
+    Notifications = require('expo-notifications');
+    SchedulableTriggerInputTypes = Notifications.SchedulableTriggerInputTypes;
+    Notifications.setNotificationHandler({
+      // SDK 54 shape: shouldShowAlert is deprecated in favour of banner + list.
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      }),
+    });
+  } catch (e) {
+    console.warn('[notifications] failed to load expo-notifications module', e);
+    Notifications = null;
+  }
+  return Notifications;
+}
 
 // Reads current permission without prompting — used to reflect the toggle's
 // real state on mount.
 export async function getNotificationPermission() {
-  if (isExpoGo) return false;
+  const ns = ensureNotifications();
+  if (!ns) return false;
   try {
-    const { status } = await Notifications.getPermissionsAsync();
+    const { status } = await ns.getPermissionsAsync();
     return status === 'granted';
   } catch (e) {
     console.warn('[notifications] getPermissions failed', e);
@@ -31,12 +45,13 @@ export async function getNotificationPermission() {
 
 // Prompts for permission only if not already granted. Returns whether granted.
 export async function requestNotificationPermissions() {
-  if (isExpoGo) return false;
+  const ns = ensureNotifications();
+  if (!ns) return false;
   try {
-    const existing = await Notifications.getPermissionsAsync();
+    const existing = await ns.getPermissionsAsync();
     if (existing.status === 'granted') return true;
     if (!existing.canAskAgain) return false;
-    const { status } = await Notifications.requestPermissionsAsync();
+    const { status } = await ns.requestPermissionsAsync();
     return status === 'granted';
   } catch (e) {
     console.warn('[notifications] requestPermissions failed', e);
@@ -45,9 +60,10 @@ export async function requestNotificationPermissions() {
 }
 
 export async function cancelAllReminders() {
-  if (isExpoGo) return;
+  const ns = ensureNotifications();
+  if (!ns) return;
   try {
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    await ns.cancelAllScheduledNotificationsAsync();
   } catch (e) {
     console.warn('[notifications] cancel failed', e);
   }
@@ -57,14 +73,15 @@ export async function cancelAllReminders() {
 // given device-local HH:MM. Cancels any previous reminder first so toggling the
 // time never stacks duplicates. Returns true if a reminder is now scheduled.
 export async function scheduleTrainingReminder(time = '18:00') {
-  if (isExpoGo) return false;
+  const ns = ensureNotifications();
+  if (!ns) return false;
   const [hour, minute] = String(time).split(':').map(Number);
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) return false;
   const granted = await requestNotificationPermissions();
   if (!granted) return false;
   await cancelAllReminders();
   try {
-    await Notifications.scheduleNotificationAsync({
+    await ns.scheduleNotificationAsync({
       content: {
         title: '⚔ Time to train',
         body: 'Your swords await. Sharpen the blade today.',

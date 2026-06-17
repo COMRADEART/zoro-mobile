@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Animated, Pressable } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useProgress } from '../context/ProgressContext';
-import { Panel, SWORD_ORDER, SWORD_GLYPH } from '../components/premium/PremiumUI';
+import { Panel, PrimaryButton, SWORD_ORDER, SWORD_GLYPH } from '../components/premium/PremiumUI';
+import BreathingGuide from '../components/shared/BreathingGuide';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
+import type { ThemeTokens } from '../theme/themes';
 import { TXT1, TXT2, TXT3, SB_H, TAB_BAR_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import {
@@ -15,12 +17,14 @@ import {
   computeSwordSharpness,
   getSharpnessLabel,
   getSharpnessColor,
+  logBreathingSession,
 } from '../logic/progression';
-import { SWORDS, RANKS } from '../data/gameData';
+import { SWORDS, RANKS, BREATHING_PROGRAMS } from '../data/gameData';
 import useStepCounter from '../hooks/useStepCounter';
 import useReducedMotion from '../hooks/useReducedMotion';
+import type { Discipline, SwordData } from '../types';
 
-function greetingFor(date) {
+function greetingFor(date: Date): string {
   const hour = date.getHours();
   if (hour < 5) return 'Quiet night';
   if (hour < 12) return 'Morning focus';
@@ -29,33 +33,31 @@ function greetingFor(date) {
   return 'Recovery window';
 }
 
-function formatDate(date) {
+function formatDate(date: Date): string {
   return date.toLocaleDateString('en', { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
-function formatTime(date) {
+function formatTime(date: Date): string {
   return date.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit' });
 }
 
-// Relative luminance → pick legible ink for a solid accent fill.
-function inkOn(hex) {
-  const h = (hex || '').replace('#', '');
-  if (h.length < 6) return '#070707';
-  const r = parseInt(h.slice(0, 2), 16) / 255;
-  const g = parseInt(h.slice(2, 4), 16) / 255;
-  const b = parseInt(h.slice(4, 6), 16) / 255;
-  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return lum > 0.55 ? '#0A0A0A' : '#FFFFFF';
+interface SharpnessGaugeProps {
+  value: number;
+  color: string;
+  size?: number;
 }
 
-// A clean instrument gauge: track + tonal arc, serif numeral at the core.
-function SharpnessGauge({ value, color, size = 138 }) {
+function SharpnessGauge({ value, color, size = 138 }: SharpnessGaugeProps) {
   const stroke = 9;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const pct = Math.max(0, Math.min(1, value / 100));
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View
+      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
+      accessibilityRole="image"
+      accessibilityLabel={`Sword sharpness ${value} out of 100`}
+    >
       <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.07)" strokeWidth={stroke} fill="none" />
         <Circle
@@ -78,9 +80,17 @@ function SharpnessGauge({ value, color, size = 138 }) {
   );
 }
 
-function StatColumn({ mark, value, unit, accent, first }) {
+interface StatColumnProps {
+  mark: string;
+  value: string;
+  unit: string;
+  accent: string;
+  first?: boolean;
+}
+
+function StatColumn({ mark, value, unit, accent, first }: StatColumnProps) {
   return (
-    <View style={[s.statCol, !first && s.statColDivider]}>
+    <View style={[s.statCol, !first && s.statColDivider]} accessibilityLabel={`${value} ${unit}`}>
       <Text style={[s.statMark, { color: accent }]}>{mark}</Text>
       <Text style={s.statValue} numberOfLines={1}>{value}</Text>
       <Text style={s.statUnit} numberOfLines={1}>{unit}</Text>
@@ -89,12 +99,13 @@ function StatColumn({ mark, value, unit, accent, first }) {
 }
 
 function HomeScreen() {
-  const { progress, today, theme, setTab, handleUpdate } = useProgress();
+  const { progress, today, theme, setTab, handleUpdate, handleSessionEnd, showToast } = useProgress();
   const { steps } = useStepCounter();
   const reducedMotion = useReducedMotion();
   const [now, setNow] = useState(() => new Date());
+  const [breathProgram, setBreathProgram] = useState<typeof BREATHING_PROGRAMS[number] | null>(null);
   const enter = useRef(new Animated.Value(0)).current;
-  const t = THEMES[theme] || THEMES[DEFAULT_THEME];
+  const t: ThemeTokens = THEMES[theme] || THEMES[DEFAULT_THEME];
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60000);
@@ -119,30 +130,25 @@ function HomeScreen() {
   const xpFor = (nextRank?.min ?? rank.max) - rank.min;
   const xpPct = Math.min(1, xpInto / (Number.isFinite(xpFor) ? xpFor : 1));
   const rec = getDailyRecommendation(progress, now);
-  const recKey = rec.type === 'rest' ? progress.activeSword || 'wado' : rec.discipline || progress.activeSword || 'sandai';
-  const recSword = SWORDS[recKey];
+  const recKey: Discipline = (rec.type === 'rest' ? progress.activeSword || 'wado' : rec.discipline || progress.activeSword || 'sandai') as Discipline;
+  const recSword: SwordData = SWORDS[recKey];
   const readiness = getReadinessLevel(progress);
   const readyColor = getReadinessColor(progress);
   const streak = currentStreak(progress, today);
-  const sharpness = computeSwordSharpness(progress, today);
+  const sharpness = useMemo(() => computeSwordSharpness(progress, today), [progress, today]);
   const sharpLabel = getSharpnessLabel(sharpness);
   const sharpColor = getSharpnessColor(sharpness);
   const name = progress.userProfile?.name?.split(' ')[0] || 'Swordsman';
   const stepGoal = progress.settings?.stepGoal || 10000;
   const stepsPct = Math.min(1, steps / stepGoal);
-  // CTA carries the theme accent for a committed palette; the recommended
-  // discipline is signalled by the kanji tile + sublabel, not a 4th hue.
-  const ctaInk = inkOn(t.accent);
 
   useEffect(() => {
-    const existing = progress.swordSharpnessLog?.[today];
-    if (existing === undefined || Math.abs(existing - sharpness) > 5) {
-      handleUpdate(prev => ({
-        ...prev,
-        swordSharpnessLog: { ...prev.swordSharpnessLog, [today]: sharpness },
-      }));
-    }
-  }, [today, sharpness, progress.swordSharpnessLog, handleUpdate]);
+    handleUpdate(prev => {
+      const existing = prev.swordSharpnessLog?.[today];
+      if (existing !== undefined && Math.abs(existing - sharpness) <= 5) return prev;
+      return { ...prev, swordSharpnessLog: { ...prev.swordSharpnessLog, [today]: sharpness } };
+    });
+  }, [today, sharpness, handleUpdate]);
 
   const subtitle = useMemo(() => `${formatDate(now)}  ·  ${formatTime(now)}`, [now]);
 
@@ -151,7 +157,7 @@ function HomeScreen() {
     setTab('train');
   };
 
-  const goSword = (key) => {
+  const goSword = (key: Discipline) => {
     handleUpdate(prev => ({ ...prev, activeSword: key }));
     setTab('train');
   };
@@ -164,7 +170,6 @@ function HomeScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Animated.View style={{ opacity: enter, transform: [{ translateY }] }}>
-        {/* Masthead */}
         <View style={s.masthead}>
           <View style={s.mastheadCopy}>
             <Text style={[s.eyebrow, { color: t.accent }]}>{greetingFor(now).toUpperCase()}</Text>
@@ -177,7 +182,6 @@ function HomeScreen() {
           </View>
         </View>
 
-        {/* Hero — sword sharpness as an instrument, not a billboard number */}
         <Panel accent={sharpColor} style={s.hero}>
           <Text style={[s.heroSeal, { color: t.accent }]} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             {t.name.split('·')[1]?.trim()?.charAt(0) || '気'}
@@ -200,30 +204,22 @@ function HomeScreen() {
           </View>
         </Panel>
 
-        {/* Primary action + sensei line */}
-        <Pressable
-          onPress={startTraining}
-          accessibilityRole="button"
-          accessibilityLabel={`Begin training, ${recSword.name}`}
-          style={({ pressed }) => [
-            s.cta,
-            { backgroundColor: t.accent, shadowColor: t.accent, transform: [{ scale: pressed ? 0.99 : 1 }] },
-          ]}
-        >
-          <View style={[s.ctaKanji, { backgroundColor: ctaInk === '#FFFFFF' ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.10)' }]}>
-            <Text style={[s.ctaKanjiText, { color: ctaInk }]}>{recSword.kanji?.charAt(0)}</Text>
-          </View>
-          <View style={s.ctaCopy}>
-            <Text style={[s.ctaLabel, { color: ctaInk }]}>BEGIN TRAINING</Text>
-            <Text style={[s.ctaSub, { color: ctaInk, opacity: 0.66 }]} numberOfLines={1}>
-              {recSword.name} · {recSword.discipline.toLowerCase()}
-            </Text>
-          </View>
-          <Text style={[s.ctaArrow, { color: ctaInk }]}>→</Text>
-        </Pressable>
-        <Text style={s.sensei}>“{rec.phrase}”</Text>
+        <PrimaryButton
+          label={rec.type === 'rest' ? 'RECOVERY DAY' : 'BEGIN TRAINING'}
+          sublabel={rec.type === 'rest'
+            ? `${BREATHING_PROGRAMS[0].name} · ${BREATHING_PROGRAMS[0].durationMin} min · +${BREATHING_PROGRAMS[0].xpReward} XP`
+            : `${recSword.name} · ${recSword.discipline.toLowerCase()}`}
+          accent={rec.type === 'rest' ? t.accent : recSword.accent}
+          onPress={() => {
+            if (rec.type === 'rest') {
+              setBreathProgram(BREATHING_PROGRAMS[0]);
+            } else {
+              startTraining();
+            }
+          }}
+        />
+        <Text style={s.sensei}>{'\u201c'}{rec.phrase}{'\u201d'}</Text>
 
-        {/* Rank progress rail */}
         <View style={s.ledger}>
           <View style={s.railHead}>
             <Text style={s.railLabel}>PATH TO {nextRank ? nextRank.name : 'THE SUMMIT'}</Text>
@@ -237,14 +233,12 @@ function HomeScreen() {
           </Text>
         </View>
 
-        {/* Inline stat triplet — text-forward, divided, not a card grid */}
         <View style={s.statBand}>
           <StatColumn first mark="連" value={`${streak}`} unit="day streak" accent={t.accent} />
           <StatColumn mark="気" value={`${progress.recoveryScore}`} unit="recovery" accent={readyColor} />
           <StatColumn mark="歩" value={steps.toLocaleString()} unit={`${Math.round(stepsPct * 100)}% steps`} accent={t.accent} />
         </View>
 
-        {/* The three swords — identity triptych, each path tappable */}
         <View style={s.swordsHead}>
           <Text style={s.swordsTitle}>三刀流 · THE THREE SWORDS</Text>
         </View>
@@ -272,6 +266,27 @@ function HomeScreen() {
           })}
         </View>
       </Animated.View>
+
+      {breathProgram && (
+        <BreathingGuide
+          program={breathProgram}
+          onComplete={() => {
+            const { progress: next, events } = logBreathingSession(progress, {
+              date: today,
+              programId: breathProgram.id,
+              durationMin: breathProgram.durationMin,
+              xpReward: breathProgram.xpReward,
+            });
+            handleSessionEnd(next, events);
+            showToast({
+              title: 'Breathing complete',
+              body: `${breathProgram.name} · +${breathProgram.xpReward} XP`,
+            });
+            setBreathProgram(null);
+          }}
+          onDismiss={() => setBreathProgram(null)}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -299,8 +314,6 @@ const s = StyleSheet.create({
     paddingBottom: TAB_BAR_H + DS.space.xl,
     gap: DS.space.lg,
   },
-
-  // Masthead
   masthead: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -349,8 +362,6 @@ const s = StyleSheet.create({
     letterSpacing: 0.3,
     lineHeight: 16,
   },
-
-  // Hero
   hero: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -393,33 +404,6 @@ const s = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
-
-  // CTA
-  cta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DS.space.md,
-    borderRadius: 22,
-    paddingVertical: 15,
-    paddingHorizontal: 16,
-    minHeight: 76,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.28,
-    shadowRadius: 22,
-    elevation: 12,
-  },
-  ctaKanji: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ctaKanjiText: { fontSize: 24, fontWeight: '900' },
-  ctaCopy: { flex: 1 },
-  ctaLabel: { fontSize: 16, fontWeight: '900', letterSpacing: 1.2 },
-  ctaSub: { fontSize: 12, fontWeight: '700', marginTop: 3 },
-  ctaArrow: { fontSize: 22, fontWeight: '700' },
   sensei: {
     fontFamily: DS.font.display,
     color: TXT3,
@@ -428,8 +412,6 @@ const s = StyleSheet.create({
     fontStyle: 'italic',
     paddingHorizontal: 2,
   },
-
-  // Rank rail ledger
   ledger: { gap: 10 },
   railHead: {
     flexDirection: 'row',
@@ -460,8 +442,6 @@ const s = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.3,
   },
-
-  // Stat band
   statBand: {
     flexDirection: 'row',
     borderRadius: 18,
@@ -493,8 +473,6 @@ const s = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
   },
-
-  // Three swords triptych
   swordsHead: { marginTop: 2 },
   swordsTitle: {
     color: TXT2,
@@ -535,7 +513,4 @@ const s = StyleSheet.create({
   },
 });
 
-// Off-screen pages still subscribe to progress via useProgress, so memo only
-// skips re-renders when Dojo's local state (toast, modal, flash) churns while
-// progress is unchanged. Modest win, but it's the cheap one.
 export default React.memo(HomeScreen);

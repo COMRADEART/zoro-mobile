@@ -88,6 +88,15 @@ export function AmbientBG({ theme }) {
         opacity: pulseOpacity,
         transform: [{ scale: pulseScale }],
       }} />
+      <View style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: t.accent,
+        opacity: 0.035,
+      }} pointerEvents="none" />
       <Animated.View style={{
         position: 'absolute',
         top: H * 0.55,

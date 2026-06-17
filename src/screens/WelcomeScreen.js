@@ -50,6 +50,7 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
   // same sanitization the persistence layer applies, so it can never be a
   // silent no-op (Finding F5).
   const valid = isEnterableName(name);
+  const nameInvalid = name.length > 0 && !valid;
 
   const goName = () => { lightImpact(); setStep('name'); };
   const confirm = () => {
@@ -137,6 +138,12 @@ export default function WelcomeScreen({ theme, onSignIn, onSkip }) {
                 selectionColor={t.accent}
                 accessibilityLabel="Enter your name"
               />
+              <View style={s.hintBox}>
+                <Text style={s.helperText}>1–24 letters, numbers, or spaces</Text>
+                {nameInvalid && (
+                  <Text style={s.errorText}>Name must contain at least one letter or number and only use letters, numbers, or spaces.</Text>
+                )}
+              </View>
               <Pressable
                 style={({ pressed }) => [
                   s.confirmBtn,
@@ -242,6 +249,10 @@ const s = StyleSheet.create({
 
   skipBtn: { alignItems: 'center', paddingVertical: 12 },
   skipTxt: { color: TXT3, fontSize: 13, fontWeight: '600', letterSpacing: 1 },
+
+  hintBox: { marginHorizontal: 4 },
+  helperText: { color: TXT2, fontSize: 12 },
+  errorText: { color: '#C87070', fontSize: 12, marginTop: 4 },
 
   footnoteBox: {
     borderWidth: 1,

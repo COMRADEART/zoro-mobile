@@ -206,7 +206,7 @@ export function defaultProgress(): Progress {
     recoveryScore: MAX_RECOVERY,
     lastRecoveryUpdate: null,
     settings: {
-      theme: 'sandai',
+      theme: 'black',
       autoTheme: false,
       defaultIntensity: 5,
       soundEnabled: true,
@@ -218,7 +218,7 @@ export function defaultProgress(): Progress {
       gender: 'male',
     },
 
-    unlockedThemes: [...DISCIPLINES],
+    unlockedThemes: ['black', 'white'],
     bossAttemptHistory: {},
     userProfile: null,
 
@@ -413,7 +413,7 @@ export function normalizeProgress(raw: any): Progress {
     const saved = Array.isArray(raw.unlockedThemes)
       ? raw.unlockedThemes.filter((t: string) => validThemes.has(t))
       : [];
-    out.unlockedThemes = [...new Set([...DISCIPLINES, ...saved])];
+    out.unlockedThemes = [...new Set(['black', 'white', ...saved])];
   }
 
   if (raw.bossAttemptHistory && typeof raw.bossAttemptHistory === 'object') {
@@ -566,7 +566,7 @@ export function normalizeProgress(raw: any): Progress {
   if (raw.settings && typeof raw.settings === 'object') {
     const def = base.settings;
     out.settings = {
-      theme:            typeof raw.settings.theme === 'string'  ? raw.settings.theme            : def.theme,
+      theme:            typeof raw.settings.theme === 'string' && THEME_KEYS.includes(raw.settings.theme) ? raw.settings.theme : def.theme,
       autoTheme:        typeof raw.settings.autoTheme === 'boolean' ? raw.settings.autoTheme    : def.autoTheme,
       defaultIntensity: typeof raw.settings.defaultIntensity === 'number' ? raw.settings.defaultIntensity : def.defaultIntensity,
       soundEnabled:     typeof raw.settings.soundEnabled === 'boolean'  ? raw.settings.soundEnabled  : def.soundEnabled,

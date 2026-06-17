@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Animated, TextInput, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, Animated, TextInput, ScrollView, StyleSheet, Alert } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
-import { Panel, PrimaryButton, SwordSelector, ProgressRail, SWORD_GLYPH } from '../components/premium/PremiumUI';
-import { TXT1, TXT2, TXT3, SB_H, TAB_BAR_H, STEEL } from '../theme/tokens';
+import { Panel, PrimaryButton, SecondaryButton, SwordSelector, ProgressRail, SWORD_GLYPH } from '../components/premium/PremiumUI';
+import { TXT1, TXT2, TXT3, SB_H, TAB_BAR_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import { applySessionStart, applySessionEnd, logBreathingSession, rankIndexFor } from '../logic/progression';
 import { SWORDS, RANKS, getSwordExercises, BREATHING_PROGRAMS } from '../data/gameData';
@@ -11,12 +11,18 @@ import TrainingArcsScreen from './TrainingArcsScreen';
 import { heavyImpact, mediumImpact, lightImpact } from '../utils/haptics';
 import { playClick, playSuccess } from '../services/audioService';
 import useReducedMotion from '../hooks/useReducedMotion';
+import type { Discipline, Exercise, Session, LoggedExercise } from '../types';
 
 const REST_SECONDS = 20;
 
-// Text-forward stat band (shared visual language with Home) — replaces the
-// old identical MetricTile grids.
-function StatBand({ items }) {
+interface StatBandItem {
+  mark: string;
+  value: string;
+  label: string;
+  accent: string;
+}
+
+function StatBand({ items }: { items: StatBandItem[] }) {
   return (
     <View style={s.statBand}>
       {items.map((it, i) => (
@@ -30,44 +36,45 @@ function StatBand({ items }) {
   );
 }
 
-const MOOD = {
+const MOOD: Record<Discipline, string> = {
   wado: 'Calm breath. Clean movement. No wasted force.',
   sandai: 'Power day. Move heavy, stay honest.',
   shusui: 'Endurance turns effort into identity.',
 };
 
-function TrainScreen({ onFocusModeChange }) {
+interface TrainScreenProps {
+  onFocusModeChange?: (active: boolean) => void;
+}
+
+function TrainScreen({ onFocusModeChange }: TrainScreenProps) {
   const { progress, today, handleSessionEnd, showToast, handleUpdate, handleUpdateImmediate, setTab } = useProgress();
   const reducedMotion = useReducedMotion();
-  // If a session was in progress when the app last died, resume it. Reading
-  // currentSession at first render avoids a flash of the idle hero card before
-  // we restore focus mode.
-  const resumeSession = progress.currentSession ?? null;
-  const activeSword = resumeSession?.discipline || progress.activeSword || 'sandai';
-  const [phase, setPhase] = useState(resumeSession ? 'active' : 'idle');
-  const [sessionId, setSessionId] = useState(resumeSession?.id ?? null);
-  const [breathProgram, setBreathProgram] = useState(null);
+  const resumeSession: Session | null = progress.currentSession ?? null;
+  const activeSword: Discipline = resumeSession?.discipline || progress.activeSword || 'sandai';
+  const [phase, setPhase] = useState<'idle' | 'active' | 'rest' | 'done'>(resumeSession ? 'active' : 'idle');
+  const [sessionId, setSessionId] = useState<string | null>(resumeSession?.id ?? null);
+  const [breathProgram, setBreathProgram] = useState<typeof BREATHING_PROGRAMS[number] | null>(null);
   const [showArcs, setShowArcs] = useState(false);
   const [elapsed, setElapsed] = useState(
     resumeSession ? Math.max(0, Math.floor((Date.now() - resumeSession.startedAt) / 1000)) : 0,
   );
   const [restSeconds, setRestSeconds] = useState(REST_SECONDS);
-  const intensity = progress.settings?.defaultIntensity || 5;
+  const intensity: number = progress.settings?.defaultIntensity || 5;
   const [exerciseIndex, setExerciseIndex] = useState(resumeSession?.exerciseIndex ?? 0);
-  const [completedExercises, setCompletedExercises] = useState(resumeSession?.exercises ?? []);
+  const [completedExercises, setCompletedExercises] = useState<LoggedExercise[]>(resumeSession?.exercises ?? []);
   const [currentAmount, setCurrentAmount] = useState('');
   const [earnedXP, setEarnedXP] = useState(0);
-  const timerRef = useRef(null);
-  const restRef = useRef(null);
-  const sessionRef = useRef(resumeSession);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const restRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionRef = useRef<Session | null>(resumeSession);
   const pulse = useRef(new Animated.Value(1)).current;
   const fadeSlide = useRef(new Animated.Value(0)).current;
 
   const sword = SWORDS[activeSword];
   const swordMark = SWORD_GLYPH[activeSword] || sword.kanji?.slice(0, 1) || sword.name?.slice(0, 1) || '?';
   const exercises = getSwordExercises(activeSword, progress.skillUnlocks);
-  const currentEx = exercises[exerciseIndex];
-  const nextEx = exercises[exerciseIndex + 1];
+  const currentEx: Exercise | undefined = exercises[exerciseIndex];
+  const nextEx: Exercise | undefined = exercises[exerciseIndex + 1];
   const rank = RANKS[rankIndexFor(progress.totalXP)];
 
   useEffect(() => {
@@ -88,22 +95,19 @@ function TrainScreen({ onFocusModeChange }) {
   }, [onFocusModeChange, phase]);
 
   useEffect(() => () => {
-    clearInterval(timerRef.current);
-    clearInterval(restRef.current);
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (restRef.current) clearInterval(restRef.current);
   }, []);
 
-  // Drive the active-phase timer from the *persisted* startedAt, not from a
-  // local "tick from now" counter. After a resume, this keeps elapsed honest
-  // (the previous implementation always restarted at 0).
   useEffect(() => {
     if (phase !== 'active') return undefined;
     const startedAt = sessionRef.current?.startedAt ?? Date.now();
     setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
-    clearInterval(timerRef.current);
+    if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
     }, 1000);
-    return () => clearInterval(timerRef.current);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [phase, sessionId]);
 
   useEffect(() => {
@@ -118,7 +122,7 @@ function TrainScreen({ onFocusModeChange }) {
     return () => loop.stop();
   }, [phase, pulse, reducedMotion]);
 
-  const switchSword = (sw) => {
+  const switchSword = (sw: Discipline) => {
     handleUpdate(prev => ({ ...prev, activeSword: sw }));
     lightImpact();
     playClick();
@@ -126,7 +130,7 @@ function TrainScreen({ onFocusModeChange }) {
 
   const startSession = () => {
     const { progress: p } = applySessionStart(progress, { discipline: activeSword });
-    const seeded = { ...p.currentSession, exerciseIndex: 0 };
+    const seeded = { ...p.currentSession, exerciseIndex: 0 } as Session;
     sessionRef.current = seeded;
     setSessionId(seeded.id);
     setElapsed(0);
@@ -137,16 +141,13 @@ function TrainScreen({ onFocusModeChange }) {
     setEarnedXP(0);
     heavyImpact();
     playClick();
-    // Persist immediately — losing the session-start write to the debounce
-    // window would mean a hard kill in the first 500 ms makes the session
-    // unresumable. The active-phase timer effect picks up from here.
     handleUpdateImmediate(prev => ({ ...prev, currentSession: seeded }));
   };
 
-  const finishSession = (done = completedExercises) => {
-    clearInterval(timerRef.current);
-    clearInterval(restRef.current);
-    const payload = done.map(ex => ({ id: ex.id, name: ex.name, unit: ex.unit, amount: ex.amount || ex.base }));
+  const finishSession = (done: LoggedExercise[] = completedExercises) => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (restRef.current) clearInterval(restRef.current);
+    const payload = done.map(ex => ({ id: ex.id, name: ex.name, unit: ex.unit, amount: ex.amount }));
     const { progress: next, events } = applySessionEnd(
       { ...progress, currentSession: sessionRef.current },
       { sessionId, exercises: payload, intensity, endedAt: Date.now() }
@@ -163,14 +164,29 @@ function TrainScreen({ onFocusModeChange }) {
     });
   };
 
+  const endSessionWithConfirm = () => {
+    if (phase !== 'active' || completedExercises.length === 0) {
+      finishSession(completedExercises);
+      return;
+    }
+    Alert.alert(
+      'End session?',
+      'You have logged moves. Ending now will save your progress so far.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'End now', style: 'destructive', onPress: () => finishSession(completedExercises) },
+      ]
+    );
+  };
+
   const beginRest = () => {
-    clearInterval(restRef.current);
+    if (restRef.current) clearInterval(restRef.current);
     setRestSeconds(REST_SECONDS);
     setPhase('rest');
     restRef.current = setInterval(() => {
       setRestSeconds(sec => {
         if (sec <= 1) {
-          clearInterval(restRef.current);
+          if (restRef.current) clearInterval(restRef.current);
           setExerciseIndex(i => Math.min(i + 1, exercises.length - 1));
           setCurrentAmount('');
           setPhase('active');
@@ -183,11 +199,9 @@ function TrainScreen({ onFocusModeChange }) {
 
   const logExercise = () => {
     if (!currentEx) return;
-    // Clamp: a pasted negative or non-numeric value must not flow into calorie/XP
-    // math. Falls back to the exercise's base target like an empty input does.
     const parsed = parseFloat(currentAmount);
     const amount = Number.isFinite(parsed) && parsed > 0 ? parsed : currentEx.base;
-    const logged = { id: currentEx.id, name: currentEx.name, unit: currentEx.unit, amount };
+    const logged: LoggedExercise = { id: currentEx.id, name: currentEx.name, unit: currentEx.unit, amount };
     const nextCompleted = [...completedExercises, logged];
     const nextIndex = exerciseIndex + 1;
     setCompletedExercises(nextCompleted);
@@ -200,10 +214,6 @@ function TrainScreen({ onFocusModeChange }) {
         Animated.spring(pulse, { toValue: 1, tension: 110, friction: 10, useNativeDriver: true }),
       ]).start();
     }
-    // Persist the in-progress session so a crash before the final log doesn't
-    // throw away the moves the user already completed. finishSession reads
-    // sessionRef so it sees the same nextCompleted, but only the persisted copy
-    // survives an app kill.
     if (sessionRef.current) {
       sessionRef.current = { ...sessionRef.current, exercises: nextCompleted, exerciseIndex: nextIndex };
       const snapshot = sessionRef.current;
@@ -227,13 +237,13 @@ function TrainScreen({ onFocusModeChange }) {
   };
 
   const skipRest = () => {
-    clearInterval(restRef.current);
+    if (restRef.current) clearInterval(restRef.current);
     setExerciseIndex(i => Math.min(i + 1, exercises.length - 1));
     setPhase('active');
     lightImpact();
   };
 
-  const fmt = sec => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+  const fmt = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
   const contentMotion = {
     opacity: fadeSlide,
     transform: [{ translateY: fadeSlide.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
@@ -278,7 +288,6 @@ function TrainScreen({ onFocusModeChange }) {
                 sublabel="Enter focus mode"
                 accent={sword.accent}
                 onPress={startSession}
-                darkText={sword.accent !== STEEL}
                 style={s.beginButton}
               />
             </Panel>
@@ -331,8 +340,8 @@ function TrainScreen({ onFocusModeChange }) {
       {phase === 'active' && (
         <Animated.View style={[s.focusScreen, { paddingTop: SB_H + 22 }, contentMotion]}>
           <View style={s.focusTop}>
-            <Text style={s.focusTimer}>{fmt(elapsed)}</Text>
-            <Text style={s.focusCount}>{exerciseIndex + 1} of {exercises.length}</Text>
+            <Text style={s.focusTimer} accessibilityLabel={`Elapsed time ${fmt(elapsed)}`}>{fmt(elapsed)}</Text>
+            <Text style={s.focusCount} accessibilityLabel={`Exercise ${exerciseIndex + 1} of ${exercises.length}`}>{exerciseIndex + 1} of {exercises.length}</Text>
           </View>
           <ProgressRail pct={exerciseIndex / exercises.length} accent={sword.accent} />
 
@@ -361,27 +370,18 @@ function TrainScreen({ onFocusModeChange }) {
               sublabel={currentEx ? `${currentEx.base} ${currentEx.unit}` : ''}
               accent={sword.accent}
               onPress={logExercise}
-              darkText={sword.accent !== STEEL}
             />
             <View style={s.secondaryActions}>
-              <Pressable
+              <SecondaryButton
+                label="Skip"
+                accent={sword.accent}
                 onPress={skipExercise}
-                style={s.textButton}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="Skip this exercise"
-              >
-                <Text style={s.textButtonLabel}>Skip</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => finishSession(completedExercises)}
-                style={s.textButton}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="End session early"
-              >
-                <Text style={s.textButtonLabel}>End session</Text>
-              </Pressable>
+              />
+              <SecondaryButton
+                label="End session"
+                accent={sword.accent}
+                onPress={endSessionWithConfirm}
+              />
             </View>
           </View>
         </Animated.View>
@@ -390,7 +390,7 @@ function TrainScreen({ onFocusModeChange }) {
       {phase === 'rest' && (
         <Animated.View style={[s.focusScreen, { paddingTop: SB_H + 22 }, contentMotion]}>
           <Text style={s.restLabel}>Rest</Text>
-          <Text style={[s.restTimer, { color: sword.accent }]}>{restSeconds}</Text>
+          <Text style={[s.restTimer, { color: sword.accent }]} accessibilityLabel={`Rest timer ${restSeconds} seconds`}>{restSeconds}</Text>
           <Text style={s.restCopy}>Let your breathing settle. The next cut should be cleaner.</Text>
           <Panel accent={sword.accent} dim style={s.nextPanel}>
             <Text style={s.nextLabel}>Next</Text>
@@ -401,7 +401,6 @@ function TrainScreen({ onFocusModeChange }) {
             label="START NEXT MOVE"
             accent={sword.accent}
             onPress={skipRest}
-            darkText={sword.accent !== STEEL}
             style={s.beginButton}
           />
         </Animated.View>
@@ -410,7 +409,7 @@ function TrainScreen({ onFocusModeChange }) {
       {phase === 'done' && (
         <Animated.View style={[s.doneScreen, { paddingTop: SB_H + 28 }, contentMotion]}>
           <View style={[s.finishAura, { borderColor: sword.accent + '40' }]} />
-          <Text style={[s.doneKanji, { color: sword.accent }]}>完</Text>
+          <Text style={[s.doneKanji, { color: sword.accent }]} accessibilityLabel="Session complete">完</Text>
           <Text style={s.doneTitle}>Session complete</Text>
           <Text style={s.doneSubtitle}>The blade remembers today.</Text>
 
@@ -432,7 +431,6 @@ function TrainScreen({ onFocusModeChange }) {
             label="RETURN TO HOME"
             accent={sword.accent}
             onPress={() => { setPhase('idle'); setTab('home'); }}
-            darkText={sword.accent !== STEEL}
           />
         </Animated.View>
       )}
@@ -641,8 +639,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: DS.space.xl,
   },
-  textButton: { padding: DS.space.sm },
-  textButtonLabel: { color: TXT3, fontSize: 14, fontWeight: '800' },
   restLabel: {
     color: TXT3,
     textAlign: 'center',

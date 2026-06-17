@@ -262,7 +262,7 @@ describe('round-trip save/load', () => {
         { path: 'sandai', weekNum: 1, completedAt: '2024-01-14' },
       ],
       settings: {
-        theme: 'wado',
+        theme: 'blue',
         autoTheme: true,
         defaultIntensity: 7,
         soundEnabled: false,

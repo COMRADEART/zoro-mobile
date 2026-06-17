@@ -17,48 +17,43 @@ const allSkillUnlocksFor = (discipline) => {
 };
 
 describe('THEME_UNLOCK_CONDITIONS', () => {
-  test('wado/sandai/shusui always unlocked', () => {
+  test('black/white always unlocked', () => {
     const p = defaultProgress();
-    expect(THEME_UNLOCK_CONDITIONS.wado(p)).toBe(true);
-    expect(THEME_UNLOCK_CONDITIONS.sandai(p)).toBe(true);
-    expect(THEME_UNLOCK_CONDITIONS.shusui(p)).toBe(true);
+    expect(THEME_UNLOCK_CONDITIONS.black(p)).toBe(true);
+    expect(THEME_UNLOCK_CONDITIONS.white(p)).toBe(true);
   });
 
-  test('hollow gated on >=1 boss defeat', () => {
+  test('blue gated on totalXP >= 500', () => {
     const p = defaultProgress();
-    expect(THEME_UNLOCK_CONDITIONS.hollow(p)).toBe(false);
-    p.bossChallenges = [{ id: 'mihawks-trial', weekOf: 'x', completedAt: '2026-01-01', failed: false }];
-    expect(THEME_UNLOCK_CONDITIONS.hollow(p)).toBe(true);
+    expect(THEME_UNLOCK_CONDITIONS.blue(p)).toBe(false);
+    p.totalXP = 500;
+    expect(THEME_UNLOCK_CONDITIONS.blue(p)).toBe(true);
   });
 
-  test('solar gated on all 3 skill trees complete', () => {
+  test('green gated on any completed training arc', () => {
     const p = defaultProgress();
-    expect(THEME_UNLOCK_CONDITIONS.solar(p)).toBe(false);
-    p.skillUnlocks = {
-      wado: allSkillUnlocksFor('wado'),
-      sandai: allSkillUnlocksFor('sandai'),
-      shusui: allSkillUnlocksFor('shusui'),
-    };
-    expect(THEME_UNLOCK_CONDITIONS.solar(p)).toBe(true);
+    expect(THEME_UNLOCK_CONDITIONS.green(p)).toBe(false);
+    p.arcProgress = { 'arc-east-blue': { status: 'completed' } };
+    expect(THEME_UNLOCK_CONDITIONS.green(p)).toBe(true);
   });
 
-  test('abyss gated on >=3 boss defeats', () => {
+  test('violet gated on totalXP >= 1500', () => {
     const p = defaultProgress();
-    expect(THEME_UNLOCK_CONDITIONS.abyss(p)).toBe(false);
+    p.totalXP = 500;
+    expect(THEME_UNLOCK_CONDITIONS.violet(p)).toBe(false);
+    p.totalXP = 1500;
+    expect(THEME_UNLOCK_CONDITIONS.violet(p)).toBe(true);
+  });
+
+  test('gold gated on >=3 boss defeats', () => {
+    const p = defaultProgress();
     p.bossChallenges = [
       { id: 'a', weekOf: 'w1', completedAt: '2026-01-01', failed: false },
       { id: 'b', weekOf: 'w2', completedAt: '2026-01-08', failed: false },
     ];
-    expect(THEME_UNLOCK_CONDITIONS.abyss(p)).toBe(false);
+    expect(THEME_UNLOCK_CONDITIONS.gold(p)).toBe(false);
     p.bossChallenges.push({ id: 'c', weekOf: 'w3', completedAt: '2026-01-15', failed: false });
-    expect(THEME_UNLOCK_CONDITIONS.abyss(p)).toBe(true);
-  });
-
-  test('marimo gated on totalXP >= 500', () => {
-    const p = defaultProgress();
-    expect(THEME_UNLOCK_CONDITIONS.marimo(p)).toBe(false);
-    p.totalXP = 500;
-    expect(THEME_UNLOCK_CONDITIONS.marimo(p)).toBe(true);
+    expect(THEME_UNLOCK_CONDITIONS.gold(p)).toBe(true);
   });
 
   test('failed bosses do not count as defeats', () => {
@@ -69,54 +64,50 @@ describe('THEME_UNLOCK_CONDITIONS', () => {
       { id: 'c', weekOf: 'w3', completedAt: null, failed: true },
     ];
     expect(countBossDefeats(p)).toBe(0);
-    expect(THEME_UNLOCK_CONDITIONS.abyss(p)).toBe(false);
+    expect(THEME_UNLOCK_CONDITIONS.gold(p)).toBe(false);
   });
 });
 
 describe('THEME_UNLOCK_HINTS', () => {
-  test('hints provided for all locked themes', () => {
-    expect(THEME_UNLOCK_HINTS.hollow).toMatch(/boss/i);
-    expect(THEME_UNLOCK_HINTS.solar).toMatch(/skill/i);
-    expect(THEME_UNLOCK_HINTS.abyss).toMatch(/boss/i);
-    expect(THEME_UNLOCK_HINTS.marimo).toMatch(/hunter|xp/i);
+  test('hints provided for all gated themes', () => {
+    expect(THEME_UNLOCK_HINTS.blue).toMatch(/xp/i);
+    expect(THEME_UNLOCK_HINTS.green).toMatch(/arc/i);
+    expect(THEME_UNLOCK_HINTS.violet).toMatch(/xp/i);
+    expect(THEME_UNLOCK_HINTS.gold).toMatch(/boss/i);
   });
 });
 
 describe('getUnlockedThemes', () => {
-  test('default progress has only base 3 themes', () => {
-    expect(getUnlockedThemes(defaultProgress())).toEqual(['wado', 'sandai', 'shusui']);
+  test('default progress has only base 2 themes', () => {
+    expect(getUnlockedThemes(defaultProgress())).toEqual(['black', 'white']);
   });
 
-  test('one boss defeat adds hollow', () => {
-    const p = defaultProgress();
-    p.bossChallenges = [{ id: 'a', weekOf: 'w', completedAt: '2026-01-01', failed: false }];
-    expect(getUnlockedThemes(p)).toEqual(['wado', 'sandai', 'shusui', 'hollow']);
-  });
-
-  test('three boss defeats add hollow + abyss', () => {
-    const p = defaultProgress();
-    p.bossChallenges = [
-      { id: 'a', weekOf: 'w1', completedAt: '2026-01-01', failed: false },
-      { id: 'b', weekOf: 'w2', completedAt: '2026-01-08', failed: false },
-      { id: 'c', weekOf: 'w3', completedAt: '2026-01-15', failed: false },
-    ];
-    expect(getUnlockedThemes(p)).toEqual(['wado', 'sandai', 'shusui', 'hollow', 'abyss']);
-  });
-
-  test('full progression unlocks all 7 themes', () => {
+  test('500 XP adds blue', () => {
     const p = defaultProgress();
     p.totalXP = 500;
+    expect(getUnlockedThemes(p)).toEqual(['black', 'white', 'blue']);
+  });
+
+  test('three boss defeats add gold', () => {
+    const p = defaultProgress();
     p.bossChallenges = [
       { id: 'a', weekOf: 'w1', completedAt: '2026-01-01', failed: false },
       { id: 'b', weekOf: 'w2', completedAt: '2026-01-08', failed: false },
       { id: 'c', weekOf: 'w3', completedAt: '2026-01-15', failed: false },
     ];
-    p.skillUnlocks = {
-      wado: allSkillUnlocksFor('wado'),
-      sandai: allSkillUnlocksFor('sandai'),
-      shusui: allSkillUnlocksFor('shusui'),
-    };
-    expect(getUnlockedThemes(p).sort()).toEqual(['abyss', 'hollow', 'marimo', 'sandai', 'shusui', 'solar', 'wado']);
+    expect(getUnlockedThemes(p)).toEqual(['black', 'white', 'gold']);
+  });
+
+  test('full progression unlocks all 6 themes', () => {
+    const p = defaultProgress();
+    p.totalXP = 1500;
+    p.bossChallenges = [
+      { id: 'a', weekOf: 'w1', completedAt: '2026-01-01', failed: false },
+      { id: 'b', weekOf: 'w2', completedAt: '2026-01-08', failed: false },
+      { id: 'c', weekOf: 'w3', completedAt: '2026-01-15', failed: false },
+    ];
+    p.arcProgress = { 'arc-east-blue': { status: 'completed' } };
+    expect(getUnlockedThemes(p).sort()).toEqual(['black', 'blue', 'gold', 'green', 'violet', 'white']);
   });
 });
 
@@ -127,33 +118,43 @@ describe('checkThemeUnlocks', () => {
     expect(checkThemeUnlocks(prev, next)).toEqual([]);
   });
 
-  test('detects hollow unlock from first boss defeat', () => {
+  test('detects gold unlock from third boss defeat', () => {
     const prev = defaultProgress();
     const next = { ...prev };
-    next.bossChallenges = [{ id: 'a', weekOf: 'w1', completedAt: '2026-01-01', failed: false }];
-    expect(checkThemeUnlocks(prev, next)).toEqual(['hollow']);
+    next.bossChallenges = [
+      { id: 'a', weekOf: 'w1', completedAt: '2026-01-01', failed: false },
+      { id: 'b', weekOf: 'w2', completedAt: '2026-01-08', failed: false },
+      { id: 'c', weekOf: 'w3', completedAt: '2026-01-15', failed: false },
+    ];
+    expect(checkThemeUnlocks(prev, next)).toEqual(['gold']);
   });
 
   test('does not re-emit themes already in unlockedThemes', () => {
     const prev = defaultProgress();
-    prev.unlockedThemes = ['wado', 'sandai', 'shusui', 'hollow'];
+    prev.unlockedThemes = ['black', 'white', 'gold'];
     const next = { ...prev };
-    next.bossChallenges = [{ id: 'a', weekOf: 'w1', completedAt: '2026-01-01', failed: false }];
+    next.bossChallenges = [
+      { id: 'a', weekOf: 'w1', completedAt: '2026-01-01', failed: false },
+      { id: 'b', weekOf: 'w2', completedAt: '2026-01-08', failed: false },
+      { id: 'c', weekOf: 'w3', completedAt: '2026-01-15', failed: false },
+    ];
     expect(checkThemeUnlocks(prev, next)).toEqual([]);
   });
 
-  test('detects multiple unlocks at once (third boss → abyss)', () => {
+  test('detects multiple unlocks at once (500 XP + third boss → blue + gold)', () => {
     const prev = defaultProgress();
-    prev.unlockedThemes = ['wado', 'sandai', 'shusui', 'hollow'];
+    prev.unlockedThemes = ['black', 'white'];
+    prev.totalXP = 400;
     prev.bossChallenges = [
       { id: 'a', weekOf: 'w1', completedAt: '2026-01-01', failed: false },
       { id: 'b', weekOf: 'w2', completedAt: '2026-01-08', failed: false },
     ];
     const next = {
       ...prev,
+      totalXP: 500,
       bossChallenges: [...prev.bossChallenges, { id: 'c', weekOf: 'w3', completedAt: '2026-01-15', failed: false }],
     };
-    expect(checkThemeUnlocks(prev, next)).toEqual(['abyss']);
+    expect(checkThemeUnlocks(prev, next)).toEqual(['blue', 'gold']);
   });
 });
 

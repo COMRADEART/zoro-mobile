@@ -1,16 +1,34 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
 import { DS } from '../../theme/designSystem';
-import { TXT1, TXT2, TXT3 } from '../../theme/tokens';
+import { TXT1, TXT3 } from '../../theme/tokens';
 import { SWORDS } from '../../data/gameData';
+import type { Discipline } from '../../types';
 
-export const SWORD_ORDER = ['wado', 'sandai', 'shusui'];
+function inkOn(hex: string): string {
+  const h = (hex || '').replace('#', '');
+  if (h.length < 6) return '#FFFFFF';
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.55 ? '#0A0A0A' : '#FFFFFF';
+}
+
+export const SWORD_ORDER: readonly Discipline[] = ['wado', 'sandai', 'shusui'];
 
 // One iconic glyph per blade for compact marks. Sandai's literal first char
 // (三) reads as menu bars, so the demon-blade 鬼 stands in.
-export const SWORD_GLYPH = { wado: '和', sandai: '鬼', shusui: '秋' };
+export const SWORD_GLYPH: Record<Discipline, string> = { wado: '和', sandai: '鬼', shusui: '秋' };
 
-export function Panel({ accent = '#F0F0F0', children, style, dim = false }) {
+interface PanelProps {
+  accent?: string;
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+  dim?: boolean;
+}
+
+export function Panel({ accent = '#F0F0F0', children, style, dim = false }: PanelProps) {
   return (
     <View style={[s.panel, dim && s.panelDim, { borderColor: accent + '18' }, style]}>
       <View pointerEvents="none" style={[s.panelLight, { backgroundColor: accent }]} />
@@ -19,7 +37,16 @@ export function Panel({ accent = '#F0F0F0', children, style, dim = false }) {
   );
 }
 
-export function ScreenHeader({ eyebrow, title, subtitle, mark, accent = '#F0F0F0', right }) {
+interface ScreenHeaderProps {
+  eyebrow?: string;
+  title: string;
+  subtitle?: string;
+  mark?: string;
+  accent?: string;
+  right?: React.ReactNode;
+}
+
+export function ScreenHeader({ eyebrow, title, subtitle, mark, accent = '#F0F0F0', right }: ScreenHeaderProps) {
   return (
     <View style={s.screenHeader}>
       <View style={s.headerCopy}>
@@ -36,7 +63,16 @@ export function ScreenHeader({ eyebrow, title, subtitle, mark, accent = '#F0F0F0
   );
 }
 
-export function PrimaryButton({ label, sublabel, accent = '#F0F0F0', onPress, darkText = true, style }) {
+interface PrimaryButtonProps {
+  label: string;
+  sublabel?: string;
+  accent?: string;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+}
+
+export function PrimaryButton({ label, sublabel, accent = '#F0F0F0', onPress, style }: PrimaryButtonProps) {
+  const labelInk = inkOn(accent);
   return (
     <Pressable
       onPress={onPress}
@@ -52,13 +88,49 @@ export function PrimaryButton({ label, sublabel, accent = '#F0F0F0', onPress, da
         style,
       ]}
     >
-      <Text style={[s.primaryLabel, { color: darkText ? '#070707' : TXT1 }]}>{label}</Text>
-      {!!sublabel && <Text style={[s.primarySub, { color: darkText ? 'rgba(0,0,0,0.54)' : TXT2 }]}>{sublabel}</Text>}
+      <Text style={[s.primaryLabel, { color: labelInk }]}>{label}</Text>
+      {!!sublabel && <Text style={[s.primarySub, { color: labelInk }]}>{sublabel}</Text>}
     </Pressable>
   );
 }
 
-export function MetricTile({ label, value, detail, accent = '#F0F0F0', mark, style }) {
+interface SecondaryButtonProps {
+  label: string;
+  onPress: () => void;
+  accent?: string;
+  style?: StyleProp<ViewStyle>;
+}
+
+export function SecondaryButton({ label, onPress, accent = '#F0F0F0', style }: SecondaryButtonProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [
+        s.secondaryButton,
+        {
+          borderColor: accent + '35',
+          transform: [{ scale: pressed ? 0.985 : 1 }],
+        },
+        style,
+      ]}
+    >
+      <Text style={[s.secondaryLabel, { color: accent }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+interface MetricTileProps {
+  label: string;
+  value: string | number;
+  detail?: string;
+  accent?: string;
+  mark?: string;
+  style?: StyleProp<ViewStyle>;
+}
+
+export function MetricTile({ label, value, detail, accent = '#F0F0F0', mark, style }: MetricTileProps) {
   return (
     <View style={[s.metricTile, { backgroundColor: accent + '0B' }, style]}>
       <View style={s.metricTop}>
@@ -71,7 +143,13 @@ export function MetricTile({ label, value, detail, accent = '#F0F0F0', mark, sty
   );
 }
 
-export function ProgressRail({ pct = 0, accent = '#F0F0F0', style }) {
+interface ProgressRailProps {
+  pct?: number;
+  accent?: string;
+  style?: StyleProp<ViewStyle>;
+}
+
+export function ProgressRail({ pct = 0, accent = '#F0F0F0', style }: ProgressRailProps) {
   const clamped = Math.max(0, Math.min(1, pct));
   return (
     <View style={[s.rail, style]}>
@@ -80,7 +158,13 @@ export function ProgressRail({ pct = 0, accent = '#F0F0F0', style }) {
   );
 }
 
-export function SwordSelector({ value, onChange, compact = false }) {
+interface SwordSelectorProps {
+  value: Discipline;
+  onChange: (key: Discipline) => void;
+  compact?: boolean;
+}
+
+export function SwordSelector({ value, onChange, compact = false }: SwordSelectorProps) {
   return (
     <View style={[s.selector, compact && s.selectorCompact]}>
       {SWORD_ORDER.map(key => {
@@ -111,7 +195,12 @@ export function SwordSelector({ value, onChange, compact = false }) {
   );
 }
 
-export function SoftDivider({ accent = 'rgba(255,255,255,0.1)', style }) {
+interface SoftDividerProps {
+  accent?: string;
+  style?: StyleProp<ViewStyle>;
+}
+
+export function SoftDivider({ accent = 'rgba(255,255,255,0.1)', style }: SoftDividerProps) {
   return <View style={[s.divider, { backgroundColor: accent }, style]} />;
 }
 
@@ -199,6 +288,21 @@ const s = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     marginTop: 3,
+  },
+  secondaryButton: {
+    minHeight: 56,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: DS.space.lg,
+    paddingVertical: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: 'transparent',
+  },
+  secondaryLabel: {
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 1.5,
   },
   metricTile: {
     flex: 1,

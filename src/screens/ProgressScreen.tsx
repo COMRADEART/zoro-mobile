@@ -4,6 +4,7 @@ import { useProgress } from '../context/ProgressContext';
 import { Panel, MetricTile, ProgressRail, ScreenHeader, SoftDivider } from '../components/premium/PremiumUI';
 import SparkLine from '../components/shared/charts/SparkLine';
 import { THEMES, THEME_KEYS, DEFAULT_THEME } from '../theme/themes';
+import type { ThemeTokens } from '../theme/themes';
 import { TXT1, TXT2, TXT3, SB_H, TAB_BAR_H, GOLD } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import {
@@ -20,6 +21,7 @@ import { lightImpact, heavyImpact, setHapticsEnabled } from '../utils/haptics';
 import { setSoundEnabled } from '../services/audioService';
 import { scheduleTrainingReminder, cancelAllReminders } from '../services/notificationService';
 import { getLastNDays, shortDay } from '../utils/trendCalculations';
+import type { Session, VoyageChronicle } from '../types';
 
 const { width: W } = Dimensions.get('window');
 const CHART_W = W - 64;
@@ -32,8 +34,14 @@ const REMINDER_TIMES = [
 ];
 const DEFAULT_REMINDER_TIME = '18:00';
 
-function Segment({ value, onChange, accent }) {
-  const items = [
+interface SegmentProps {
+  value: string;
+  onChange: (key: string) => void;
+  accent: string;
+}
+
+function Segment({ value, onChange, accent }: SegmentProps) {
+  const items: [string, string][] = [
     ['story', 'Story'],
     ['body', 'Body'],
     ['settings', 'Settings'],
@@ -49,6 +57,7 @@ function Segment({ value, onChange, accent }) {
             style={[s.segmentItem, active && { backgroundColor: accent + '18' }]}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
+            accessibilityLabel={`${label} tab${active ? ', selected' : ''}`}
           >
             <Text style={[s.segmentText, active && { color: accent }]}>{label}</Text>
           </Pressable>
@@ -58,13 +67,22 @@ function Segment({ value, onChange, accent }) {
   );
 }
 
-function Toggle({ value, onPress, accent, label }) {
+interface ToggleProps {
+  value: boolean;
+  onPress: () => void;
+  accent: string;
+  label: string;
+}
+
+function Toggle({ value, onPress, accent, label }: ToggleProps) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="switch"
       accessibilityLabel={label}
       accessibilityState={{ checked: value }}
+      accessibilityValue={{ text: value ? 'on' : 'off' }}
+      hitSlop={DS.hitSlop}
       style={[s.toggle, value && { backgroundColor: accent }]}
     >
       <View style={[s.toggleThumb, value && { alignSelf: 'flex-end' }]} />
@@ -77,19 +95,19 @@ function ProgressScreen() {
   const [view, setView] = useState('story');
   const handleLostQuote = () => {
     const quotes = [
-      "“I'm not lost. Everyone else is lost.”",
-      "“Is the dojo moving? I was walking straight!”",
-      "“Who said North was up? That makes no sense.”",
-      "“Are we there yet? Follow the smell of sake...”",
-      "“Which way is east? I'll just walk towards the sword.”",
-      "“What? Did you get lost again? Follow me! Wait, where is the exit?”"
+      "\u201cI'm not lost. Everyone else is lost.\u201d",
+      "\u201cIs the dojo moving? I was walking straight!\u201d",
+      "\u201cWho said North was up? That makes no sense.\u201d",
+      "\u201cAre we there yet? Follow the smell of sake...\u201d",
+      "\u201cWhich way is east? I'll just walk towards the sword.\u201d",
+      "\u201cWhat? Did you get lost again? Follow me! Wait, where is the exit?\u201d"
     ];
     const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
     heavyImpact();
-    Alert.alert("Zoro's Directional Sense", randomQuote, [{ text: "Got it (了解)" }]);
+    Alert.alert("Zoro's Directional Sense", randomQuote, [{ text: "Got it (\u4e86\u89e3)" }]);
   };
-  const settings = progress.settings || {};
-  const t = THEMES[theme] || THEMES[DEFAULT_THEME];
+  const settings = (progress.settings || {}) as Record<string, unknown>;
+  const t: ThemeTokens = THEMES[theme] || THEMES[DEFAULT_THEME];
   const rankIdx = rankIndexFor(progress.totalXP);
   const rank = RANKS[rankIdx];
   const nextRank = RANKS[rankIdx + 1];
@@ -100,67 +118,40 @@ function ProgressScreen() {
   const sessions = recentSessions(progress, 5);
   const streak = currentStreak(progress, today);
   const totalCalories = useMemo(
-    () => (progress.sessions || []).reduce((sum, session) => sum + (session.calories || 0), 0),
+    () => (progress.sessions || []).reduce((sum: number, session: Session) => sum + (session.calories || 0), 0),
     [progress.sessions],
   );
   const days14 = useMemo(() => getLastNDays(today, 14), [today]);
   const xpTrend = useMemo(() => days14.map(day =>
     (progress.sessions || [])
-      .filter(session => session.endedAt && toDateKey(new Date(session.endedAt)) === day)
-      .reduce((sum, session) => sum + (session.xpEarned || 0), 0)
+      .filter((session: Session) => session.endedAt && toDateKey(new Date(session.endedAt)) === day)
+      .reduce((sum: number, session: Session) => sum + (session.xpEarned || 0), 0)
   ), [days14, progress.sessions]);
   const currentMonthKey = today.slice(0, 7);
-  const currentChronicle = (progress.voyageChronicles || []).find(c => c.monthKey === currentMonthKey);
+  const currentChronicle = (progress.voyageChronicles || []).find((c: VoyageChronicle) => c.monthKey === currentMonthKey);
   const unlockedThemes = useMemo(() => getUnlockedThemes(progress), [progress]);
-  const earnedRewards = REWARDS.filter(reward => progress.unlocked?.includes(reward.id)).slice(-6);
+  const earnedRewards = useMemo(() => REWARDS.filter(reward => progress.unlocked?.includes(reward.id)).slice(-6), [progress.unlocked]);
 
-  const setSetting = (key, value) => {
-    handleUpdate(prev => ({ ...prev, settings: { ...prev.settings, [key]: value } }));
-  };
-
-  const triggerThemedHaptic = (themeKey) => {
-    switch (themeKey) {
-      case 'wado':
-        lightImpact();
-        break;
-      case 'sandai':
-        heavyImpact();
-        setTimeout(() => heavyImpact(), 100);
-        setTimeout(() => heavyImpact(), 200);
-        break;
-      case 'shusui':
-        heavyImpact();
-        setTimeout(() => lightImpact(), 120);
-        break;
-      case 'hollow':
-        lightImpact();
-        setTimeout(() => lightImpact(), 250);
-        break;
-      case 'solar':
-        lightImpact();
-        setTimeout(() => lightImpact(), 80);
-        setTimeout(() => lightImpact(), 160);
-        break;
-      case 'abyss':
-        heavyImpact();
-        setTimeout(() => lightImpact(), 300);
-        break;
-      default:
-        lightImpact();
-        break;
-    }
+  const setSetting = (key: string, value: unknown) => {
+    handleUpdate(prev => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        [key]: value,
+        // A manual theme choice overrides auto-switching so the selection sticks.
+        ...(key === 'theme' ? { autoTheme: false } : {}),
+      },
+    }));
   };
 
   const generateStory = () => {
     const chronicle = generateVoyageChronicle(progress, currentMonthKey);
-    const existing = (progress.voyageChronicles || []).filter(c => c.monthKey !== currentMonthKey);
-    handleUpdate(prev => ({ ...prev, voyageChronicles: [...existing, chronicle].slice(-36) }));
+    const existing = (progress.voyageChronicles || []).filter((c: VoyageChronicle) => c.monthKey !== currentMonthKey);
+    handleUpdate(prev => ({ ...prev, voyageChronicles: [...existing, chronicle as VoyageChronicle].slice(-36) }));
     lightImpact();
   };
 
-  // Reminders are opt-in: enabling requests OS permission and only flips the
-  // setting if a reminder was actually scheduled, so the toggle never lies.
-  const reminderTime = settings.reminderTime || DEFAULT_REMINDER_TIME;
+  const reminderTime: string = (settings.reminderTime as string) || DEFAULT_REMINDER_TIME;
   const reminderLabel = REMINDER_TIMES.find(r => r.value === reminderTime)?.label || '6 PM';
 
   const toggleTrainingReminder = async () => {
@@ -181,7 +172,7 @@ function ProgressScreen() {
     }
   };
 
-  const changeReminderTime = async (time) => {
+  const changeReminderTime = async (time: string) => {
     lightImpact();
     setSetting('reminderTime', time);
     if (settings.trainingReminder) {
@@ -189,8 +180,6 @@ function ProgressScreen() {
     }
   };
 
-  // Reset wipes all local data irreversibly — require an explicit confirm so a
-  // single mis-tap can't destroy a user's training story.
   const confirmReset = () => {
     heavyImpact();
     Alert.alert(
@@ -226,7 +215,7 @@ function ProgressScreen() {
                 <Text style={[s.rankTitle, { color: rank.color }]}>{rank.name}</Text>
                 <Text style={s.rankSub}>{progress.totalXP.toLocaleString()} lifetime XP</Text>
               </View>
-              <Text style={[s.rankGlyph, { color: rank.color }]}>{rank.kanji || '段'}</Text>
+              <Text style={[s.rankGlyph, { color: rank.color }]}>{'段'}</Text>
             </View>
             <ProgressRail pct={xpPct} accent={rank.color} style={s.rankRail} />
             <Text style={s.rankNext}>
@@ -249,7 +238,7 @@ function ProgressScreen() {
               <Text style={s.sectionMeta}>This week</Text>
             </View>
             <View style={s.weekBars}>
-              {week.map(day => {
+              {week.map((day) => {
                 const color = day.dominant ? SWORDS[day.dominant].accent : 'rgba(255,255,255,0.14)';
                 const height = day.total > 0 ? Math.max(12, day.total * 18) : 8;
                 return (
@@ -284,14 +273,14 @@ function ProgressScreen() {
             <Text style={s.storyText}>
               {currentChronicle
                 ? currentChronicle.narrative
-                : 'Create this month’s anime-style training recap when you are ready.'}
+                : 'Create this month\u2019s anime-style training recap when you are ready.'}
             </Text>
           </Panel>
 
           <Panel accent={t.accent} dim>
             <Text style={s.sectionTitle}>Recent timeline</Text>
             {sessions.length === 0 && <Text style={s.emptyText}>No sessions yet. Your first chapter starts with Begin Training.</Text>}
-            {sessions.map((session, index) => {
+            {sessions.map((session: Session, index: number) => {
               const sword = SWORDS[session.discipline];
               if (!sword) return null;
               return (
@@ -312,7 +301,7 @@ function ProgressScreen() {
           <Panel accent="#CFCFCF" dim>
             <Text style={s.sectionTitle}>Achievement gallery</Text>
             <View style={s.gallery}>
-              {(progress.earnedTitles || []).slice(-4).map(title => {
+              {(progress.earnedTitles || []).slice(-4).map((title) => {
                 const path = TITLE_PATHS[title.path];
                 const tier = path?.tiers.find(t => t.weeks === title.weeks);
                 if (!tier) return null;
@@ -343,7 +332,7 @@ function ProgressScreen() {
             <Text style={s.sectionTitle}>Body signal</Text>
             <View style={s.metricRowNoMargin}>
               <MetricTile label="Recovery" value={progress.recoveryScore} detail="readiness" accent={t.accent} mark="気" />
-              <MetricTile label="Weight" value={progress.bodyStats?.weight || '—'} detail={progress.bodyStats?.unit || 'kg'} accent="#CFCFCF" mark="体" />
+              <MetricTile label="Weight" value={progress.bodyStats?.weight || '\u2014'} detail={progress.bodyStats?.unit || 'kg'} accent="#CFCFCF" mark="体" />
             </View>
           </Panel>
 
@@ -363,6 +352,10 @@ function ProgressScreen() {
                       }));
                       lightImpact();
                     }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${isFilled ? 'Unfill' : 'Fill'} cup ${cup} of 8`}
+                    accessibilityState={{ checked: isFilled }}
+                    hitSlop={DS.hitSlop}
                     style={[
                       s.masuCup,
                       isFilled && s.masuCupFilled
@@ -380,17 +373,17 @@ function ProgressScreen() {
             <View style={s.bodyRows}>
               <View style={s.bodyRow}>
                 <Text style={s.bodyLabel}>Sleep</Text>
-                <Text style={s.bodyValue}>{progress.sleepLog?.[today]?.hours ?? '—'}h</Text>
+                <Text style={s.bodyValue}>{progress.sleepLog?.[today]?.hours ?? '\u2014'}h</Text>
               </View>
               <SoftDivider />
               <View style={s.bodyRow}>
                 <Text style={s.bodyLabel}>Energy</Text>
-                <Text style={s.bodyValue}>{progress.moodLog?.[today]?.energy ?? '—'}/10</Text>
+                <Text style={s.bodyValue}>{progress.moodLog?.[today]?.energy ?? '\u2014'}/10</Text>
               </View>
               <SoftDivider />
               <View style={s.bodyRow}>
                 <Text style={s.bodyLabel}>Mood</Text>
-                <Text style={s.bodyValue}>{progress.moodLog?.[today]?.mood ?? '—'}/10</Text>
+                <Text style={s.bodyValue}>{progress.moodLog?.[today]?.mood ?? '\u2014'}/10</Text>
               </View>
             </View>
           </Panel>
@@ -412,16 +405,19 @@ function ProgressScreen() {
                     disabled={locked}
                     onPress={() => {
                       setSetting('theme', key);
-                      triggerThemedHaptic(key);
+                      lightImpact();
                     }}
                     style={[
                       s.themeTile,
                       active && { backgroundColor: tc.accent + '16', borderColor: tc.accent + '35' },
                       locked && { opacity: 0.36 },
                     ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${tc.name}${active ? ', selected' : ''}${locked ? `, locked. ${THEME_UNLOCK_HINTS[key] || 'Locked'}` : ''}`}
+                    accessibilityState={{ disabled: locked, selected: active }}
                   >
-                    <View style={[s.themeSwatch, { backgroundColor: tc.accent }]} />
-                    <Text style={[s.themeName, active && { color: tc.accent }]}>{tc.name.split('·')[0].trim()}</Text>
+                    <View style={[s.themeSwatch, { backgroundColor: tc.accent, borderColor: tc.accent2 || tc.accent, borderWidth: 2 }]} />
+                    <Text style={[s.themeName, active && { color: tc.accent }]}>{tc.name.split('\u00b7')[0].trim()}</Text>
                     <Text style={s.themeHint} numberOfLines={3}>{locked ? THEME_UNLOCK_HINTS[key] || 'Locked' : tc.desc}</Text>
                   </Pressable>
                 );
@@ -429,14 +425,15 @@ function ProgressScreen() {
             </View>
           </Panel>
 
-          {[
-            ['soundEnabled', 'Sound effects', '#D8D8D8', value => setSoundEnabled(value)],
-            ['hapticsEnabled', 'Haptics', '#CFCFCF', value => setHapticsEnabled(value)],
+          {([
+            ['soundEnabled', 'Sound effects', '#D8D8D8', (value: boolean) => setSoundEnabled(value)],
+            ['hapticsEnabled', 'Haptics', '#CFCFCF', (value: boolean) => setHapticsEnabled(value)],
             ['autoTheme', 'Auto theme', '#C8C8C8'],
-          ].map(([key, label, color, sideEffect]) => {
+          ] as [string, string, string, ((value: boolean) => void)?][]).map(([key, label, color, sideEffect]) => {
+            const val = settings[key];
             const enabled = key === 'soundEnabled' || key === 'hapticsEnabled'
-              ? settings[key] !== false
-              : !!settings[key];
+              ? val !== false
+              : !!val;
             return (
               <Panel key={key} accent={color} dim>
                 <View style={s.settingRow}>
@@ -465,7 +462,7 @@ function ProgressScreen() {
               <View style={{ flex: 1, paddingRight: DS.space.md }}>
                 <Text style={s.settingTitle}>Daily training reminder</Text>
                 <Text style={s.settingSub}>
-                  {settings.trainingReminder ? `A nudge every day at ${reminderLabel}` : 'Off — no notifications'}
+                  {settings.trainingReminder ? `A nudge every day at ${reminderLabel}` : 'Off \u2014 no notifications'}
                 </Text>
               </View>
               <Toggle
@@ -601,6 +598,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 6,
   },
   masuCupFilled: {
     backgroundColor: '#C8C8C8',

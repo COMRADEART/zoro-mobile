@@ -1,26 +1,38 @@
 import React, { useRef } from 'react';
 import { View, Text, Pressable, Animated, StyleSheet } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { lightImpact } from '../utils/haptics';
 import { NAV_SAFE_BOTTOM, TXT3, TAB_BAR_H } from '../theme/tokens';
+import useReducedMotion from '../hooks/useReducedMotion';
+import type { ThemeTokens } from '../theme/themes';
 
-export const TABS = [
+export const TABS: readonly { key: string; label: string; icon: string; hint: string }[] = [
   { key: 'home', label: 'Home', icon: '家', hint: 'Home dashboard' },
   { key: 'train', label: 'Train', icon: '剣', hint: 'Training session' },
   { key: 'skill', label: 'Skills', icon: '技', hint: 'Skill map' },
   { key: 'progress', label: 'Progress', icon: '録', hint: 'Progress and settings' },
 ];
 
-export default function DojoTabBar({ tab, setTab, indicatorLeft, t }) {
+interface DojoTabBarProps {
+  tab: string;
+  setTab: (tab: string) => void;
+  indicatorLeft: Animated.AnimatedInterpolation<number>;
+  t?: ThemeTokens;
+}
+
+export default function DojoTabBar({ tab, setTab, indicatorLeft, t }: DojoTabBarProps) {
   const TAB_W_PERCENT = 100 / TABS.length;
   const accent = t?.accent || '#F0F0F0';
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const reduceMotion = useReducedMotion();
 
-  const handleTabPress = (key) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Animated.sequence([
-      Animated.timing(scaleAnim, { toValue: 0.92, duration: 60, useNativeDriver: false }),
-      Animated.spring(scaleAnim, { toValue: 1, damping: 15, stiffness: 300, useNativeDriver: false }),
-    ]).start();
+  const handleTabPress = (key: string) => {
+    lightImpact();
+    if (!reduceMotion) {
+      Animated.sequence([
+        Animated.timing(scaleAnim, { toValue: 0.92, duration: 60, useNativeDriver: false }),
+        Animated.spring(scaleAnim, { toValue: 1, damping: 15, stiffness: 300, useNativeDriver: false }),
+      ]).start();
+    }
     setTab(key);
   };
 
@@ -60,7 +72,7 @@ export default function DojoTabBar({ tab, setTab, indicatorLeft, t }) {
             onPress={() => handleTabPress(tb.key)}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
-            accessibilityLabel={tb.hint}
+            accessibilityLabel={`${tb.label} tab${active ? ', selected' : ''}`}
             android_ripple={{ color: accent + '22', borderless: false }}
             hitSlop={8}
           >

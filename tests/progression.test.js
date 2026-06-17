@@ -720,8 +720,8 @@ describe('normalizeProgress', () => {
   });
 
   test('migrates settings correctly', () => {
-    const result = normalizeProgress({ settings: { theme: 'shusui', autoTheme: true } });
-    expect(result.settings.theme).toBe('shusui');
+    const result = normalizeProgress({ settings: { theme: 'blue', autoTheme: true } });
+    expect(result.settings.theme).toBe('blue');
     expect(result.settings.autoTheme).toBe(true);
   });
 
