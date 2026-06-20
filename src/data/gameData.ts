@@ -4,8 +4,8 @@ export const SWORDS = {
   wado: {
     name: 'Wado Ichimonji',
     kanji: '和道一文字',
-    color: '#e8e4d8',
-    accent: '#d4a853',
+    color: '#CFCFCF',
+    accent: '#F0F0F0',
     discipline: 'MIND',
     desc: 'The path of harmony. Mental fortitude and discipline.',
     theme: 'zen', // zen | flame | mist
@@ -24,8 +24,8 @@ export const SWORDS = {
   sandai: {
     name: 'Sandai Kitetsu',
     kanji: '三代鬼徹',
-    color: '#8b0000',
-    accent: '#dc143c',
+    color: '#9A9A9A',
+    accent: '#F0F0F0',
     discipline: 'BODY',
     desc: 'The cursed blade. Raw physical devastation.',
     theme: 'flame',
@@ -44,8 +44,8 @@ export const SWORDS = {
   shusui: {
     name: 'Shusui',
     kanji: '秋水',
-    color: '#1a1a1a',
-    accent: '#8a8a8a',
+    color: '#6E6E6E',
+    accent: '#F0F0F0',
     discipline: 'SPIRIT',
     desc: 'The black blade. Unbreakable will and endurance.',
     theme: 'mist',
@@ -65,23 +65,25 @@ export const SWORDS = {
 
 // ─── RANKS ──────────────────────────────────────────────────────────────────
 
+// Rank colour is a brightness ramp (rises with rank) kept inside the AA-legible
+// range, since rank names render as text. No hue — magnitude is value only.
 export const RANKS = [
-  { name: 'EAST BLUE ROOKIE',     min: 0,     max: 500,    color: '#b8b2a0' },
-  { name: 'PIRATE HUNTER',         min: 500,   max: 1500,   color: '#6a9fff' },
-  { name: 'SUPERNOVA',             min: 1500,  max: 3500,   color: '#b967ff' },
-  { name: 'WARLORD',               min: 3500,  max: 7000,   color: '#ffa500' },
-  { name: 'YONKO COMMANDER',       min: 7000,  max: 12000,  color: '#dc143c' },
-  { name: 'KING OF HELL',          min: 12000, max: Infinity, color: '#ffd700' },
+  { name: 'EAST BLUE ROOKIE',     min: 0,     max: 500,    color: '#B4B4B4' },
+  { name: 'PIRATE HUNTER',         min: 500,   max: 1500,   color: '#C4C4C4' },
+  { name: 'SUPERNOVA',             min: 1500,  max: 3500,   color: '#D4D4D4' },
+  { name: 'WARLORD',               min: 3500,  max: 7000,   color: '#E4E4E4' },
+  { name: 'YONKO COMMANDER',       min: 7000,  max: 12000,  color: '#F2F2F2' },
+  { name: 'KING OF HELL',          min: 12000, max: Infinity, color: '#FCFCFC' },
 ];
 
 // ─── RARITY ──────────────────────────────────────────────────────────────────
 
 export const RARITY = {
-  common:    { color: '#b8b2a0', glow: 'rgba(184,178,160,0.3)',  label: 'COMMON'   },
-  rare:      { color: '#4a9eff', glow: 'rgba(74,158,255,0.4)',   label: 'RARE'     },
-  epic:      { color: '#b967ff', glow: 'rgba(185,103,255,0.5)',  label: 'EPIC'     },
-  legendary: { color: '#ffa500', glow: 'rgba(255,165,0,0.6)',   label: 'LEGENDARY'},
-  mythic:    { color: '#dc143c', glow: 'rgba(220,20,60,0.7)',    label: 'MYTHIC'   },
+  common:    { color: '#9A9A9A', glow: 'rgba(255,255,255,0.16)', label: 'COMMON'   },
+  rare:      { color: '#B8B8B8', glow: 'rgba(255,255,255,0.22)', label: 'RARE'     },
+  epic:      { color: '#D2D2D2', glow: 'rgba(255,255,255,0.30)', label: 'EPIC'     },
+  legendary: { color: '#ECECEC', glow: 'rgba(255,255,255,0.40)', label: 'LEGENDARY'},
+  mythic:    { color: '#FCFCFC', glow: 'rgba(255,255,255,0.55)', label: 'MYTHIC'   },
 };
 
 // ─── TECHNIQUES (XP-gated rewards) ──────────────────────────────────────────
@@ -99,7 +101,7 @@ export const REWARDS = [
 
 export const TITLE_PATHS = {
   wado: {
-    icon: '和', color: '#d4a853', name: 'Wado Ichimonji',
+    icon: '和', color: '#E4E4E4', name: 'Wado Ichimonji',
     tiers: [
       { weeks: 1,  name: 'Student of Wado',       kanji: '和道の徒',        rarity: 'common',    desc: 'One week forged in the path of harmony.'         },
       { weeks: 4,  name: 'Meditation Initiate',   kanji: '禅の初心',        rarity: 'rare',      desc: 'A month of stillness. The mind sharpens.'          },
@@ -108,7 +110,7 @@ export const TITLE_PATHS = {
     ],
   },
   sandai: {
-    icon: '鬼', color: '#dc143c', name: 'Sandai Kitetsu',
+    icon: '鬼', color: '#E4E4E4', name: 'Sandai Kitetsu',
     tiers: [
       { weeks: 1,  name: 'Bloodied Rookie',       kanji: '血の新人',        rarity: 'common',    desc: 'One week of raw physical warfare.'               },
       { weeks: 4,  name: 'Demon of the Dojo',     kanji: '道場の鬼',        rarity: 'rare',      desc: 'A month of bodily devastation. The cursed blade hungers.' },
@@ -117,7 +119,7 @@ export const TITLE_PATHS = {
     ],
   },
   shusui: {
-    icon: '秋', color: '#8a8a8a', name: 'Shusui',
+    icon: '秋', color: '#C8C8C8', name: 'Shusui',
     tiers: [
       { weeks: 1,  name: 'Iron Will',             kanji: '鉄の意志',       rarity: 'common',    desc: 'One week of refusing to break.'                   },
       { weeks: 4,  name: 'Unbroken Blade',        kanji: '不折の刃',       rarity: 'rare',      desc: 'A month of enduring what would shatter others.' },
@@ -448,7 +450,7 @@ export const BREATHING_PROGRAMS = [
     durationMin: 5,
     pattern: { inhale: 4, holdIn: 4, exhale: 4, holdOut: 4 },
     xpReward: 50,
-    color: '#D4A853',
+    color: '#D8D8D8',
   },
   {
     id: 'bp-478',
@@ -458,7 +460,7 @@ export const BREATHING_PROGRAMS = [
     durationMin: 4,
     pattern: { inhale: 4, holdIn: 7, exhale: 8, holdOut: 0 },
     xpReward: 40,
-    color: '#8EAABE',
+    color: '#B0B0B0',
   },
   {
     id: 'bp-power',
@@ -468,7 +470,7 @@ export const BREATHING_PROGRAMS = [
     durationMin: 3,
     pattern: { inhale: 2, holdIn: 0, exhale: 2, holdOut: 0 },
     xpReward: 30,
-    color: '#E52030',
+    color: '#EAEAEA',
   },
   {
     id: 'bp-wim',
@@ -478,7 +480,7 @@ export const BREATHING_PROGRAMS = [
     durationMin: 7,
     pattern: { inhale: 1, holdIn: 0, exhale: 1, holdOut: 0, cycles: 30, retention: 30 },
     xpReward: 80,
-    color: '#A855F7',
+    color: '#D0D0D0',
   },
 ];
 
@@ -505,7 +507,7 @@ export const BOUNTY_MISSIONS = [
     tier: 'common',
     requirement: { type: 'streak', value: 7 },
     xpReward: 1500,
-    color: '#6a9fff',
+    color: '#C4C4C4',
   },
   {
     id: 'bm-triple-discipline',
@@ -516,7 +518,7 @@ export const BOUNTY_MISSIONS = [
     tier: 'rare',
     requirement: { type: 'all_disciplines', value: 1 },
     xpReward: 2000,
-    color: '#A855F7',
+    color: '#D0D0D0',
   },
   {
     id: 'bm-1000-kcal',
@@ -527,7 +529,7 @@ export const BOUNTY_MISSIONS = [
     tier: 'rare',
     requirement: { type: 'weekly_kcal', value: 1000 },
     xpReward: 2500,
-    color: '#fbbf24',
+    color: '#DADADA',
   },
   {
     id: 'bm-wado-monk',
@@ -538,7 +540,7 @@ export const BOUNTY_MISSIONS = [
     tier: 'epic',
     requirement: { type: 'discipline_streak', discipline: 'wado', value: 5 },
     xpReward: 3000,
-    color: '#D4A853',
+    color: '#D8D8D8',
   },
   {
     id: 'bm-sharpness-90',
@@ -549,7 +551,7 @@ export const BOUNTY_MISSIONS = [
     tier: 'epic',
     requirement: { type: 'sharpness_streak', value: 90, days: 3 },
     xpReward: 3500,
-    color: '#4ade80',
+    color: '#D6D6D6',
   },
   {
     id: 'bm-sake-month',
@@ -560,7 +562,7 @@ export const BOUNTY_MISSIONS = [
     tier: 'common',
     requirement: { type: 'hydration_streak', cups: 8, days: 7 },
     xpReward: 1200,
-    color: '#38bdf8',
+    color: '#C8C8C8',
   },
 ];
 
@@ -574,7 +576,7 @@ export const TRAINING_ARCS = [
     subtitle: 'The beginning. Prove you belong.',
     discipline: 'sandai',
     durationWeeks: 4,
-    color: '#6a9fff',
+    color: '#C4C4C4',
     requiredRank: 0,
     weeks: [
       { week: 1, title: 'Awakening',               objective: '3 training sessions. Build the habit.', targets: { sessions: 3, discipline: 'sandai' } },
@@ -592,7 +594,7 @@ export const TRAINING_ARCS = [
     subtitle: "The world's greatest swordsman awaits.",
     discipline: 'sandai',
     durationWeeks: 6,
-    color: '#F59E0B',
+    color: '#DCDCDC',
     requiredRank: 2,
     weeks: [
       { week: 1, title: 'The Challenge Issued',   objective: '5 sandai sessions.',                    targets: { sessions: 5, discipline: 'sandai' } },
@@ -612,7 +614,7 @@ export const TRAINING_ARCS = [
     subtitle: 'Still the storm within. Master the mind.',
     discipline: 'wado',
     durationWeeks: 4,
-    color: '#D4A853',
+    color: '#D8D8D8',
     requiredRank: 1,
     weeks: [
       { week: 1, title: 'First Stillness',  objective: '3 wado sessions.',              targets: { sessions: 3, discipline: 'wado' } },

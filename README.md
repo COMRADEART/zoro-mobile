@@ -4,14 +4,14 @@ A React Native (Expo) mobile fitness app that turns daily training into a progre
 
 ## Screens
 
+The live app is a four-tab pager gated by a local sign-in (`Welcome`):
+
 | Screen | Purpose |
 |--------|---------|
-| **Home** | Daily recommendation engine, Sword Sharpness composite score, week-at-a-glance, activity rings |
-| **Train** | Session logging — discipline select, 16 exercises across 3 disciplines, live calorie estimate, session commit |
-| **Skill** | Per-discipline skill trees; nodes unlock on XP spend, not just XP total |
-| **Profile** | Cumulative stats, rank timeline, unlocked technique rewards |
-| **Voyage** | Monthly narrative summaries, training trends, activity heatmaps |
-| **Config** | Theme selection, auto-theme rules, reminder settings, data reset |
+| **Home** | Daily recommendation engine, Sword Sharpness gauge, rank rail, three-sword triptych |
+| **Train** | Session logging — discipline select, exercises across 3 disciplines, focus mode, breathing, resume-after-crash; Training Arcs |
+| **Skills** | Per-discipline skill trees; nodes unlock on discipline XP, not just XP total |
+| **Progress** | Story / Body / Settings — rank timeline, voyage chronicle, body signals, theme picker, reminders, and data reset, consolidated in one place |
 
 ## Key Systems
 
@@ -19,7 +19,7 @@ A React Native (Expo) mobile fitness app that turns daily training into a progre
 Three disciplines each have their own exercise pool, calorie rates, daily ring targets, and skill tree. Disciplines are deliberately asymmetric: Wado targets minutes of mind work, Sandai targets rep counts, Shusui targets endurance minutes. This asymmetry forces training across all three disciplines rather than grinding a single mode.
 
 ### XP & Rank Progression
-Six ranks from *East Blue Rookie* to *King of Hell*, each with an XP threshold and color token. Rank-up emits a `ProgressionEvent` that `useSessionEvaluator` translates into a rank-up modal. Because rank logic lives in a pure function, it is unit-testable without mounting any component.
+Ranks run from *East Blue Rookie* to *King of Hell*, each with an XP threshold and value token. Rank-up emits a `ProgressionEvent` that `Dojo` drains from `progress._pendingEvents` (via `buildEventHandlers`) into a rank-up modal. Because rank logic lives in a pure function, it is unit-testable without mounting any component.
 
 ### Recovery System
 Recovery is a 0–100 resource. Training costs 15 points per hour; sleep restores 20 points per hour scaled by logged quality. Falling below 20 triggers a "rest recommended" flag on the Home screen. This creates a real tension between grinding XP and protecting recovery — the core game loop.
@@ -96,12 +96,13 @@ Because `progression.ts` has no side effects, tests construct arbitrary `Progres
 
 ## Performance
 
-- **`useNativeDriver: true`** on all non-layout animations keeps the UI thread unblocked.
-- **`React.memo`** on `ThreeSwordRings`, `CircularProgress`, `GlassCard`, and `ShimmerXPBar` — the most computationally expensive render paths.
+- **`useNativeDriver: true`** on all non-layout animations (including the ambient background + particle field) keeps the UI thread unblocked.
+- **`useReducedMotion()`** gates every decorative loop (`AmbientBG`, `FloatingParticles`, `GlassCard`, breathing ring) so accessibility users don't pay animation cost.
+- **`React.memo`** on the pager screens (`HomeScreen`, `SkillScreen`, `ProgressScreen`) and `GlassCard`.
 
 ## Theming
 
-Six themes (wado, sandai, shusui, hollow, solar, abyss), each a set of background, accent, and particle color tokens defined in `themes.ts`. Auto-theme rules in `ConfigScreen` can switch the active theme based on time of day or active discipline. Theme state lives inside `ProgressContext` and propagates to all screens without a separate ThemeProvider.
+Seven **monochrome** themes (wado, sandai, shusui, hollow, solar, abyss, marimo) defined in `themes.js` — pure grayscale (R=G=B); they differ only by paper value, and category is carried by glyph/label/fill rather than hue. Auto-theme and the theme picker live in Progress → Settings. Theme state lives inside `ProgressContext` and propagates to all screens without a separate ThemeProvider.
 
 ## Setup & Commands
 

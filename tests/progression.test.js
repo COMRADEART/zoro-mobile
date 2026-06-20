@@ -37,10 +37,17 @@ function freshProgress(overrides = {}) {
   return { ...BASE_PROGRESS, ...overrides };
 }
 
+// Production toDateKey now uses LOCAL time (deliberately — see the function).
+// Test fixtures must stay UTC-anchored so they produce the same keys on every
+// CI/dev machine regardless of TZ. Don't replace this with the imported helper.
+function toDateKeyUTC(d) {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
 function dayOffset(days) {
   const d = new Date('2024-01-15T12:00:00Z');
   d.setUTCDate(d.getUTCDate() + days);
-  return toDateKey(d);
+  return toDateKeyUTC(d);
 }
 
 function makeSession(discipline, dayOffsetNum, durationMs = 3600000, exercises = []) {
@@ -324,7 +331,7 @@ describe('evaluateBountyMissions', () => {
     for (let i = 0; i < 5; i++) {
       const d = new Date('2024-01-15T00:00:00Z');
       d.setUTCDate(d.getUTCDate() - i);
-      const key = toDateKey(d);
+      const key = toDateKeyUTC(d);
       dayLog[key] = { wado: 1, sandai: 0, shusui: 0 };
     }
     const progress = freshProgress({
@@ -346,7 +353,7 @@ describe('evaluateBountyMissions', () => {
     for (let i = 0; i < 3; i++) {
       const d = new Date('2024-01-15T00:00:00Z');
       d.setUTCDate(d.getUTCDate() - i);
-      const key = toDateKey(d);
+      const key = toDateKeyUTC(d);
       swordSharpnessLog[key] = 95;
     }
     const progress = freshProgress({
@@ -369,7 +376,7 @@ describe('evaluateBountyMissions', () => {
     for (let i = 0; i < 7; i++) {
       const d = new Date('2024-01-15T00:00:00Z');
       d.setUTCDate(d.getUTCDate() - i);
-      const key = toDateKey(d);
+      const key = toDateKeyUTC(d);
       hydrationLog[key] = { cups: 8 };
     }
     const progress = freshProgress({
@@ -659,6 +666,26 @@ describe('normalizeProgress', () => {
     expect(result.sessions.length).toBe(1);
   });
 
+  test('preserves a valid in-progress currentSession (crash-resume)', () => {
+    const cs = {
+      id: 'sess-1', discipline: 'wado', startedAt: Date.now(), endedAt: null,
+      exercises: [], calories: 0, intensity: 5, xpEarned: 0, exerciseIndex: 0,
+    };
+    expect(normalizeProgress({ currentSession: cs }).currentSession).toEqual(cs);
+  });
+
+  test('drops a malformed, completed, or absent currentSession', () => {
+    // completed (endedAt set) — must not resurrect as in-progress
+    expect(normalizeProgress({ currentSession: { id: 's', discipline: 'wado', startedAt: 1, endedAt: 2, exercises: [] } }).currentSession).toBeUndefined();
+    // invalid discipline
+    expect(normalizeProgress({ currentSession: { id: 's', discipline: 'nope', startedAt: 1, endedAt: null, exercises: [] } }).currentSession).toBeUndefined();
+    // missing id / missing exercises array
+    expect(normalizeProgress({ currentSession: { discipline: 'wado', startedAt: 1, endedAt: null, exercises: [] } }).currentSession).toBeUndefined();
+    expect(normalizeProgress({ currentSession: { id: 's', discipline: 'wado', startedAt: 1, endedAt: null } }).currentSession).toBeUndefined();
+    // absent entirely
+    expect(normalizeProgress({}).currentSession).toBeUndefined();
+  });
+
   test('validates sleepLog entries', () => {
     const result = normalizeProgress({
       sleepLog: {
@@ -693,8 +720,8 @@ describe('normalizeProgress', () => {
   });
 
   test('migrates settings correctly', () => {
-    const result = normalizeProgress({ settings: { theme: 'shusui', autoTheme: true } });
-    expect(result.settings.theme).toBe('shusui');
+    const result = normalizeProgress({ settings: { theme: 'blue', autoTheme: true } });
+    expect(result.settings.theme).toBe('blue');
     expect(result.settings.autoTheme).toBe(true);
   });
 
@@ -809,10 +836,10 @@ describe('currentStreak', () => {
     for (let i = 0; i < 5; i++) {
       const d = new Date('2024-01-15T00:00:00Z');
       d.setUTCDate(d.getUTCDate() - i);
-      dayLog[toDateKey(d)] = { wado: 1, sandai: 0, shusui: 0 };
+      dayLog[toDateKeyUTC(d)] = { wado: 1, sandai: 0, shusui: 0 };
     }
     const progress = freshProgress({ dayLog });
-    expect(currentStreak(progress, toDateKey(new Date('2024-01-15T00:00:00Z')))).toBe(5);
+    expect(currentStreak(progress, '2024-01-15')).toBe(5);
   });
 
   test('breaks on missing day', () => {
@@ -822,7 +849,7 @@ describe('currentStreak', () => {
       '2024-01-12': { wado: 1, sandai: 0, shusui: 0 },
     };
     const progress = freshProgress({ dayLog });
-    expect(currentStreak(progress, toDateKey(new Date('2024-01-15T00:00:00Z')))).toBe(2);
+    expect(currentStreak(progress, '2024-01-15')).toBe(2);
   });
 
   test('returns 0 when no training', () => {
@@ -832,8 +859,10 @@ describe('currentStreak', () => {
 });
 
 describe('toDateKey', () => {
-  test('returns YYYY-MM-DD format', () => {
-    const d = new Date('2024-03-15T14:30:00Z');
+  test('returns YYYY-MM-DD format for a known local date', () => {
+    // Construct from local components so the assertion is TZ-stable;
+    // an ISO-Z string would cross a day boundary in extreme offsets.
+    const d = new Date(2024, 2, 15, 14, 30);
     expect(toDateKey(d)).toBe('2024-03-15');
   });
 

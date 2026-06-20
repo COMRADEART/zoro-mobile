@@ -3,15 +3,25 @@
     "version": ">= 13.0.0"
   },
   "build": {
-    "release": {
+    "production": {
+      "autoIncrement": true,
       "android": {
         "buildType": "app-bundle",
         "image": "latest"
       }
     },
-    "development": {
+    "preview": {
+      "distribution": "internal",
       "android": {
-        "buildType": "debug",
+        "buildType": "apk",
+        "image": "latest"
+      }
+    },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
         "image": "latest"
       }
     }

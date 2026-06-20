@@ -1,41 +1,52 @@
 import { defaultProgress, normalizeProgress } from '../src/logic/progression';
 
 describe('normalizeProgress: unlockedThemes', () => {
-  test('default progress has 3 base themes', () => {
-    expect(defaultProgress().unlockedThemes).toEqual(['wado', 'sandai', 'shusui']);
+  test('default progress has 2 base themes', () => {
+    expect(defaultProgress().unlockedThemes).toEqual(['black', 'white']);
   });
 
-  test('absent unlockedThemes defaults to base 3', () => {
+  test('absent unlockedThemes defaults to base 2', () => {
     const raw = { ...defaultProgress() };
     delete raw.unlockedThemes;
     const n = normalizeProgress(raw);
-    expect(n.unlockedThemes).toEqual(['wado', 'sandai', 'shusui']);
+    expect(n.unlockedThemes).toEqual(['black', 'white']);
   });
 
   test('preserves saved unlocked themes', () => {
-    const raw = { ...defaultProgress(), unlockedThemes: ['wado', 'sandai', 'shusui', 'hollow', 'abyss'] };
+    const raw = { ...defaultProgress(), unlockedThemes: ['black', 'white', 'blue', 'gold'] };
     expect(normalizeProgress(raw).unlockedThemes).toEqual(
-      expect.arrayContaining(['wado', 'sandai', 'shusui', 'hollow', 'abyss'])
+      expect.arrayContaining(['black', 'white', 'blue', 'gold'])
     );
   });
 
   test('strips invalid theme keys', () => {
-    const raw = { ...defaultProgress(), unlockedThemes: ['wado', 'fake-theme', 'hollow'] };
+    const raw = { ...defaultProgress(), unlockedThemes: ['black', 'fake-theme', 'blue'] };
     const n = normalizeProgress(raw);
     expect(n.unlockedThemes).not.toContain('fake-theme');
-    expect(n.unlockedThemes).toContain('hollow');
+    expect(n.unlockedThemes).toContain('blue');
+  });
+
+  test('preserves gold (regression: was missing from the allowlist)', () => {
+    const raw = { ...defaultProgress(), unlockedThemes: ['black', 'white', 'gold'] };
+    expect(normalizeProgress(raw).unlockedThemes).toContain('gold');
+  });
+
+  test('preserves every real theme key (allowlist tracks THEME_KEYS)', () => {
+    const all = ['black', 'white', 'blue', 'green', 'violet', 'gold'];
+    const n = normalizeProgress({ ...defaultProgress(), unlockedThemes: all });
+    for (const k of all) expect(n.unlockedThemes).toContain(k);
   });
 
   test('always re-adds bases if removed', () => {
-    const raw = { ...defaultProgress(), unlockedThemes: ['hollow'] };
+    const raw = { ...defaultProgress(), unlockedThemes: ['gold'] };
     const n = normalizeProgress(raw);
-    expect(n.unlockedThemes).toEqual(expect.arrayContaining(['wado', 'sandai', 'shusui', 'hollow']));
+    expect(n.unlockedThemes).toEqual(expect.arrayContaining(['black', 'white', 'gold']));
   });
 
   test('non-array unlockedThemes resets to bases', () => {
     const raw = { ...defaultProgress(), unlockedThemes: 'invalid' };
     const n = normalizeProgress(raw);
-    expect(n.unlockedThemes).toEqual(['wado', 'sandai', 'shusui']);
+    expect(n.unlockedThemes).toEqual(['black', 'white']);
   });
 });
 

@@ -12,7 +12,7 @@ import { Platform, StatusBar } from 'react-native';
  * pair it with anything dimmer than TXT3. Hierarchy comes from size and
  * weight (see DS.type), not from fading or shrinking labels.
  */
-export const TXT1 = '#FBFAF8';                 // barely-warm near-white (no pure #fff)
+export const TXT1 = '#F5F5F5';                 // pure-gray near-white (monochrome; no hue)
 export const TXT2 = 'rgba(255,255,255,0.66)';
 export const TXT3 = 'rgba(255,255,255,0.50)';
 
@@ -20,13 +20,13 @@ export const SURF = 'rgba(255,255,255,0.055)';
 export const SURF2 = 'rgba(255,255,255,0.10)';
 export const BORD = 'rgba(255,255,255,0.10)';
 
-export const TAB_BAR_H = 72;
+export const NAV_SAFE_BOTTOM = Platform.OS === 'ios' ? 22 : 14;
+export const TAB_BAR_H = 96;
 export const SB_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 44;
 
-export const GOLD = '#D4A853';
-export const CRIMSON = '#E52030';
-export const STEEL = '#8EAABE';
-
-// Semantic accents (replace scattered hardcoded hex across screens)
-export const DANGER = '#E5503A';
-export const REST = '#5B8FD4';
+// Monochrome: legacy named accents collapse to neutral grays. Kept as named
+// exports so existing imports keep working; differentiation now comes from
+// value, glyphs, and fill — never hue.
+export const GOLD = '#E6E6E6';
+export const CRIMSON = '#F2F2F2';
+export const STEEL = '#9A9A9A';

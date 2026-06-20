@@ -20,6 +20,8 @@ const splitDate = {
   getMonth: () => 0, // January (0-based)
   getDate: () => 14,
   getHours: () => 21,
+  // UTC view intentionally a different calendar day — if the impl ever reverts
+  // to UTC, these make the assertions fail loudly.
   getUTCFullYear: () => 2024,
   getUTCMonth: () => 0,
   getUTCDate: () => 15,
@@ -47,11 +49,12 @@ describe('local date keys', () => {
     expect(d.getFullYear()).toBe(2024);
     expect(d.getMonth()).toBe(2);
     expect(d.getDate()).toBe(9);
-    expect(d.getHours()).toBe(0); // local midnight
+    expect(d.getHours()).toBe(0); // local midnight, not 00:00 UTC
     expect(toDateKey(d)).toBe(key);
   });
 
   test('applySessionEnd buckets a session under the LOCAL date of endedAt', () => {
+    // Constructed in local time so the assertion is deterministic on any host.
     const endedAt = new Date(2024, 0, 14, 21, 0, 0).getTime(); // local Jan 14, 9pm
     const progress = {
       ...defaultProgress(),

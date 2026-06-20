@@ -13,10 +13,10 @@ export const DS = {
   },
 
   radius: {
-    sm: 6,
-    md: 12,
-    lg: 16,
-    xl: 24,
+    sm: 4,
+    md: 8,
+    lg: 10,
+    xl: 12,
     full: 9999,
   },
 
@@ -48,7 +48,7 @@ export const DS = {
   },
 
   letterSpacing: {
-    tight: -0.5,
+    tight: 0,
     normal: 0,
     wide: 1,
     wider: 2,

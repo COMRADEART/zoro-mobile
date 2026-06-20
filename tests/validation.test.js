@@ -96,12 +96,24 @@ describe('loadProgress corruption handling', () => {
     expect(stored.totalXP).toBe(0);
   });
 
-  test('garbled JSON in v4 returns defaultProgress (no crash)', async () => {
+  test('garbled JSON in v4 backs up + resets + heals (no crash, no repeat reset)', async () => {
     await AsyncStorage.setItem(KEY_V4, '}}}not json{{{');
     const { progress, wasReset } = await loadProgress();
-    // Throws inside try, caught by outer try/catch → return defaultProgress(), wasReset:false
-    expect(wasReset).toBe(false);
+    // Unparseable v4 mirrors the validation-fail branch: back up the corrupt
+    // bytes, persist a clean default, emit data_reset, and heal so the next
+    // cold start loads valid v4 instead of re-entering this branch.
+    expect(wasReset).toBe(true);
     expect(progress.totalXP).toBe(0);
+    expect(progress._pendingEvents).toEqual([{ type: 'data_reset' }]);
+    expect(await AsyncStorage.getItem(KEY_BACKUP)).toBe('}}}not json{{{');
+    const v4After = JSON.parse(await AsyncStorage.getItem(KEY_V4));
+    expect(v4After.totalXP).toBe(0);
+    expect(v4After._pendingEvents).toBeUndefined();
+
+    // Second cold start must NOT reset or re-emit data_reset.
+    const second = await loadProgress();
+    expect(second.wasReset).toBe(false);
+    expect(second.progress._pendingEvents ?? []).toEqual([]);
   });
 
   test('v3 migration that fails validation triggers backup + reset', async () => {
@@ -140,6 +152,30 @@ describe('loadProgress corruption handling', () => {
     expect(second.progress._pendingEvents ?? []).toEqual([]);
   });
 
+  test('startup boss-expiry is persisted (not re-emitted every cold start)', async () => {
+    const state = {
+      ...defaultProgress(),
+      bossChallenges: [
+        { id: 'mihawks-trial', discipline: 'sandai', weekOf: 'OLD-WEEK', startedAt: '2025-01-01', completedAt: null, failed: false },
+      ],
+    };
+    await AsyncStorage.setItem(KEY_V4, JSON.stringify(state));
+
+    // First cold start: expiry marks the boss failed and emits boss_failed once.
+    const first = await loadProgress();
+    expect(first.progress.bossChallenges[0].failed).toBe(true);
+    expect((first.progress._pendingEvents ?? []).map((e) => e.type)).toContain('boss_failed');
+
+    // The failed state must be persisted (without the in-memory pending events).
+    const stored = JSON.parse(await AsyncStorage.getItem(KEY_V4));
+    expect(stored.bossChallenges[0].failed).toBe(true);
+    expect(stored._pendingEvents).toBeUndefined();
+
+    // Second cold start: boss already failed → no recompute, no re-emit.
+    const second = await loadProgress();
+    expect((second.progress._pendingEvents ?? []).map((e) => e.type)).not.toContain('boss_failed');
+  });
+
   test('valid v3 with all required keys migrates cleanly (no reset)', async () => {
     // Real v3 payload: a defaultProgress shape stamped with schemaVersion 3 and
     // missing the v4-only fields. migrateV3ToV4 should populate v4-only fields,
@@ -168,7 +204,7 @@ describe('loadProgress corruption handling', () => {
     // v4-only fields filled in
     expect(progress.hydrationLog).toEqual({});
     expect(progress.bountyMissions).toEqual([]);
-    expect(progress.unlockedThemes).toEqual(expect.arrayContaining(['wado', 'sandai', 'shusui']));
+    expect(progress.unlockedThemes).toEqual(expect.arrayContaining(['black', 'white']));
     // v3 key cleared, v4 key written
     expect(await AsyncStorage.getItem(KEY_V3)).toBeNull();
     const stored = JSON.parse(await AsyncStorage.getItem(KEY_V4));

@@ -5,17 +5,17 @@ import { DS } from '../../theme/designSystem';
 import useReducedMotion from '../../hooks/useReducedMotion';
 
 const PHASE_LABELS = {
-  inhale: { text: '吸う', sub: 'BREATHE IN', color: '#4A9EFF' },
-  holdIn: { text: '保つ', sub: 'HOLD', color: '#D4A853' },
-  exhale: { text: '吐く', sub: 'BREATHE OUT', color: '#38bdf8' },
-  holdOut: { text: '保つ', sub: 'HOLD', color: '#8EAABE' },
+  inhale: { text: '吸う', sub: 'BREATHE IN', color: '#F2F2F2' },
+  holdIn: { text: '保つ', sub: 'HOLD', color: '#B8B8B8' },
+  exhale: { text: '吐く', sub: 'BREATHE OUT', color: '#D8D8D8' },
+  holdOut: { text: '保つ', sub: 'HOLD', color: '#A4A4A4' },
 };
 
 export default function BreathingGuide({ program, onComplete, onDismiss }) {
+  const reducedMotion = useReducedMotion();
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(0.5)).current;
   const ringPulse = useRef(new Animated.Value(0)).current;
-  const reducedMotion = useReducedMotion();
 
   const [phaseKey, setPhaseKey] = useState('inhale');
   const [countdown, setCountdown] = useState(program.pattern.inhale);
@@ -43,17 +43,14 @@ export default function BreathingGuide({ program, onComplete, onDismiss }) {
   }, [program, scale, opacity]);
 
   useEffect(() => {
-    // Outer ring shimmer is decorative; the phase scale/opacity (playPhaseAnim)
-    // is the essential breath pacing and keeps animating regardless.
-    if (reducedMotion) {
-      ringPulse.setValue(0);
-      return;
-    }
-    const loop = Animated.loop(
+    // Decorative ring pulse — capture the loop so it stops on unmount, and skip
+    // it entirely under reduced motion (the breathing orb itself still guides).
+    if (reducedMotion) { ringPulse.setValue(0); return undefined; }
+    const ring = Animated.loop(
       Animated.timing(ringPulse, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true })
     );
-    loop.start();
-    return () => loop.stop();
+    ring.start();
+    return () => ring.stop();
   }, [ringPulse, reducedMotion]);
 
   useEffect(() => {
@@ -179,7 +176,7 @@ const s = StyleSheet.create({
   orbInner: { width: 100, height: 100, borderRadius: 50, position: 'absolute' },
   orbCore: { width: 44, height: 44, borderRadius: 22, position: 'absolute', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 10, elevation: 5 },
   countdownWrap: { position: 'absolute' },
-  countdownNum: { fontSize: 56, fontWeight: '900', letterSpacing: -2 },
+  countdownNum: { fontSize: 56, fontWeight: '900', letterSpacing: 0 },
   phaseSection: { alignItems: 'center', marginBottom: 8 },
   phaseLabel: { fontSize: 22, fontWeight: '900', letterSpacing: 2 },
   phaseSub: { ...DS.type.label, color: TXT2, marginTop: 6 },

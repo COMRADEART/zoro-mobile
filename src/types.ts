@@ -50,6 +50,10 @@ export interface Session {
   calories: number;
   intensity: number;
   xpEarned: number;
+  // Set only while a session is in progress (i.e. on Progress.currentSession).
+  // Lets TrainScreen restore the user's place if the app is killed mid-session.
+  // Stripped on applySessionEnd — completed entries in `sessions[]` never carry this.
+  exerciseIndex?: number;
 }
 
 export interface LoggedExercise {
@@ -113,8 +117,19 @@ export interface Progress {
   vitalsLog: Record<string, VitalsEntry>;
   unlockedThemes?: string[];
   bossAttemptHistory?: Record<string, { weekOf: string; success: boolean }[]>;
+  userProfile?: UserProfile | null;
   currentSession?: Session;
   _pendingEvents?: ProgressionEvent[];
+}
+
+// Local-only identity captured by the welcome screen. There is no backend, so
+// `provider` documents how the name was obtained — it is always 'local' today
+// (Google-styled capture, no OAuth round-trip), kept for forward compat.
+export interface UserProfile {
+  name: string;
+  provider: 'local' | 'google';
+  signedIn: boolean;
+  createdAt: string;
 }
 
 export interface CompletedWeek {

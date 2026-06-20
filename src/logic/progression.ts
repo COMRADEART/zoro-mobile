@@ -1,12 +1,12 @@
-// @ts-nocheck
 /**
  * Pure progression logic. No React, no Firebase, no side effects.
  * Copied unchanged from the web project and extended with session tracking,
  * recovery, skill trees, and boss challenges.
  */
 import { SWORDS, RANKS, REWARDS, TITLE_PATHS, SKILL_TREES, BOSS_CHALLENGES, BOUNTY_MISSIONS, TRAINING_ARCS, getExerciseById } from '../data/gameData';
-import type { Progress, Discipline, Session, LoggedExercise } from '../types';
+import type { Progress, Discipline, Session, LoggedExercise, ProgressionEvent } from '../types';
 import { DISCIPLINES } from '../types';
+import { THEME_KEYS } from '../theme/themes';
 
 export const BOSS_HINT_FAIL_THRESHOLD = 3;
 export const BOSS_ATTEMPT_HISTORY_CAP = 50;
@@ -105,6 +105,66 @@ export function parseDateKey(dateStr: string): Date {
   return new Date(y, (m || 1) - 1, d || 1);
 }
 
+export const DISPLAY_NAME_MAX = 40;
+
+/**
+ * Sanitizes a user-entered display name before it is persisted or rendered.
+ * Strips C0/C1 control chars and Unicode bidi controls (incl. U+061C ALM),
+ * bidi embeddings/overrides/isolates, zero-width and invisible format chars,
+ * and invisible Hangul fillers (U+115F/1160/3164/FFA0) — all vectors for later
+ * UI text-spoofing. Collapses internal whitespace, trims, and caps length by
+ * code point (never severing an astral char). Non-strings become ''.
+ * @param raw - untrusted name value (from input or storage)
+ * @returns a safe, display-ready name (possibly empty)
+ */
+export function sanitizeDisplayName(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  let cleaned = '';
+  for (const ch of raw.normalize('NFC')) {
+    const c = ch.codePointAt(0)!;
+    if (c <= 0x1f) { cleaned += ' '; continue; }            // C0 controls -> space
+    if (c >= 0x7f && c <= 0x9f) continue;                    // DEL + C1
+    if (c === 0x061c) continue;                              // ARABIC LETTER MARK (bidi control)
+    if (c >= 0x115f && c <= 0x1160) continue;                // HANGUL CHO/JUNG FILLERS (invisible)
+    if (c === 0x3164) continue;                              // HANGUL FILLER (invisible)
+    if (c === 0xffa0) continue;                              // HALFWIDTH HANGUL FILLER (invisible)
+    if (c >= 0x200b && c <= 0x200f) continue;                // zero-width + LTR/RTL marks
+    if (c >= 0x202a && c <= 0x202e) continue;                // bidi embeddings/overrides
+    if (c >= 0x2060 && c <= 0x2064) continue;                // word joiner / invisible
+    if (c >= 0x2066 && c <= 0x2069) continue;                // bidi isolates
+    if (c === 0xfeff) continue;                              // BOM / ZWNBSP
+    cleaned += ch;
+  }
+  // Cap by code point, not UTF-16 unit, so an astral char (emoji, CJK ext.)
+  // at the boundary is never severed into a lone surrogate. Grapheme clusters
+  // (emoji+VS16 / ZWJ sequences) may still split at the cap — acceptable for a
+  // 40-char name and avoids depending on Intl.Segmenter (spotty in Hermes).
+  const collapsed = cleaned.replace(/\s+/g, ' ').trim();
+  return Array.from(collapsed).slice(0, DISPLAY_NAME_MAX).join('');
+}
+
+/**
+ * True iff `raw` yields a non-empty name after sanitization. Single source of
+ * truth for "can this be entered" — used by the welcome button's enabled state
+ * AND the persistence guard so they can never disagree (a name the screen lets
+ * through but sanitization empties would otherwise be a silent no-op).
+ */
+export function isEnterableName(raw: unknown): boolean {
+  return sanitizeDisplayName(raw).length > 0;
+}
+
+/**
+ * Whether the welcome/login gate should be shown. Shared by Dojo.js (the
+ * runtime gate) and the welcome-gate tests so the two can never silently drift.
+ * `authSkipped` is the session-only "Skip for now" flag (never persisted).
+ */
+export function shouldShowWelcome(
+  progress: { userProfile?: { signedIn?: boolean } | null } | null | undefined,
+  authSkipped: boolean,
+): boolean {
+  return !progress?.userProfile?.signedIn && !authSkipped;
+}
+
 /**
  * Converts a Date object to a YYYY-MM-DDTHH hour key string.
  * @param date - Date object (defaults to now)
@@ -146,7 +206,7 @@ export function defaultProgress(): Progress {
     recoveryScore: MAX_RECOVERY,
     lastRecoveryUpdate: null,
     settings: {
-      theme: 'sandai',
+      theme: 'black',
       autoTheme: false,
       defaultIntensity: 5,
       soundEnabled: true,
@@ -158,8 +218,9 @@ export function defaultProgress(): Progress {
       gender: 'male',
     },
 
-    unlockedThemes: [...DISCIPLINES],
+    unlockedThemes: ['black', 'white'],
     bossAttemptHistory: {},
+    userProfile: null,
 
     // v4 fields
     hydrationLog: {},
@@ -242,7 +303,7 @@ export function normalizeProgress(raw: any): Progress {
   // dayLog
   if (raw.dayLog && typeof raw.dayLog === 'object') {
     const clean = {};
-    for (const [date, counts] of Object.entries(raw.dayLog)) {
+    for (const [date, counts] of Object.entries(raw.dayLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (!counts || typeof counts !== 'object') continue;
       clean[date] = {
@@ -257,7 +318,7 @@ export function normalizeProgress(raw: any): Progress {
   // unlocked (rewards)
   if (Array.isArray(raw.unlocked)) {
     const validIds = new Set(REWARDS.map(r => r.id));
-    out.unlocked = [...new Set(raw.unlocked.filter(id => validIds.has(id)))];
+    out.unlocked = [...new Set((raw.unlocked as string[]).filter(id => validIds.has(id)))];
   }
 
   // completedWeeks
@@ -291,7 +352,7 @@ export function normalizeProgress(raw: any): Progress {
   // sleepLog
   if (raw.sleepLog && typeof raw.sleepLog === 'object') {
     const clean = {};
-    for (const [date, data] of Object.entries(raw.sleepLog)) {
+    for (const [date, data] of Object.entries(raw.sleepLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (!data || typeof data !== 'object') continue;
       clean[date] = {
@@ -309,7 +370,7 @@ export function normalizeProgress(raw: any): Progress {
   // moodLog
   if (raw.moodLog && typeof raw.moodLog === 'object') {
     const clean = {};
-    for (const [date, data] of Object.entries(raw.moodLog)) {
+    for (const [date, data] of Object.entries(raw.moodLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (!data || typeof data !== 'object') continue;
       clean[date] = {
@@ -322,7 +383,7 @@ export function normalizeProgress(raw: any): Progress {
 
   // skillUnlocks
   if (raw.skillUnlocks && typeof raw.skillUnlocks === 'object') {
-    const clean = {};
+    const clean: Record<string, Record<string, string[]>> = {};
     for (const disc of ['wado', 'sandai', 'shusui']) {
       if (raw.skillUnlocks[disc] && typeof raw.skillUnlocks[disc] === 'object') {
         clean[disc] = {};
@@ -348,11 +409,11 @@ export function normalizeProgress(raw: any): Progress {
   }
 
   {
-    const valid = ['wado', 'sandai', 'shusui', 'hollow', 'solar', 'abyss'];
+    const validThemes = new Set(THEME_KEYS);
     const saved = Array.isArray(raw.unlockedThemes)
-      ? raw.unlockedThemes.filter((t: string) => valid.includes(t))
+      ? raw.unlockedThemes.filter((t: string) => validThemes.has(t))
       : [];
-    out.unlockedThemes = [...new Set([...DISCIPLINES, ...saved])];
+    out.unlockedThemes = [...new Set(['black', 'white', ...saved])];
   }
 
   if (raw.bossAttemptHistory && typeof raw.bossAttemptHistory === 'object') {
@@ -372,7 +433,7 @@ export function normalizeProgress(raw: any): Progress {
   // v4: hydrationLog
   if (raw.hydrationLog && typeof raw.hydrationLog === 'object') {
     const clean = {};
-    for (const [date, data] of Object.entries(raw.hydrationLog)) {
+    for (const [date, data] of Object.entries(raw.hydrationLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (data && typeof data.cups === 'number') clean[date] = { cups: Math.max(0, Math.min(50, Math.floor(data.cups))) };
     }
@@ -382,7 +443,7 @@ export function normalizeProgress(raw: any): Progress {
   // v4: foodLog
   if (raw.foodLog && typeof raw.foodLog === 'object') {
     const clean = {};
-    for (const [date, entries] of Object.entries(raw.foodLog)) {
+    for (const [date, entries] of Object.entries(raw.foodLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (!Array.isArray(entries)) continue;
       clean[date] = entries
@@ -402,7 +463,7 @@ export function normalizeProgress(raw: any): Progress {
 
   // v4: bodyComposition
   if (raw.bodyComposition && typeof raw.bodyComposition === 'object') {
-    const bc = raw.bodyComposition;
+    const bc: any = raw.bodyComposition;
     const safeNullNum = v => (typeof v === 'number' && v > 0 && v < 1000) ? v : null;
     out.bodyComposition = {
       bodyFatPct:    safeNullNum(bc.bodyFatPct),
@@ -416,7 +477,7 @@ export function normalizeProgress(raw: any): Progress {
   // v4: breathingLog
   if (raw.breathingLog && typeof raw.breathingLog === 'object') {
     const clean = {};
-    for (const [date, sessions] of Object.entries(raw.breathingLog)) {
+    for (const [date, sessions] of Object.entries(raw.breathingLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (!Array.isArray(sessions)) continue;
       clean[date] = sessions.filter(s => s && typeof s.programId === 'string').slice(0, 20);
@@ -427,7 +488,7 @@ export function normalizeProgress(raw: any): Progress {
   // v4: arcProgress
   if (raw.arcProgress && typeof raw.arcProgress === 'object') {
     const clean = {};
-    for (const [arcId, data] of Object.entries(raw.arcProgress)) {
+    for (const [arcId, data] of Object.entries(raw.arcProgress) as [string, any][]) {
       if (!data || typeof arcId !== 'string') continue;
       clean[arcId] = {
         startedAt:      typeof data.startedAt === 'string' ? data.startedAt : null,
@@ -459,7 +520,7 @@ export function normalizeProgress(raw: any): Progress {
   if (raw.dreamArchetypeLog && typeof raw.dreamArchetypeLog === 'object') {
     const valid = new Set(['Ronin', 'Guardian', 'Ghost', 'Berserker']);
     const clean = {};
-    for (const [date, arch] of Object.entries(raw.dreamArchetypeLog)) {
+    for (const [date, arch] of Object.entries(raw.dreamArchetypeLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (valid.has(arch)) clean[date] = arch;
     }
@@ -469,7 +530,7 @@ export function normalizeProgress(raw: any): Progress {
   // v4: stepLog
   if (raw.stepLog && typeof raw.stepLog === 'object') {
     const clean = {};
-    for (const [date, data] of Object.entries(raw.stepLog)) {
+    for (const [date, data] of Object.entries(raw.stepLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (data && typeof data.steps === 'number') {
         clean[date] = { steps: Math.max(0, Math.floor(data.steps)) };
@@ -481,7 +542,7 @@ export function normalizeProgress(raw: any): Progress {
   // v4: vitalsLog
   if (raw.vitalsLog && typeof raw.vitalsLog === 'object') {
     const clean = {};
-    for (const [date, data] of Object.entries(raw.vitalsLog)) {
+    for (const [date, data] of Object.entries(raw.vitalsLog) as [string, any][]) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       if (data && typeof data === 'object') {
         clean[date] = {
@@ -505,7 +566,7 @@ export function normalizeProgress(raw: any): Progress {
   if (raw.settings && typeof raw.settings === 'object') {
     const def = base.settings;
     out.settings = {
-      theme:            typeof raw.settings.theme === 'string'  ? raw.settings.theme            : def.theme,
+      theme:            typeof raw.settings.theme === 'string' && THEME_KEYS.includes(raw.settings.theme) ? raw.settings.theme : def.theme,
       autoTheme:        typeof raw.settings.autoTheme === 'boolean' ? raw.settings.autoTheme    : def.autoTheme,
       defaultIntensity: typeof raw.settings.defaultIntensity === 'number' ? raw.settings.defaultIntensity : def.defaultIntensity,
       soundEnabled:     typeof raw.settings.soundEnabled === 'boolean'  ? raw.settings.soundEnabled  : def.soundEnabled,
@@ -516,6 +577,37 @@ export function normalizeProgress(raw: any): Progress {
       stepGoal:         typeof raw.settings.stepGoal === 'number' && raw.settings.stepGoal > 0 ? Math.min(100000, Math.floor(raw.settings.stepGoal)) : def.stepGoal,
       gender:           raw.settings.gender === 'female' ? 'female' : 'male',
     };
+  }
+
+  // userProfile — local-only identity. Anything malformed collapses to null
+  // (so the welcome screen reappears) rather than throwing.
+  out.userProfile = null;
+  if (raw.userProfile && typeof raw.userProfile === 'object') {
+    const up = raw.userProfile;
+    const name = sanitizeDisplayName(up.name);
+    if (name.length > 0 && up.signedIn === true) {
+      out.userProfile = {
+        name,
+        provider: up.provider === 'google' ? 'google' : 'local',
+        signedIn: true,
+        createdAt: typeof up.createdAt === 'string' ? up.createdAt : '',
+      };
+    }
+  }
+
+  // currentSession — an in-progress session (endedAt null) preserved across an
+  // app kill so TrainScreen can restore the user's place. Shape-guard it so a
+  // half-written or completed entry can't reach the resume path.
+  if (
+    raw.currentSession &&
+    typeof raw.currentSession === 'object' &&
+    typeof raw.currentSession.id === 'string' &&
+    SWORDS[raw.currentSession.discipline] &&
+    typeof raw.currentSession.startedAt === 'number' &&
+    raw.currentSession.endedAt === null &&
+    Array.isArray(raw.currentSession.exercises)
+  ) {
+    out.currentSession = raw.currentSession;
   }
 
   return out;
@@ -736,7 +828,7 @@ function evaluateWeekCompletion(progress, date) {
     { wado: 0, sandai: 0, shusui: 0 }
   );
 
-  const dominantPath = Object.entries(totals).sort((a, b) => b[1] - a[1])[0][0];
+  const dominantPath = Object.entries(totals).sort((a, b) => Number(b[1]) - Number(a[1]))[0][0];
   const weeksForPath = progress.completedWeeks.filter(w => w.path === dominantPath).length + 1;
 
   // deduplicate per path+date so two different paths can complete on the same day
@@ -748,7 +840,7 @@ function evaluateWeekCompletion(progress, date) {
     { path: dominantPath, weekNum: weeksForPath, completedAt: date },
   ];
 
-  const events = [{ type: 'week_completed' as const, path: dominantPath, weekNum: weeksForPath }];
+  const events: ProgressionEvent[] = [{ type: 'week_completed', path: dominantPath, weekNum: weeksForPath }];
 
   const path = TITLE_PATHS[dominantPath];
   const earnedTier = path.tiers.find(t => t.weeks === weeksForPath);
@@ -819,7 +911,9 @@ export function applySessionEnd(progress: Progress, { sessionId, exercises, inte
     }
   }
 
-  const durationMs = endedAt - session.startedAt;
+  // Floor at 0: a wrong device clock (endedAt < startedAt) or a missing endedAt
+  // must never produce negative duration → negative XP / inflated recovery.
+  const durationMs = Math.max(0, endedAt - session.startedAt);
   const durationHours = durationMs / (1000 * 60 * 60);
   const xpFromSession = Math.round(XP_PER_SESSION_HOUR * durationHours * (intensity / 5));
 
@@ -988,7 +1082,8 @@ export function disciplineXPFor(progress, discipline) {
   // Skill-point currency = sessions logged in this discipline, but each day's
   // contribution is capped (see MAX_DISCIPLINE_SESSIONS_PER_DAY) so spamming many
   // tiny same-day sessions can't farm skill-tree unlocks. Honest training is
-  // unaffected; existing unlocks are sticky (never revoked).
+  // unaffected; existing unlocks are sticky (never revoked) so lowering this for
+  // a past heavy day can't take an already-earned node away.
   let total = 0;
   for (const day of Object.values(progress.dayLog)) {
     total += Math.min(MAX_DISCIPLINE_SESSIONS_PER_DAY, day[discipline] || 0);
@@ -1043,13 +1138,14 @@ export function evaluateBossCompletion(progress: Progress, bossId: string, date:
   const challenge = progress.bossChallenges[challengeIdx];
   if (challenge.completedAt) return { progress, events: [] }; // already done
 
-  // Verify all exercises were done today
+  // Verify every required exercise was logged today, under the boss's own
+  // discipline. Exact `discipline-name` key match: the previous substring check
+  // (`k.includes(ex.name)`) let e.g. a Shusui "Endurance Run" satisfy Sandai's
+  // "Run" requirement — a cross-discipline false-positive completion.
   const todayExercises = progress.completedByDate[date] || {};
-  const allDone = boss.exercises.every(ex => {
-    const dayEntries = Object.keys(todayExercises);
-    // For simplicity, check if any session in the last 24h covered this
-    return dayEntries.some(k => k.includes(ex.name));
-  });
+  const allDone = boss.exercises.every(
+    ex => todayExercises[`${boss.discipline}-${ex.name}`] === true,
+  );
 
   if (!allDone) return { progress, events: [] };
 
@@ -1059,7 +1155,7 @@ export function evaluateBossCompletion(progress: Progress, bossId: string, date:
   next.totalXP = progress.totalXP + boss.xpReward;
   next.peakXP = Math.max(next.peakXP, next.totalXP);
 
-  const events = [{ type: 'boss_completed' as const, boss }];
+  const events: ProgressionEvent[] = [{ type: 'boss_completed', boss }];
 
   if (boss.techniqueReward && !next.unlocked.includes(boss.techniqueReward)) {
     next.unlocked = [...next.unlocked, boss.techniqueReward];
@@ -1070,13 +1166,13 @@ export function evaluateBossCompletion(progress: Progress, bossId: string, date:
   return { progress: next, events };
 }
 
-function weekOfYear(dateStr) {
+export function weekOfYear(dateStr) {
   const d = parseDateKey(dateStr);
   const dayOfWeek = d.getDay();
   const sunday = new Date(d);
   sunday.setDate(d.getDate() - dayOfWeek);
   const yearStart = new Date(sunday.getFullYear(), 0, 1);
-  const dayOfYear = Math.floor((sunday - yearStart) / 86400000) + 1;
+  const dayOfYear = Math.floor((sunday.getTime() - yearStart.getTime()) / 86400000) + 1;
   return `${sunday.getFullYear()}-W${Math.floor((dayOfYear - 1) / 7) + 1}`;
 }
 
@@ -1162,7 +1258,7 @@ const recovery = progress.recoveryScore;
 function suggestDiscipline(progress, dateKey) {
   const key = dateKey || toDateKey(new Date());
   const today = progress.dayLog[key] || { wado: 0, sandai: 0, shusui: 0 };
-  const weakest = Object.entries(today).sort((a, b) => a[1] - b[1])[0];
+  const weakest = Object.entries(today).sort((a, b) => Number(a[1]) - Number(b[1]))[0];
   return weakest[0];
 }
 
@@ -1297,10 +1393,13 @@ export function getReadinessLevel(progress: Progress): 'READY' | 'PUSH' | 'RECOV
  * @returns hex color string
  */
 export function getReadinessColor(progress: Progress): string {
+  // Monochrome: readiness valence is carried by the LABEL text (READY/PUSH/
+  // RECOVER), kept bright so "recover" never reads as dim/ignorable. The colour
+  // stays a bright neutral; only READY gets the brightest ink.
   const r = progress.recoveryScore;
-  if (r >= 70) return '#4ade80';
-  if (r >= 40) return '#fbbf24';
-  return '#f87171';
+  if (r >= 70) return '#F4F4F4';
+  if (r >= 40) return '#D0D0D0';
+  return '#D0D0D0';
 }
 
 // ─── SWORD SHARPNESS SCORE ───────────────────────────────────────────────────
@@ -1379,20 +1478,22 @@ export function getSharpnessLabel(score: number): string {
  * @returns hex color string
  */
 export function getSharpnessColor(score: number): string {
-  if (score >= 85) return '#4ade80';
-  if (score >= 65) return '#a3e635';
-  if (score >= 45) return '#fbbf24';
-  if (score >= 25) return '#f97316';
-  return '#f87171';
+  // Monochrome magnitude ramp: brighter = sharper. Floor kept legible because
+  // this colours the large gauge numeral and state label (no hue).
+  if (score >= 85) return '#FAFAFA';
+  if (score >= 65) return '#E2E2E2';
+  if (score >= 45) return '#C2C2C2';
+  if (score >= 25) return '#A0A0A0';
+  return '#828282';
 }
 
 // ─── DREAM SWORDSMAN ARCHETYPE ───────────────────────────────────────────────
 
 export const DREAM_ARCHETYPES = {
-  Guardian:  { icon: '盾', color: '#4ade80', desc: 'Deep, consistent rest. Your blade is always ready.' },
-  Ronin:     { icon: '浪', color: '#D4A853', desc: 'A wandering sleeper. Good enough, but untamed.' },
-  Ghost:     { icon: '霊', color: '#8EAABE', desc: 'Sleep-starved. You fight well, but at what cost?' },
-  Berserker: { icon: '狂', color: '#E52030', desc: 'Chaotic sleep. Raw power with no guarantee of sharpness.' },
+  Guardian:  { icon: '盾', color: '#EAEAEA', desc: 'Deep, consistent rest. Your blade is always ready.' },
+  Ronin:     { icon: '浪', color: '#D2D2D2', desc: 'A wandering sleeper. Good enough, but untamed.' },
+  Ghost:     { icon: '霊', color: '#B4B4B4', desc: 'Sleep-starved. You fight well, but at what cost?' },
+  Berserker: { icon: '狂', color: '#F2F2F2', desc: 'Chaotic sleep. Raw power with no guarantee of sharpness.' },
 };
 
 /**
@@ -1471,12 +1572,14 @@ export function computeRingProgress(progress: Progress, date: string) {
 
 // ─── BATTLE INTENSITY ZONES ──────────────────────────────────────────────────
 
+// Monochrome: zone "color" rides a brightness ramp so intensity reads as value
+// (dim → bright), never hue — consistent with the rest of the grayscale system.
 export const INTENSITY_ZONES = [
-  { zone: 1, name: 'Ittoryu Warm-up', kanji: '一刀流', range: [1, 2],  color: '#60a5fa', desc: 'Light activation. The blade barely wakes.' },
-  { zone: 2, name: 'Nitoryu Rhythm',  kanji: '二刀流', range: [3, 4],  color: '#4ade80', desc: 'Steady effort. Building momentum.' },
-  { zone: 3, name: 'Santoryu Tempo',  kanji: '三刀流', range: [5, 6],  color: '#fbbf24', desc: 'Controlled intensity. The three blades synchronize.' },
-  { zone: 4, name: 'Asura Surge',     kanji: '阿修羅', range: [7, 8],  color: '#f97316', desc: 'High-output. The demon spirit rises.' },
-  { zone: 5, name: 'King of Hell',    kanji: '閻魔',   range: [9, 10], color: '#dc143c', desc: 'Maximum effort. Beyond human limits.' },
+  { zone: 1, name: 'Ittoryu Warm-up', kanji: '一刀流', range: [1, 2],  color: '#8A8A8A', desc: 'Light activation. The blade barely wakes.' },
+  { zone: 2, name: 'Nitoryu Rhythm',  kanji: '二刀流', range: [3, 4],  color: '#A8A8A8', desc: 'Steady effort. Building momentum.' },
+  { zone: 3, name: 'Santoryu Tempo',  kanji: '三刀流', range: [5, 6],  color: '#C6C6C6', desc: 'Controlled intensity. The three blades synchronize.' },
+  { zone: 4, name: 'Asura Surge',     kanji: '阿修羅', range: [7, 8],  color: '#E2E2E2', desc: 'High-output. The demon spirit rises.' },
+  { zone: 5, name: 'King of Hell',    kanji: '閻魔',   range: [9, 10], color: '#FAFAFA', desc: 'Maximum effort. Beyond human limits.' },
 ];
 
 /**
@@ -1724,7 +1827,7 @@ if (targets.bossId) {
     [arcId]: { ...arcData, completedWeeks: updatedWeeks, status: isCompleted ? 'completed' : 'active' },
   };
 
-  const events = [{ type: 'arc_week_complete' as const, arcId, weekNum }];
+  const events: ProgressionEvent[] = [{ type: 'arc_week_complete', arcId, weekNum }];
 
   if (isCompleted) {
     next.totalXP = (progress.totalXP || 0) + arc.xpReward;

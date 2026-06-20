@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { View, Text, Animated, StatusBar, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { ProgressProvider, useProgress } from '../context/ProgressContext';
 import { AmbientBG, FloatingParticles } from '../components/shared/AmbientBG';
@@ -7,92 +7,39 @@ import RankUpModal from '../components/shared/RankUpModal';
 import BossHintModal from '../components/shared/BossHintModal';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
 import { TXT3, TAB_BAR_H } from '../theme/tokens';
-import { DS } from '../theme/designSystem';
-import { SWORDS } from '../data/gameData';
+import { statusBarStyleForTheme } from '../theme/statusBar';
 import HomeScreen from './HomeScreen';
 import TrainScreen from './TrainScreen';
 import SkillScreen from './SkillScreen';
-import ProfileScreen from './ProfileScreen';
-import ConfigScreen from './ConfigScreen';
-import VoyageLogScreen from './VoyageLogScreen';
+import ProgressScreen from './ProgressScreen';
+import WelcomeScreen from './WelcomeScreen';
 import DojoTabBar, { TABS } from '../components/DojoTabBar';
 import { useToast } from '../components/ToastWrapper';
-import { setHapticsEnabled, rankUp, bossDefeat, bossFail, themeUnlock } from '../utils/haptics';
-import { scheduleRestReminder } from '../services/notificationService';
-import { initAudio, playRankUp, setSoundEnabled } from '../services/audioService';
+import ErrorBoundary from '../components/shared/ErrorBoundary';
+import { toDateKey, sanitizeDisplayName, shouldShowWelcome } from '../logic/progression';
+import { buildEventHandlers } from '../logic/eventHandlers';
+import { setHapticsEnabled } from '../utils/haptics';
+import { initAudio, setSoundEnabled } from '../services/audioService';
 import { useAutoTheme } from '../hooks/useAutoTheme';
-import useReducedMotion from '../hooks/useReducedMotion';
 
 const { width: W } = Dimensions.get('window');
 export const THEME_KEYS = Object.keys(THEMES);
 
-const EVENT_HANDLERS = {
-  rank_up: (ev, { showToast, setPendingRankUp }) => {
-    rankUp();
-    playRankUp();
-    setPendingRankUp(ev.rank);
-    showToast({ title: 'RANK UP', body: ev.rank.name });
-  },
-  boss_completed: (ev, { showToast }) => {
-    bossDefeat();
-    showToast({ title: 'BOSS DEFEATED', body: `${ev.boss?.name ?? 'Challenge'} · +${ev.boss?.xpReward?.toLocaleString() ?? '?'} XP` });
-  },
-  boss_failed: (_ev, { showToast }) => {
-    bossFail();
-    showToast({ title: 'NOTHING HAPPENED.', body: 'Train harder.' });
-  },
-  boss_hint: (ev, { setBossHint }) => {
-    bossFail();
-    setBossHint(ev.boss?.name ?? 'this challenge');
-  },
-  theme_unlocked: (ev, { showToast, setThemeFlash, flashAnim, reducedMotion }) => {
-    themeUnlock();
-    const tc = THEMES[ev.themeKey];
-    // Full-screen color flash is purely celebratory — skip it entirely under
-    // reduced motion; the toast still announces the unlock.
-    if (tc && !reducedMotion) {
-      flashAnim.stopAnimation();
-      setThemeFlash({ color: tc.accent, key: ev.themeKey });
-      Animated.sequence([
-        Animated.timing(flashAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-        Animated.delay(600),
-        Animated.timing(flashAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
-      ]).start(({ finished }) => { if (finished) setThemeFlash(null); });
-    }
-    showToast({ title: 'THEME UNLOCKED', body: tc?.name ?? ev.themeKey });
-  },
-  data_reset: (_ev, { showToast }) => {
-    showToast({ title: 'DATA RESET', body: 'Progress was reset. A backup was saved.' });
-  },
-  technique_unlocked: (ev, { showToast }) => {
-    showToast({ title: 'TECHNIQUE UNLOCKED', body: `${ev.reward?.kanji} · ${ev.reward?.name}` });
-  },
-  title_earned: (ev, { showToast }) => {
-    showToast({ title: 'TITLE EARNED', body: `${ev.tier?.kanji} · ${ev.tier?.name}` });
-  },
-  week_completed: (ev, { showToast }) => {
-    showToast({ title: 'WEEK COMPLETE', body: `Week ${ev.weekNum} · ${SWORDS[ev.path]?.name}` });
-  },
-  bounty_completed: (ev, { showToast }) => {
-    showToast({ title: 'BOUNTY CLAIMED', body: `${ev.bounty?.kanji} · +${ev.bounty?.xpReward} XP` });
-  },
-  arc_week_complete: (ev, { showToast }) => {
-    showToast({ title: 'ARC WEEK DONE', body: `Week ${ev.weekNum} complete` });
-  },
-  arc_completed: (ev, { showToast }) => {
-    showToast({ title: 'ARC COMPLETE', body: `${ev.arc?.name} · +${ev.arc?.xpReward?.toLocaleString()} XP` });
-  },
-};
-
 function DojoInner({ toast, toastOpacity }) {
   const { progress, tab, setTab, handleUpdate, clearPendingEvents, showToast } = useProgress();
+  // Session-only: Skip dismisses the gate for this launch only, so the welcome
+  // screen reappears on the next cold start until the user actually signs in.
+  const [authSkipped, setAuthSkipped] = useState(false);
   const [pendingRankUp, setPendingRankUp] = useState(null);
   const [bossHint, setBossHint] = useState(null);
   const [themeFlash, setThemeFlash] = useState(null);
+  const [trainingFocus, setTrainingFocus] = useState(false);
   const flashAnim = useRef(new Animated.Value(0)).current;
+  // Driven by the pager's onScroll. Holds a fractional tab index (0..TABS.length-1)
+  // so the indicator pill tracks the swipe gesture instead of jumping at the end.
   const tabAnim = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef(null);
-  const reducedMotion = useReducedMotion();
+  const scrollingRef = useRef(false);
 
   useAutoTheme(progress, handleUpdate);
 
@@ -104,42 +51,43 @@ function DojoInner({ toast, toastOpacity }) {
     }
   }, [progress?.settings]);
 
-  /* eslint-disable react-hooks/exhaustive-deps */
+  // Tab-bar presses set `tab`, which programmatically scrolls the pager. The
+  // pager's onScroll then drives `tabAnim` (see onScroll handler below), so the
+  // indicator pill animates in lockstep with the page for both swipes and taps.
   useEffect(() => {
-    const idx = TABS.findIndex(tb => tb.key === tab);
-    if (reducedMotion) {
-      tabAnim.setValue(idx);
-      return;
-    }
-    // Indicator only feeds a translateX on the pill → native-safe (perf: P3).
-    Animated.spring(tabAnim, { toValue: idx, tension: 90, friction: 14, useNativeDriver: true }).start();
-  }, [tab, reducedMotion]);
-  /* eslint-enable react-hooks/exhaustive-deps */
-
-  useEffect(() => {
-    const idx = TABS.findIndex(tb => tb.key === tab);
+    const idx = Math.max(0, TABS.findIndex(tb => tb.key === tab));
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({ x: idx * W, animated: !reducedMotion, duration: 320 });
+      scrollingRef.current = true;
+      scrollRef.current.scrollTo({ x: idx * W, animated: true });
+      const timer = setTimeout(() => {
+        scrollingRef.current = false;
+      }, 400);
+      return () => clearTimeout(timer);
     }
-  }, [tab, reducedMotion]);
+  }, [tab]);
 
-  useEffect(() => {
-    if (!progress) return;
-    if ((progress.recoveryScore ?? 100) < 20 && progress.settings?.morningReminder) {
-      scheduleRestReminder(progress.settings.reminderTime || '20:00');
-    }
-  }, [progress]);
+  const onPagerScroll = useRef(
+    Animated.event(
+      [{ nativeEvent: { contentOffset: { x: tabAnim } } }],
+      { useNativeDriver: false, listener: undefined },
+    ),
+  ).current;
+
+  const handleTrainingFocus = useCallback((active) => {
+    setTrainingFocus(active);
+  }, []);
 
   useEffect(() => {
     if (!progress) return;
     const events = progress._pendingEvents || [];
     if (events.length === 0) return;
-    const ctx = { showToast, setPendingRankUp, setBossHint, setThemeFlash, flashAnim, reducedMotion };
+    const ctx = { showToast, setPendingRankUp, setBossHint, setThemeFlash, flashAnim };
+    const handlers = buildEventHandlers(ctx);
     for (const ev of events) {
-      EVENT_HANDLERS[ev.type]?.(ev, ctx);
+      handlers[ev.type]?.(ev);
     }
     clearPendingEvents();
-  }, [progress, showToast, clearPendingEvents, flashAnim, reducedMotion]);
+  }, [progress, showToast, clearPendingEvents, flashAnim]);
 
   if (!progress) {
     return (
@@ -152,26 +100,52 @@ function DojoInner({ toast, toastOpacity }) {
   }
 
   const currentTheme = progress.settings?.theme || DEFAULT_THEME;
+
+  if (shouldShowWelcome(progress, authSkipped)) {
+    return (
+      <WelcomeScreen
+        theme={currentTheme}
+        onSignIn={(name) => {
+          const clean = sanitizeDisplayName(name);
+          if (!clean) return; // reject names that sanitize to empty
+          handleUpdate(prev => ({
+            ...prev,
+            userProfile: { name: clean, provider: 'local', signedIn: true, createdAt: toDateKey(new Date()) },
+          }));
+        }}
+        onSkip={() => setAuthSkipped(true)}
+      />
+    );
+  }
+
   const themeData = THEMES[currentTheme] || THEMES[DEFAULT_THEME];
-  const TAB_W = W / TABS.length;
+  const TAB_W = (W - 20) / TABS.length;
+  // tabAnim is in scroll-x pixels (0..W*(TABS.length-1)); convert to indicator
+  // px by interpolating across the same range. Anchor inputs to page boundaries
+  // so partial swipes produce the right intermediate offset.
   const indicatorLeft = tabAnim.interpolate({
-    inputRange: TABS.map((_, i) => i),
-    outputRange: TABS.map((_, i) => i * TAB_W + TAB_W * 0.1),
+    inputRange: TABS.map((_, i) => i * W),
+    outputRange: TABS.map((_, i) => i * TAB_W + TAB_W * 0.08),
+    extrapolate: 'clamp',
   });
 
   return (
-    <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <View style={[s.root, { backgroundColor: themeData.bg }]}>
+      <StatusBar barStyle={statusBarStyleForTheme(currentTheme)} backgroundColor="transparent" translucent />
       <AmbientBG theme={currentTheme} />
-      <FloatingParticles theme={currentTheme} count={currentTheme === 'hollow' ? 28 : currentTheme === 'solar' ? 32 : 16} />
+      <FloatingParticles theme={currentTheme} count={16} />
 
       <ScrollView
           ref={scrollRef}
+          style={s.pager}
           horizontal
           pagingEnabled
+          scrollEnabled={!trainingFocus}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
+          onScroll={onPagerScroll}
           onMomentumScrollEnd={(e) => {
+            if (scrollingRef.current) return;
             const idx = Math.round(e.nativeEvent.contentOffset.x / W);
             const targetTab = TABS[idx]?.key;
             if (targetTab && targetTab !== tab) {
@@ -181,20 +155,22 @@ function DojoInner({ toast, toastOpacity }) {
           decelerationRate="fast"
           contentContainerStyle={{ width: W * TABS.length }}
         >
-          <View style={{ width: W, paddingBottom: TAB_BAR_H }}><HomeScreen /></View>
-          <View style={{ width: W, paddingBottom: TAB_BAR_H }}><TrainScreen /></View>
-          <View style={{ width: W, paddingBottom: TAB_BAR_H }}><SkillScreen /></View>
-          <View style={{ width: W, paddingBottom: TAB_BAR_H }}><ProfileScreen /></View>
-          <View style={{ width: W, paddingBottom: TAB_BAR_H }}><VoyageLogScreen /></View>
-          <View style={{ width: W, paddingBottom: TAB_BAR_H }}><ConfigScreen /></View>
+          <View style={{ width: W, paddingBottom: TAB_BAR_H }}><ErrorBoundary><HomeScreen /></ErrorBoundary></View>
+          <View style={{ width: W, paddingBottom: trainingFocus ? 0 : TAB_BAR_H }}>
+            <ErrorBoundary><TrainScreen onFocusModeChange={handleTrainingFocus} /></ErrorBoundary>
+          </View>
+          <View style={{ width: W, paddingBottom: TAB_BAR_H }}><ErrorBoundary><SkillScreen /></ErrorBoundary></View>
+          <View style={{ width: W, paddingBottom: TAB_BAR_H }}><ErrorBoundary><ProgressScreen /></ErrorBoundary></View>
         </ScrollView>
 
-      <DojoTabBar
-        tab={tab}
-        setTab={setTab}
-        indicatorLeft={indicatorLeft}
-        t={themeData}
-      />
+      {!trainingFocus && (
+        <DojoTabBar
+          tab={tab}
+          setTab={setTab}
+          indicatorLeft={indicatorLeft}
+          t={themeData}
+        />
+      )}
 
       {themeFlash && (
         <Animated.View
@@ -215,9 +191,9 @@ function DojoInner({ toast, toastOpacity }) {
 
 export default function Dojo() {
   // The toast lives above the provider so context `showToast` (used by Train,
-  // breathing, voyage, and config) routes to the same animated toast as the
+  // breathing, and arc-start) routes to the same animated toast as the
   // event-driven ones — previously the provider had no toastCallback and those
-  // context toasts were silently dropped.
+  // toasts were silently dropped.
   const { toast, toastOpacity, showToast } = useToast();
   return (
     <ProgressProvider toastCallback={showToast}>
@@ -228,7 +204,8 @@ export default function Dojo() {
 
 const s = StyleSheet.create({
   root: { flex: 1 },
-  loading: { flex: 1, backgroundColor: '#060303', alignItems: 'center', justifyContent: 'center', gap: 16 },
-  loadingKanji: { color: '#E52030', fontSize: 60, fontWeight: '900', letterSpacing: 2 },
-  loadingLabel: { ...DS.type.label, color: TXT3 },
+  pager: { flex: 1, position: 'relative', zIndex: 1 },
+  loading: { flex: 1, backgroundColor: '#060606', alignItems: 'center', justifyContent: 'center', gap: 16 },
+  loadingKanji: { color: '#F5F5F5', fontSize: 60, fontWeight: '900', letterSpacing: 2 },
+  loadingLabel: { color: TXT3, fontSize: 9, letterSpacing: 6, fontWeight: '700' },
 });

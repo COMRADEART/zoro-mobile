@@ -20,15 +20,13 @@ export function AmbientBG({ theme }) {
   const driftRef = useRef(null);
 
   useEffect(() => {
+    // Reduced motion: hold the layers at a gentle static mid-state instead of
+    // running three perpetual loops.
     if (reducedMotion) {
-      // Resting state: a single soft, static accent wash; no looping motion.
-      loopRef.current?.stop();
-      radialRef.current?.stop();
-      driftRef.current?.stop();
       pulse.setValue(0.5);
-      radialPulse.setValue(0);
-      drift.setValue(0);
-      return;
+      radialPulse.setValue(0.3);
+      drift.setValue(0.5);
+      return undefined;
     }
     loopRef.current = Animated.loop(
       Animated.sequence([
@@ -90,6 +88,15 @@ export function AmbientBG({ theme }) {
         opacity: pulseOpacity,
         transform: [{ scale: pulseScale }],
       }} />
+      <View style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: t.accent,
+        opacity: 0.035,
+      }} pointerEvents="none" />
       <Animated.View style={{
         position: 'absolute',
         top: H * 0.55,
@@ -140,7 +147,7 @@ export function FloatingParticles({ theme, count = 16 }) {
     }))
   ).current;
 
-  // Particles are purely decorative — drop them entirely under reduced motion.
+  // Reduced motion: skip the entire perpetual particle field.
   if (reducedMotion) return null;
 
   return (
@@ -172,8 +179,8 @@ function AnimatedParticle({ p, color, isActive }) {
       y.setValue(p.startY);
       x.setValue(p.x);
       opacity.setValue(p.opacity * 0.5);
-      // Only transform + opacity animate (no layout props) → safe and far
-      // cheaper on the native driver (perf: P2).
+      // translateX/translateY/opacity are all native-driver compatible and no
+      // listener reads these values — run them off the JS thread.
       animRef.current = Animated.parallel([
         Animated.timing(y, { toValue: -30, duration: p.speed * 1000 / 12, easing: Easing.linear, useNativeDriver: true }),
         Animated.timing(x, { toValue: p.x + p.drift, duration: p.speed * 1000 / 12, easing: Easing.linear, useNativeDriver: true }),

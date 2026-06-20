@@ -21,6 +21,10 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# local QA artifacts (screenshots, emulator/expo logs, metro cache)
+artifacts/
+_shots/
+
 # debug
 npm-debug.*
 yarn-debug.*
@@ -39,6 +43,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local expo module build outputs (Gradle)
+modules/*/android/build/
 
 # Claude Code local config
 .claude/

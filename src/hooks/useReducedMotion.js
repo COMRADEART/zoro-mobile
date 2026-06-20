@@ -19,7 +19,7 @@ export default function useReducedMotion() {
     AccessibilityInfo.isReduceMotionEnabled().then(v => {
       if (mounted) setReduced(!!v);
     });
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', v =>
+    const sub = AccessibilityInfo.addEventListener?.('reduceMotionChanged', v =>
       setReduced(!!v)
     );
     return () => {

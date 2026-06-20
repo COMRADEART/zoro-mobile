@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { saveProgress } from '../storage/progressStore';
 
 export function useAutoTheme(progress, updateProgress) {
-  const lastThemeRef = useRef(progress?.settings?.theme);
+  const appliedThemeRef = useRef(null);
   const updateProgressRef = useRef(updateProgress);
 
   useEffect(() => {
@@ -10,15 +9,24 @@ export function useAutoTheme(progress, updateProgress) {
   }, [updateProgress]);
 
   useEffect(() => {
-    if (!progress?.settings?.autoTheme) return;
+    if (!progress?.settings?.autoTheme) {
+      appliedThemeRef.current = null;
+      return;
+    }
 
     const hour = new Date().getHours();
-    const nextTheme = (hour >= 6 && hour < 18) ? 'solar' : 'abyss';
-    if (progress.settings.theme !== nextTheme && progress.settings.theme !== lastThemeRef.current) {
-      lastThemeRef.current = nextTheme;
-      const next = { ...progress, settings: { ...progress.settings, theme: nextTheme } };
-      updateProgressRef.current(next);
-      saveProgress(next);
+    const nextTheme = (hour >= 6 && hour < 18) ? 'white' : 'black';
+
+    // Only update if the theme actually differs and we haven't already applied
+    // this exact transition (prevents re-applying on every re-render).
+    if (progress.settings.theme === nextTheme || appliedThemeRef.current === nextTheme) {
+      return;
     }
+
+    appliedThemeRef.current = nextTheme;
+    updateProgressRef.current({
+      ...progress,
+      settings: { ...progress.settings, theme: nextTheme },
+    });
   }, [progress?.settings?.autoTheme, progress?.settings?.theme, progress]);
 }
