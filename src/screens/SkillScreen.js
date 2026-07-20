@@ -21,7 +21,7 @@ function HeroCard({ accent, children, style }) {
   );
 }
 
-export default function SkillScreen() {
+function SkillScreen() {
   const { progress, today, handleUpdate, showToast } = useProgress();
 
   const rankIdx = rankIndexFor(progress.totalXP);
@@ -373,3 +373,6 @@ const s = StyleSheet.create({
   treeNodeOverride: { ...DS.type.micro, color: TXT3, marginTop: 3 },
   treeNodeCheck: { position: 'absolute', top: 7, right: 7 },
 });
+// Prop-less pager screen: memo stops parent re-renders (toasts, tab
+// animation state in Dojo) from cascading into all six mounted screens.
+export default React.memo(SkillScreen);

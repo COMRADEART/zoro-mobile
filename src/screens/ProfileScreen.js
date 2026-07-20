@@ -24,7 +24,7 @@ function HeroCard({ accent, children, style }) {
   );
 }
 
-export default function ProfileScreen() {
+function ProfileScreen() {
   const { progress, today, theme, handleUpdate } = useProgress();
 
   const [weight, setWeight] = useState(String(progress.bodyStats?.weight || 70));
@@ -634,3 +634,6 @@ const s = StyleSheet.create({
   chronicleNarrative: { fontSize: 14, color: TXT2, fontFamily: DS.font.display, lineHeight: 23, fontStyle: 'italic', marginBottom: 10 },
   chronicleStats: { ...DS.type.caption, color: TXT3, fontWeight: '600' },
 });
+// Prop-less pager screen: memo stops parent re-renders (toasts, tab
+// animation state in Dojo) from cascading into all six mounted screens.
+export default React.memo(ProfileScreen);

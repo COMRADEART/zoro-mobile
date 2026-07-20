@@ -9,7 +9,6 @@ export interface ProgressContextValue {
   progress: Progress;
   today: string;
   theme: string;
-  tab: string;
   t: (key: string) => string;
   handleUpdate: (updater: Progress | ((prev: Progress) => Progress)) => void;
   handleSessionEnd: (next: Progress, events: ProgressionEvent[]) => void;
@@ -21,10 +20,19 @@ export interface ProgressContextValue {
 
 export const ProgressContext = createContext<ProgressContextValue | null>(null);
 
+// The active tab lives in its own context: it changes on every swipe, and
+// bundling it with the data value would re-render every data consumer per
+// tab switch. setTab stays on the data context (it's referentially stable).
+export const TabContext = createContext<string>('home');
+
 export function useProgress(): ProgressContextValue {
   const ctx = useContext(ProgressContext);
   if (!ctx) throw new Error('useProgress must be used inside ProgressContext.Provider');
   return ctx;
+}
+
+export function useTab(): string {
+  return useContext(TabContext);
 }
 
 interface ProgressProviderProps {
@@ -161,13 +169,12 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
 
   const t = useCallback((key: string): string => key, []);
 
-  if (!progress) return null;
-
-  const value: ProgressContextValue = {
-    progress,
+  // Memoized so a provider re-render with unchanged inputs (e.g. a toast
+  // above it) doesn't invalidate the context for every consumer.
+  const value = React.useMemo<ProgressContextValue>(() => ({
+    progress: progress!,
     today,
     theme,
-    tab,
     t,
     handleUpdate,
     handleSessionEnd,
@@ -175,11 +182,15 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
     setTab,
     onReset,
     clearPendingEvents,
-  };
+  }), [progress, today, theme, t, handleUpdate, handleSessionEnd, showToast, onReset, clearPendingEvents]);
+
+  if (!progress) return null;
 
   return (
     <ProgressContext.Provider value={value}>
-      {children}
+      <TabContext.Provider value={tab}>
+        {children}
+      </TabContext.Provider>
     </ProgressContext.Provider>
   );
 }

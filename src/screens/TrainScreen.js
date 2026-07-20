@@ -14,7 +14,7 @@ import * as ai from '../services/aiService';
 
 const SWORD_ORDER = ['wado', 'sandai', 'shusui'];
 
-export default function TrainScreen() {
+function TrainScreen() {
   const { progress, today, theme, handleSessionEnd, showToast, handleUpdate } = useProgress();
 
   const [activeSword, setActiveSword] = useState(progress.activeSword || 'sandai');
@@ -572,3 +572,6 @@ const s = StyleSheet.create({
   breathDur: { fontSize: 20, fontWeight: '900' },
   breathXP: { ...DS.type.micro, color: TXT2, letterSpacing: 1 },
 });
+// Prop-less pager screen: memo stops parent re-renders (toasts, tab
+// animation state in Dojo) from cascading into all six mounted screens.
+export default React.memo(TrainScreen);

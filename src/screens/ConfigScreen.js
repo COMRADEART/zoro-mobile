@@ -25,7 +25,7 @@ const { width: W } = Dimensions.get('window');
 // Expands the 26pt switch / ~28pt time chip to a >=44pt touch target (A11y).
 const TOGGLE_HIT = { top: 10, bottom: 10, left: 10, right: 10 };
 
-export default function ConfigScreen() {
+function ConfigScreen() {
   const { progress, theme, handleUpdate, onReset, setTab } = useProgress();
   const settings = progress.settings || {};
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
@@ -419,3 +419,6 @@ const s = StyleSheet.create({
   aboutDivider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.10)', marginVertical: 16 },
   aboutTagline: { color: TXT2, fontSize: 13, fontFamily: DS.font.display, fontStyle: 'italic', textAlign: 'center', lineHeight: 19 },
 });
+// Prop-less pager screen: memo stops parent re-renders (toasts, tab
+// animation state in Dojo) from cascading into all six mounted screens.
+export default React.memo(ConfigScreen);

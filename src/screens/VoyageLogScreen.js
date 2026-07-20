@@ -68,7 +68,7 @@ function HeroCard({ accent, children, style }) {
   );
 }
 
-export default function VoyageLogScreen() {
+function VoyageLogScreen() {
   const { progress, today, theme, handleUpdate } = useProgress();
   const [tab, setTab] = useState('log');
 const [view, setView] = useState('weekly');
@@ -670,3 +670,6 @@ const s = StyleSheet.create({
   ringTrendFill: { height: 6, borderRadius: 3 },
   ringTrendVal: { fontSize: 12, fontWeight: '800', color: TXT1, width: 38, textAlign: 'right' },
 });
+// Prop-less pager screen: memo stops parent re-renders (toasts, tab
+// animation state in Dojo) from cascading into all six mounted screens.
+export default React.memo(VoyageLogScreen);

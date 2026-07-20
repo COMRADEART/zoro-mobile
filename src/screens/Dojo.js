@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, StatusBar, StyleSheet, Dimensions, ScrollView } from 'react-native';
-import { ProgressProvider, useProgress } from '../context/ProgressContext';
+import { ProgressProvider, useProgress, useTab } from '../context/ProgressContext';
 import { AmbientBG, FloatingParticles } from '../components/shared/AmbientBG';
 import Toast from '../components/shared/Toast';
 import RankUpModal from '../components/shared/RankUpModal';
@@ -86,7 +86,8 @@ const EVENT_HANDLERS = {
 };
 
 function DojoInner({ toast, toastOpacity }) {
-  const { progress, today, tab, setTab, handleUpdate, clearPendingEvents, showToast } = useProgress();
+  const { progress, today, setTab, handleUpdate, clearPendingEvents, showToast } = useProgress();
+  const tab = useTab();
   const [pendingRankUp, setPendingRankUp] = useState(null);
   const [bossHint, setBossHint] = useState(null);
   const [themeFlash, setThemeFlash] = useState(null);

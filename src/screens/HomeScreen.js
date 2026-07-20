@@ -36,7 +36,7 @@ function StatChip({ accent, label, value, kanji }) {
   );
 }
 
-export default function HomeScreen() {
+function HomeScreen() {
   const { progress, today, theme, setTab, handleUpdate } = useProgress();
   const { steps } = useStepCounter();
   const [aiLine, setAiLine] = useState(null);
@@ -458,3 +458,7 @@ const s = StyleSheet.create({
   footerText: { fontFamily: DS.font.display, fontSize: 14, color: TXT2, fontStyle: 'italic', letterSpacing: 0.5 },
   footerSub: { ...DS.type.caption, color: TXT3, marginTop: 6 },
 });
+
+// Prop-less pager screen: memo stops parent re-renders (toasts, tab
+// animation state in Dojo) from cascading into all six mounted screens.
+export default React.memo(HomeScreen);
