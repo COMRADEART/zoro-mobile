@@ -209,10 +209,11 @@ const [view, setView] = useState('weekly');
     // AI narration when AICore is present; otherwise the existing
     // templated narrative is returned unchanged.
     const narrative = await ai.narrate({ statsText, fallback: chronicle.narrative });
-    const existing = (progress.voyageChronicles || []).filter(c => c.monthKey !== currentMonthKey);
-    handleUpdate({
-      ...progress,
-      voyageChronicles: [...existing, { ...chronicle, narrative }].slice(-36),
+    // Functional: the await above is a multi-second window — spreading the
+    // render snapshot here would revert any update that landed meanwhile.
+    handleUpdate(prev => {
+      const existing = (prev.voyageChronicles || []).filter(c => c.monthKey !== currentMonthKey);
+      return { ...prev, voyageChronicles: [...existing, { ...chronicle, narrative }].slice(-36) };
     });
   };
 

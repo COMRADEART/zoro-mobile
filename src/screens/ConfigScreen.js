@@ -30,7 +30,7 @@ function ConfigScreen() {
   const settings = progress.settings || {};
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
 
-  const set = (key, value) => handleUpdate({ ...progress, settings: { ...settings, [key]: value } });
+  const set = (key, value) => handleUpdate(prev => ({ ...prev, settings: { ...prev.settings, [key]: value } }));
   // Recompute only when inputs to THEME_UNLOCK_CONDITIONS change. If a new
   // predicate reads another Progress field, add it to this destructure + deps.
   const { bossChallenges, skillUnlocks, unlockedThemes: savedThemes } = progress;

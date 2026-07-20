@@ -39,10 +39,12 @@ function SkillScreen() {
   );
 
   const startBossTrial = () => {
-    const { challenge, progress: withBoss } = getActiveBossChallenge(progress, today);
+    const { challenge } = getActiveBossChallenge(progress, today);
     if (!challenge) return;
     playClick();
-    handleUpdate(withBoss);
+    // Functional: re-derives against the latest state, so a concurrent
+    // update can't be clobbered by this render's snapshot.
+    handleUpdate(prev => getActiveBossChallenge(prev, today).progress);
     showToast({ title: 'TRIAL BEGUN', body: 'Log the drills in Train before the week ends.' });
   };
 

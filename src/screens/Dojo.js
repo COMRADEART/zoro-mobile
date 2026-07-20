@@ -225,7 +225,7 @@ function DojoInner({ toast, toastOpacity }) {
       {progress.settings?.onboarded !== true && (
         <OnboardingIntro
           accent={themeData.accent}
-          onDone={() => handleUpdate({ ...progress, settings: { ...progress.settings, onboarded: true } })}
+          onDone={() => handleUpdate(prev => ({ ...prev, settings: { ...prev.settings, onboarded: true } }))}
         />
       )}
     </View>

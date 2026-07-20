@@ -121,7 +121,7 @@ function HomeScreen() {
   }, [today]);
 
   const onStartSession = (sword) => {
-    handleUpdate({ ...progress, activeSword: sword });
+    handleUpdate(prev => ({ ...prev, activeSword: sword }));
     setTab('train');
   };
 

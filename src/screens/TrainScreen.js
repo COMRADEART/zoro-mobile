@@ -64,7 +64,7 @@ function TrainScreen() {
 
   const switchSword = (sw) => {
     setActiveSword(sw);
-    handleUpdate({ ...progress, activeSword: sw });
+    handleUpdate(prev => ({ ...prev, activeSword: sw }));
     heavyImpact();
     playClick();
   };
@@ -73,8 +73,9 @@ function TrainScreen() {
     const { progress: p } = applySessionStart(progress, { discipline: activeSword });
     sessionRef.current = p.currentSession;
     // Persist the active session — kept only in the ref, an app death
-    // mid-workout silently lost it.
-    handleUpdate(p);
+    // mid-workout silently lost it. Functional merge so a concurrent
+    // update (sharpness effect, config change) isn't clobbered.
+    handleUpdate(prev => ({ ...prev, currentSession: p.currentSession }));
     setSessionId(p.currentSession.id);
     setElapsed(0); setPhase('active');
     setExerciseIndex(0); setCompletedExercises([]);

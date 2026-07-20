@@ -152,8 +152,8 @@ function ProfileScreen() {
           accessibilityRole="button"
           accessibilityLabel="Save body stats"
           onPress={() => {
-            const { progress: next } = updateBodyStats(progress, { weight: parseFloat(weight) || 70, height: parseFloat(height) || 175 });
-            handleUpdate(next); flash(setSavedBody);
+            handleUpdate(prev => updateBodyStats(prev, { weight: parseFloat(weight) || 70, height: parseFloat(height) || 175 }).progress);
+            flash(setSavedBody);
           }}
         >
           <Text style={s.saveBtnTxt}>{savedBody ? '保存完了' : 'SAVE 保存'}</Text>
@@ -226,13 +226,14 @@ function ProfileScreen() {
           const rh = parseFloat(remH) || 0;
           const ah = parseFloat(awakeH) || 0;
           const totalH = dh + lh + rh + ah;
-          const { progress: next } = updateRecoveryFromSleep(progress, {
+          const args = {
             date: today,
             quality: sleepQ,
             hours: totalH > 0 ? totalH : parseFloat(sleepH) || 7,
             deepHours: dh, lightHours: lh, remHours: rh, awakeHours: ah,
-          });
-          handleUpdate(next); flash(setSavedSleep);
+          };
+          handleUpdate(prev => updateRecoveryFromSleep(prev, args).progress);
+          flash(setSavedSleep);
         }}
           accessibilityRole="button"
           accessibilityLabel="Log sleep">
@@ -286,8 +287,8 @@ function ProfileScreen() {
           </View>
         ))}
         <Pressable style={[s.saveBtn, { backgroundColor: '#B967FF' }]} onPress={() => {
-          const { progress: next } = updateMood(progress, { date: today, energy, mood });
-          handleUpdate(next); flash(setSavedMood);
+          handleUpdate(prev => updateMood(prev, { date: today, energy, mood }).progress);
+          flash(setSavedMood);
         }}
           accessibilityRole="button"
           accessibilityLabel="Log mood and energy">
@@ -329,7 +330,10 @@ function ProfileScreen() {
             {[1, 2, 3, 4, 5, 6, 7, 8].map(v => (
               <Pressable
                 key={v}
-                onPress={() => handleUpdate({ ...progress, hydrationLog: { ...progress.hydrationLog, [today]: { cups: todayCups === v ? v - 1 : v } } })}
+                onPress={() => handleUpdate(prev => {
+                  const cur = prev.hydrationLog?.[today]?.cups ?? 0;
+                  return { ...prev, hydrationLog: { ...prev.hydrationLog, [today]: { cups: cur === v ? v - 1 : v } } };
+                })}
                 hitSlop={{ top: 12, bottom: 12, left: 4, right: 4 }}
                 accessibilityRole="button"
                 accessibilityLabel={`${v} ${v === 1 ? 'cup' : 'cups'} of water`}
@@ -377,8 +381,10 @@ function ProfileScreen() {
                 accessibilityLabel={`Log ${meal.name}, ${meal.kcal} calories`}
                 onPress={() => {
                   if (meal.kcal === 0) return;
-                  const dayMeals = progress.foodLog?.[today] || [];
-                  handleUpdate({ ...progress, foodLog: { ...progress.foodLog, [today]: [...dayMeals, { name: meal.name, kcal: meal.kcal, protein: meal.protein, carbs: meal.carbs, fat: meal.fat, mealId: meal.id }] } });
+                  handleUpdate(prev => {
+                    const dayMeals = prev.foodLog?.[today] || [];
+                    return { ...prev, foodLog: { ...prev.foodLog, [today]: [...dayMeals, { name: meal.name, kcal: meal.kcal, protein: meal.protein, carbs: meal.carbs, fat: meal.fat, mealId: meal.id }] } };
+                  });
                 }}
               >
                 <Text style={s.mealKanji}>{meal.kanji}</Text>
@@ -395,8 +401,10 @@ function ProfileScreen() {
                   <Text style={[s.loggedMealKcal, { color: '#F59E0B' }]}>{meal.kcal} kcal</Text>
                   <Pressable
                     onPress={() => {
-                      const filtered = todayMeals.filter((_, i) => i !== idx);
-                      handleUpdate({ ...progress, foodLog: { ...progress.foodLog, [today]: filtered } });
+                      handleUpdate(prev => ({
+                        ...prev,
+                        foodLog: { ...prev.foodLog, [today]: (prev.foodLog?.[today] || []).filter((_, i) => i !== idx) },
+                      }));
                     }}
                     style={s.removeBtn}
                     accessibilityRole="button"
@@ -430,9 +438,11 @@ function ProfileScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Generate this month's chronicle"
                 onPress={() => {
-                  const chronicle = generateVoyageChronicle(progress, currentMonthKey);
-                  const existing = (progress.voyageChronicles || []).filter(c => c.monthKey !== currentMonthKey);
-                  handleUpdate({ ...progress, voyageChronicles: [...existing, chronicle].slice(-36) });
+                  handleUpdate(prev => {
+                    const chronicle = generateVoyageChronicle(prev, currentMonthKey);
+                    const existing = (prev.voyageChronicles || []).filter(c => c.monthKey !== currentMonthKey);
+                    return { ...prev, voyageChronicles: [...existing, chronicle].slice(-36) };
+                  });
                 }}
               >
                 <Text style={[s.saveBtnTxt, { color: '#0A0A0A' }]}>GENERATE 月次生成</Text>
@@ -489,8 +499,8 @@ function ProfileScreen() {
             </View>
           ))}
           <Pressable style={[s.saveBtn, { backgroundColor: '#E52030', marginTop: 14 }]} accessibilityRole="button" accessibilityLabel="Save physique" onPress={() => {
-            handleUpdate({
-              ...progress,
+            handleUpdate(prev => ({
+              ...prev,
               bodyComposition: {
                 bodyFatPct: parseFloat(bodyFat) || null,
                 muscleMassPct: parseFloat(muscleMass) || null,
@@ -501,7 +511,7 @@ function ProfileScreen() {
                 thighs: parseFloat(thighs) || null,
                 unit: 'cm',
               },
-            });
+            }));
             flash(setSavedPhysique);
           }}>
             <Text style={s.saveBtnTxt}>{savedPhysique ? '保存完了' : 'SAVE PHYSIQUE'}</Text>
@@ -540,17 +550,17 @@ function ProfileScreen() {
             ))}
           </View>
           <Pressable style={[s.saveBtn, { backgroundColor: '#22d3ee', marginTop: 14 }]} accessibilityRole="button" accessibilityLabel="Save vitals" onPress={() => {
-            handleUpdate({
-              ...progress,
+            handleUpdate(prev => ({
+              ...prev,
               vitalsLog: {
-                ...progress.vitalsLog,
+                ...prev.vitalsLog,
                 [today]: {
                   restingHR: parseFloat(restingHR) || null,
                   hrv: parseFloat(hrv) || null,
                   vo2Max: parseFloat(vo2Max) || null,
                 },
               },
-            });
+            }));
             flash(setSavedVitals);
           }}>
             <Text style={s.saveBtnTxt}>{savedVitals ? '保存完了' : 'SAVE VITALS'}</Text>
