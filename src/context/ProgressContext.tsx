@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { AppState } from 'react-native';
 import type { Progress, ProgressionEvent } from '../types';
-import { loadProgress, saveProgress, resetProgress, checkThemeUnlocks, DEFAULT_UNLOCKED_THEMES } from '../storage/progressStore';
+import { loadProgress, saveProgress, flushSave, resetProgress, checkThemeUnlocks, DEFAULT_UNLOCKED_THEMES } from '../storage/progressStore';
 import { assignBountyMissions, evaluateBountyMissions, evaluateArcWeekCompletion, evaluateBossExpiry, evaluateAllActiveBossChallenges, toDateKey } from '../logic/progression';
 import { TRAINING_ARCS } from '../data/gameData';
 
@@ -67,6 +68,15 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
     });
   }, []);
 
+  // RN timers don't fire while suspended, so a debounced save pending when
+  // the user backgrounds the app dies with the process. Flush it eagerly.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background' || state === 'inactive') void flushSave();
+    });
+    return () => sub.remove();
+  }, []);
+
   const handleUpdate = useCallback((updater: Progress | ((prev: Progress) => Progress)) => {
     setProgress(prev => {
       const raw = typeof updater === 'function' ? updater(prev!) : updater;
@@ -129,7 +139,9 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
 
     finalProgress = { ...finalProgress, _pendingEvents: allEvents };
 
-    saveProgress(finalProgress);
+    // A session's results are the app's most valuable write — skip the
+    // debounce so backgrounding right after a workout can't lose it.
+    saveProgress(finalProgress, { immediate: true });
     setProgress(finalProgress);
     if (finalProgress.settings?.theme !== progressRef.current?.settings?.theme) {
       setTheme(finalProgress.settings?.theme || 'sandai');

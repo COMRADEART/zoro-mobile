@@ -93,6 +93,14 @@ export function checkThemeUnlocks(prev: Progress, next: Progress): string[] {
 // ─── PERSISTENCE ─────────────────────────────────────────────────────────────
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingProgress: Progress | null = null;
+let pendingResolvers: (() => void)[] = [];
+
+// Set when the native read itself failed (as opposed to the blob being
+// corrupt). In that state the stored blob may be perfectly intact, so
+// saves are refused — otherwise a one-off read glitch would return a
+// fresh default whose first save permanently clobbers the user's data.
+let readFailed = false;
 
 // Runs boss week-end expiry against the loaded state and rolls events into
 // _pendingEvents so the UI can surface them on next render.
@@ -103,25 +111,61 @@ function applyStartupExpiry(progress: Progress): Progress {
   return { ...next, _pendingEvents: [...existing, ...events] };
 }
 
+// Corrupt blob (unparseable or invalid): preserve the raw bytes, persist a
+// clean default, and surface a data_reset warning to the UI.
+async function backupAndReset(raw: string): Promise<{ progress: Progress; wasReset: boolean }> {
+  await AsyncStorage.setItem(KEY_CORRUPTED, raw);
+  const fresh = defaultProgress();
+  fresh._pendingEvents = [{ type: 'data_reset' }];
+  await AsyncStorage.setItem(KEY_V4, JSON.stringify({ ...fresh, _pendingEvents: undefined }));
+  return { progress: fresh, wasReset: true };
+}
+
 export async function loadProgress(): Promise<{ progress: Progress; wasReset: boolean }> {
+  let raw4: string | null = null;
+  let raw3: string | null = null;
   try {
-    const raw4 = await AsyncStorage.getItem(KEY_V4);
+    raw4 = await AsyncStorage.getItem(KEY_V4);
+    if (!raw4) raw3 = await AsyncStorage.getItem(KEY_V3);
+  } catch (e) {
+    // Transient native read failure — the blob may be fine. Serve defaults
+    // for this launch but refuse to save over the stored data.
+    console.error('[progressStore] read failed; saves disabled to protect stored data:', e);
+    readFailed = true;
+    return { progress: defaultProgress(), wasReset: false };
+  }
+  readFailed = false;
+
+  try {
     if (raw4) {
-      const parsed = JSON.parse(raw4);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw4);
+      } catch {
+        // Syntactically broken JSON — the most likely shape of real-world
+        // corruption (app killed mid-write). Same treatment as validation
+        // failure: back up first, never silently discard.
+        console.error('[progressStore] v4 state is not valid JSON; backing up and resetting');
+        return await backupAndReset(raw4);
+      }
       if (validateV4State(parsed)) {
         return { progress: applyStartupExpiry(normalizeProgress(parsed)), wasReset: false };
       }
       console.error('[progressStore] v4 state failed validation; backing up and resetting');
-      await AsyncStorage.setItem(KEY_CORRUPTED, raw4);
-      const fresh = defaultProgress();
-      fresh._pendingEvents = [{ type: 'data_reset' }];
-      await AsyncStorage.setItem(KEY_V4, JSON.stringify({ ...fresh, _pendingEvents: undefined }));
-      return { progress: fresh, wasReset: true };
+      return await backupAndReset(raw4);
     }
 
-    const raw3 = await AsyncStorage.getItem(KEY_V3);
     if (raw3) {
-      const migratedRaw = migrateV3ToV4(JSON.parse(raw3));
+      let parsedV3: unknown;
+      try {
+        parsedV3 = JSON.parse(raw3);
+      } catch {
+        console.error('[progressStore] v3 state is not valid JSON; backing up and resetting');
+        const result = await backupAndReset(raw3);
+        await AsyncStorage.removeItem(KEY_V3);
+        return result;
+      }
+      const migratedRaw = migrateV3ToV4(parsedV3 as Record<string, unknown>);
       // Validate the raw migration before normalize — normalize would otherwise
       // fill in defaults for v3-required fields (totalXP, sessions, etc.) and
       // mask a v3 payload that never had them.
@@ -148,25 +192,63 @@ export async function loadProgress(): Promise<{ progress: Progress; wasReset: bo
     }
 
     return { progress: defaultProgress(), wasReset: false };
-  } catch {
+  } catch (e) {
+    // The backup/reset sequence itself failed part-way — state on disk is
+    // unknown, so keep saves disabled for this launch rather than risk
+    // overwriting whatever survived.
+    console.error('[progressStore] recovery failed; saves disabled:', e);
+    readFailed = true;
     return { progress: defaultProgress(), wasReset: false };
   }
 }
 
-export function saveProgress(progress: Progress): Promise<void> {
-  if (saveTimer) clearTimeout(saveTimer);
+/**
+ * Debounced by default (500ms) to coalesce bursts of small updates. Pass
+ * `immediate: true` for writes that must not sit in the debounce window
+ * (session end — losing it loses a whole workout). All superseded callers'
+ * promises resolve when the coalesced write lands.
+ */
+export function saveProgress(progress: Progress, { immediate = false }: { immediate?: boolean } = {}): Promise<void> {
+  if (readFailed) {
+    console.error('[progressStore] save refused: last read failed, stored data may be intact');
+    return Promise.resolve();
+  }
+  pendingProgress = progress;
   return new Promise((resolve) => {
-    saveTimer = setTimeout(async () => {
-      try {
-        const { _pendingEvents, ...toSave } = progress;
-        await AsyncStorage.setItem(KEY_V4, JSON.stringify(toSave));
-        resolve();
-      } catch (e) {
-        console.error('[progressStore] Failed to save progress:', e);
-        resolve();
-      }
-    }, 500);
+    pendingResolvers.push(resolve);
+    if (saveTimer) clearTimeout(saveTimer);
+    if (immediate) {
+      saveTimer = null;
+      void flushSave();
+    } else {
+      saveTimer = setTimeout(() => { void flushSave(); }, 500);
+    }
   });
+}
+
+/**
+ * Writes any pending debounced save immediately. Call when the app is
+ * backgrounded: RN timers don't fire while suspended, so without this the
+ * last debounce window of writes dies with the process.
+ */
+export async function flushSave(): Promise<void> {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  const progress = pendingProgress;
+  const resolvers = pendingResolvers;
+  pendingProgress = null;
+  pendingResolvers = [];
+  if (!progress) return;
+  try {
+    const { _pendingEvents, ...toSave } = progress;
+    await AsyncStorage.setItem(KEY_V4, JSON.stringify(toSave));
+  } catch (e) {
+    console.error('[progressStore] Failed to save progress:', e);
+  } finally {
+    resolvers.forEach(r => r());
+  }
 }
 
 export async function resetProgress(): Promise<void> {
@@ -175,6 +257,11 @@ export async function resetProgress(): Promise<void> {
     clearTimeout(saveTimer);
     saveTimer = null;
   }
+  pendingProgress = null;
+  const abandoned = pendingResolvers;
+  pendingResolvers = [];
+  abandoned.forEach(r => r());
+  readFailed = false; // deliberate wipe: the store is coherent again
   try {
     await AsyncStorage.multiRemove([KEY_V4, KEY_V3]);
   } catch (e) {

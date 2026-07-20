@@ -132,6 +132,9 @@ describe('loadProgress', () => {
     expect(result.totalXP).toBe(0);
 
     AsyncStorage.getItem = originalGet;
+    // The failed read latches save-protection (see storeSafety.test.js);
+    // a healthy load clears it for the rest of this suite.
+    await loadProgress();
   });
 });
 
