@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions, Alert, Share, Modal, TextInput } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import SectionLabel from '../components/shared/SectionLabel';
 import GlassCard from '../components/shared/GlassCard';
@@ -7,7 +7,7 @@ import { THEMES, THEME_KEYS, DEFAULT_THEME } from '../theme/themes';
 import { TXT1, TXT2, TXT3, BORD, SB_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
 import { lightImpact, setHapticsEnabled } from '../utils/haptics';
-import { getUnlockedThemes, THEME_UNLOCK_HINTS } from '../storage/progressStore';
+import { getUnlockedThemes, THEME_UNLOCK_HINTS, parseProgressExport } from '../storage/progressStore';
 import { setSoundEnabled } from '../services/audioService';
 import { scheduleTrainingReminder, cancelTrainingReminder } from '../services/notificationService';
 import { getCapability, ensureModel } from '../services/aiService';
@@ -53,6 +53,44 @@ function ConfigScreen() {
     const cap = await ensureModel();
     setAiCap(cap);
     setAiBusy(false);
+  };
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState(null);
+
+  const exportProgress = async () => {
+    lightImpact();
+    // _pendingEvents is transient UI state — never part of an export.
+    const { _pendingEvents, ...data } = progress;
+    try {
+      await Share.share({ message: JSON.stringify(data) });
+    } catch {}
+  };
+
+  const applyImport = () => {
+    const result = parseProgressExport(importText.trim());
+    if (!result.ok) {
+      setImportError(result.error);
+      return;
+    }
+    Alert.alert(
+      'Replace current progress?',
+      'Importing overwrites everything on this device with the pasted export. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Import',
+          style: 'destructive',
+          onPress: () => {
+            handleUpdate(result.progress);
+            setImportOpen(false);
+            setImportText('');
+            setImportError(null);
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -316,6 +354,76 @@ function ConfigScreen() {
       </GlassCard>
 
       <SectionLabel label="DATA · データ" style={{ marginTop: 20, marginBottom: 10 }} />
+      <GlassCard accent="#3B82F6" style={{ marginBottom: 10 }}>
+        <View style={s.toggleRow}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={s.settingTitle}>EXPORT PROGRESS</Text>
+            <Text style={s.settingDesc}>Share your full training record as JSON — keep it as a backup or move it to a new device.</Text>
+          </View>
+          <Pressable
+            style={[s.timeBtn, { borderColor: '#3B82F6' }]}
+            onPress={exportProgress}
+            accessibilityRole="button"
+            accessibilityLabel="Export progress as JSON"
+            hitSlop={TOGGLE_HIT}
+          >
+            <Text style={[s.timeBtnTxt, { color: '#3B82F6' }]}>EXPORT</Text>
+          </Pressable>
+        </View>
+        <View style={[s.toggleRow, { marginTop: 16 }]}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={s.settingTitle}>IMPORT PROGRESS</Text>
+            <Text style={s.settingDesc}>Paste a previous export to restore it. Replaces everything on this device.</Text>
+          </View>
+          <Pressable
+            style={[s.timeBtn, { borderColor: '#3B82F6' }]}
+            onPress={() => { lightImpact(); setImportOpen(true); }}
+            accessibilityRole="button"
+            accessibilityLabel="Import progress from JSON"
+            hitSlop={TOGGLE_HIT}
+          >
+            <Text style={[s.timeBtnTxt, { color: '#3B82F6' }]}>IMPORT</Text>
+          </Pressable>
+        </View>
+      </GlassCard>
+
+      <Modal visible={importOpen} transparent animationType="fade" onRequestClose={() => setImportOpen(false)}>
+        <Pressable style={s.importBackdrop} onPress={() => setImportOpen(false)}>
+          <Pressable style={s.importCard} onPress={() => {}}>
+            <Text style={s.settingTitle}>IMPORT PROGRESS · 復元</Text>
+            <TextInput
+              style={s.importInput}
+              value={importText}
+              onChangeText={(v) => { setImportText(v); setImportError(null); }}
+              placeholder="Paste your exported JSON here"
+              placeholderTextColor={TXT3}
+              multiline
+              accessibilityLabel="Pasted progress export"
+            />
+            {importError && <Text style={s.importError}>{importError}</Text>}
+            <View style={s.importActions}>
+              <Pressable
+                onPress={() => { setImportOpen(false); setImportText(''); setImportError(null); }}
+                style={[s.timeBtn, { borderColor: BORD }]}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel import"
+              >
+                <Text style={s.timeBtnTxt}>CANCEL</Text>
+              </Pressable>
+              <Pressable
+                onPress={applyImport}
+                disabled={!importText.trim()}
+                style={[s.timeBtn, { borderColor: '#3B82F6', opacity: importText.trim() ? 1 : 0.4 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Validate and import progress"
+              >
+                <Text style={[s.timeBtnTxt, { color: '#3B82F6' }]}>IMPORT</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <GlassCard accent="#E74C3C" style={{ marginBottom: 10 }}>
         <View style={s.dangerHeader}>
           <View>
@@ -409,6 +517,14 @@ const s = StyleSheet.create({
   dangerBadgeText: { fontSize: 18, fontWeight: '900', color: '#E74C3C' },
   dangerBtn: { marginTop: 16, paddingVertical: 14, borderRadius: 100, borderWidth: 1.5, borderColor: '#E74C3C', alignItems: 'center', backgroundColor: 'rgba(231,76,60,0.08)' },
   dangerBtnTxt: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: '#E74C3C' },
+  importBackdrop: { flex: 1, backgroundColor: '#000000B0', justifyContent: 'center', padding: DS.space.lg },
+  importCard: { backgroundColor: '#111214', borderRadius: 16, borderWidth: 1, borderColor: '#3B82F640', padding: DS.space.lg, gap: DS.space.sm },
+  importInput: {
+    color: TXT1, fontSize: 12, borderWidth: 1, borderColor: '#3B82F630', borderRadius: 10,
+    padding: DS.space.sm, minHeight: 120, maxHeight: 220, textAlignVertical: 'top',
+  },
+  importError: { ...DS.type.caption, color: '#E74C3C' },
+  importActions: { flexDirection: 'row', gap: DS.space.sm, justifyContent: 'flex-end' },
   aboutRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   logoBadge: { width: 64, height: 64, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   logoKanji: { fontSize: 24, fontWeight: '900', color: TXT1 },

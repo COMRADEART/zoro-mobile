@@ -45,6 +45,55 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   3: migrateV3ToV4,
 };
 
+// Walks the ladder up to CURRENT_SCHEMA_VERSION. Returns 'newer' for blobs
+// from a future app version; a missing step or one that fails to advance
+// the version stops the walk, and the un-lifted blob then fails validation
+// downstream. assumeVersion covers blobs that predate the schemaVersion
+// field (the legacy storage key implies v3).
+function runMigrations(
+  blob: Record<string, unknown>,
+  assumeVersion: number | null,
+): Record<string, unknown> | 'newer' {
+  let working = blob;
+  let version = typeof working.schemaVersion === 'number' ? working.schemaVersion : assumeVersion;
+  if (version !== null && version > CURRENT_SCHEMA_VERSION) return 'newer';
+  while (version !== null && version < CURRENT_SCHEMA_VERSION) {
+    const step = MIGRATIONS[version];
+    if (!step) break;
+    working = { ...step(working) };
+    if (working.schemaVersion == null) working.schemaVersion = version + 1;
+    const nextVersion = working.schemaVersion;
+    if (typeof nextVersion !== 'number' || nextVersion <= version) break;
+    version = nextVersion;
+  }
+  return working;
+}
+
+/**
+ * Validates a pasted/shared progress export. Runs the same migration ladder
+ * and validation as loadProgress, so any historical export version imports
+ * cleanly. Never touches storage — the caller decides whether to apply.
+ */
+export function parseProgressExport(raw: string): { ok: true; progress: Progress } | { ok: false; error: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, error: 'That is not valid JSON.' };
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, error: 'That is not a progress export.' };
+  }
+  const working = runMigrations(parsed as Record<string, unknown>, null);
+  if (working === 'newer') {
+    return { ok: false, error: 'This export was made by a newer app version.' };
+  }
+  if (!validateV4State(working)) {
+    return { ok: false, error: 'This is not a valid progress export.' };
+  }
+  return { ok: true, progress: normalizeProgress(working) };
+}
+
 // ─── VALIDATION ──────────────────────────────────────────────────────────────
 
 export const REQUIRED_V4_KEYS = [
@@ -176,32 +225,19 @@ export async function loadProgress(): Promise<{ progress: Progress; wasReset: bo
       return await backupAndReset(raw);
     }
 
-    let working = (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, unknown>;
-    // Legacy-key blobs predate the schemaVersion field; the key itself
-    // identifies them as v3.
-    let version = typeof working.schemaVersion === 'number'
-      ? working.schemaVersion
-      : fromLegacyKey ? 3 : null;
+    const working = runMigrations(
+      (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, unknown>,
+      // Legacy-key blobs predate the schemaVersion field; the key itself
+      // identifies them as v3.
+      fromLegacyKey ? 3 : null,
+    );
 
-    if (version !== null && version > CURRENT_SCHEMA_VERSION) {
+    if (working === 'newer') {
       // Data written by a NEWER app version (OTA rollback, device transfer).
       // This build cannot understand it — and must never overwrite it.
-      console.error(`[progressStore] stored schemaVersion ${version} is newer than supported ${CURRENT_SCHEMA_VERSION}; saves disabled`);
+      console.error(`[progressStore] stored schemaVersion is newer than supported ${CURRENT_SCHEMA_VERSION}; saves disabled`);
       savesDisabled = true;
       return { progress: defaultProgress(), wasReset: false };
-    }
-
-    // Walk the ladder up to the current version. A missing step or one that
-    // fails to advance the version falls through to validation, which fails
-    // and takes the corruption path.
-    while (version !== null && version < CURRENT_SCHEMA_VERSION) {
-      const step = MIGRATIONS[version];
-      if (!step) break;
-      working = { ...step(working) };
-      if (working.schemaVersion == null) working.schemaVersion = version + 1;
-      const nextVersion = working.schemaVersion as number;
-      if (typeof nextVersion !== 'number' || nextVersion <= version) break;
-      version = nextVersion;
     }
 
     // Validate BEFORE normalize — normalize would otherwise fill defaults
