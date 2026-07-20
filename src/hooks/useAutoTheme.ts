@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react';
+import type { Progress } from '../types';
 
-export function useAutoTheme(progress, updateProgress) {
+type UpdateProgress = (updater: Progress | ((prev: Progress) => Progress)) => void;
+
+export function useAutoTheme(progress: Progress | null, updateProgress: UpdateProgress) {
   const lastThemeRef = useRef(progress?.settings?.theme);
   const updateProgressRef = useRef(updateProgress);
 

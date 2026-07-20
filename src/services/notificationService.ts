@@ -28,7 +28,7 @@ export async function requestNotificationPermissions() {
   return status === 'granted';
 }
 
-export async function scheduleTrainingReminder(time) {
+export async function scheduleTrainingReminder(time: string) {
   if (isExpoGo) return;
   if (!(await requestNotificationPermissions())) return;
   const [hour, minute] = time.split(':').map(Number);

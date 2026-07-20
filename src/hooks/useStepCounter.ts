@@ -6,9 +6,9 @@ export default function useStepCounter() {
   const [steps, setSteps]       = useState(0);
   const [goal, setGoal]         = useState(10000);
   const [isAvailable, setAvailable] = useState(false);
-  const [error, setError]      = useState(null);
+  const [error, setError]      = useState<string | null>(null);
   const [isPaceActive, setPaceActive] = useState(false);
-  const subscriptionRef = useRef(null);
+  const subscriptionRef = useRef<{ remove: () => void } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -60,7 +60,7 @@ export default function useStepCounter() {
         });
       } catch (e) {
         if (!mounted) return;
-        setError(e.message || 'Step counter error');
+        setError(e instanceof Error ? e.message : 'Step counter error');
       }
     };
 
