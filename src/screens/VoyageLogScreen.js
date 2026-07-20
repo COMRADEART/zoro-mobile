@@ -152,12 +152,17 @@ const [view, setView] = useState('weekly');
     return trendDays.map(d => weights[d] ?? null);
   }, [progress, trendDays]);
 
+  // One rings pass per trend day, shared by the closure trend and the ring
+  // summary below — the summary previously recomputed this inline in JSX,
+  // trendDays × 3 rings per render (270 calls at the 90d range).
+  const trendRings = useMemo(() =>
+    trendDays.map(d => computeActivityRings(progress, d)), [progress, trendDays]);
+
   const trendRingClosure = useMemo(() =>
-    trendDays.map(d => {
-      const r = computeActivityRings(progress, d);
-      return (r.move.pct >= 1 && r.exercise.pct >= 1 && r.stand.pct >= 1) ? 100 :
-        Math.round(((r.move.pct + r.exercise.pct + r.stand.pct) / 3) * 100);
-    }), [progress, trendDays]);
+    trendRings.map(r =>
+      (r.move.pct >= 1 && r.exercise.pct >= 1 && r.stand.pct >= 1) ? 100 :
+        Math.round(((r.move.pct + r.exercise.pct + r.stand.pct) / 3) * 100)
+    ), [trendRings]);
 
   const now = new Date(today + 'T00:00:00Z');
   now.setUTCMonth(now.getUTCMonth() + monthOffset);
@@ -566,10 +571,7 @@ const [view, setView] = useState('weekly');
           <SectionLabel label="ACTIVITY RINGS SUMMARY · アクティビティ環" style={{ marginTop: 20, marginBottom: 10 }} />
           <HeroCard accent="#FB7185">
             {['move', 'exercise', 'stand'].map(key => {
-              const total = trendDays.reduce((a, d) => {
-                const r = computeActivityRings(progress, d);
-                return a + (r[key]?.current ?? 0);
-              }, 0);
+              const total = trendRings.reduce((a, r) => a + (r[key]?.current ?? 0), 0);
               const goalTotal = trendDays.length * (key === 'move' ? 500 : key === 'exercise' ? 60 : 8);
               const pct = Math.min(1, total / goalTotal);
               return (

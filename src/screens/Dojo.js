@@ -16,6 +16,7 @@ import ProfileScreen from './ProfileScreen';
 import ConfigScreen from './ConfigScreen';
 import VoyageLogScreen from './VoyageLogScreen';
 import DojoTabBar, { TABS } from '../components/DojoTabBar';
+import OnboardingIntro from '../components/OnboardingIntro';
 import { useToast } from '../components/ToastWrapper';
 import { setHapticsEnabled, rankUp, bossDefeat, bossFail, themeUnlock } from '../utils/haptics';
 import { scheduleRestReminder } from '../services/notificationService';
@@ -221,6 +222,12 @@ function DojoInner({ toast, toastOpacity }) {
       <Toast toast={toast} toastAnim={toastOpacity} />
       <RankUpModal rank={pendingRankUp} visible={!!pendingRankUp} onDismiss={() => setPendingRankUp(null)} />
       <BossHintModal visible={!!bossHint} bossName={bossHint} onDismiss={() => setBossHint(null)} />
+      {progress.settings?.onboarded !== true && (
+        <OnboardingIntro
+          accent={themeData.accent}
+          onDone={() => handleUpdate({ ...progress, settings: { ...progress.settings, onboarded: true } })}
+        />
+      )}
     </View>
   );
 }

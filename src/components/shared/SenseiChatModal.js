@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { Modal, View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { TXT1, TXT2, TXT3 } from '../../theme/tokens';
 import { DS } from '../../theme/designSystem';
 import * as ai from '../../services/aiService';
@@ -31,6 +31,10 @@ export default function SenseiChatModal({ visible, onClose, context, fallbackPhr
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
       <Pressable style={st.backdrop} onPress={close}>
         <Pressable style={st.card} onPress={() => {}}>
           <View style={st.header}>
@@ -74,6 +78,7 @@ export default function SenseiChatModal({ visible, onClose, context, fallbackPhr
           </View>
         </Pressable>
       </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

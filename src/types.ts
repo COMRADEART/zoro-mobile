@@ -146,6 +146,7 @@ export interface Settings {
   restReminder: boolean;
   stepGoal: number;
   gender: string;
+  onboarded: boolean;
 }
 
 export interface BossChallenge {

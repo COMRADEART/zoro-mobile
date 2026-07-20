@@ -157,6 +157,7 @@ export function defaultProgress(): Progress {
       restReminder: false,
       stepGoal: 10000,
       gender: 'male',
+      onboarded: false,
     },
 
     unlockedThemes: [...DISCIPLINES],
@@ -538,6 +539,7 @@ export function normalizeProgress(raw: any): Progress {
       restReminder:     typeof raw.settings.restReminder === 'boolean'  ? raw.settings.restReminder  : def.restReminder,
       stepGoal:         typeof raw.settings.stepGoal === 'number' && raw.settings.stepGoal > 0 ? Math.min(100000, Math.floor(raw.settings.stepGoal)) : def.stepGoal,
       gender:           raw.settings.gender === 'female' ? 'female' : 'male',
+      onboarded:        typeof raw.settings.onboarded === 'boolean' ? raw.settings.onboarded : def.onboarded,
     };
   }
 

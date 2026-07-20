@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, Pressable, Animated, TextInput, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, Animated, TextInput, ScrollView, StyleSheet, BackHandler } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
 import { SURF, BORD, TXT1, TXT2, TXT3, DANGER, SB_H, TAB_BAR_H } from '../theme/tokens';
@@ -126,6 +126,16 @@ function TrainScreen() {
 
   useEffect(() => { return () => clearInterval(timerRef.current); }, []);
 
+  // Hardware back should leave the arcs sub-screen, not exit the app.
+  useEffect(() => {
+    if (!showArcs) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setShowArcs(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [showArcs]);
+
   const fmt = sec => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
 
   if (showArcs) {
@@ -166,6 +176,8 @@ function TrainScreen() {
           contentContainerStyle={[s.trainIdle, { paddingTop: SB_H + 90, paddingHorizontal: DS.space.md }]}
           showsVerticalScrollIndicator={false}
           bounces={true}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
         >
           <View style={[s.nlCard, { borderColor: t.accent + '30' }]}>
             <Text style={s.nlLabel}>DESCRIBE YOUR SESSION · 任意</Text>
@@ -223,7 +235,12 @@ function TrainScreen() {
                   </Text>
                 </View>
               </Pressable>
-              <Pressable style={s.arcsBtn} onPress={() => setShowArcs(true)}>
+              <Pressable
+                style={s.arcsBtn}
+                onPress={() => setShowArcs(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Open training arcs"
+              >
                 <Text style={s.arcsBtnTxt}>TRAINING ARCS · 修行 ›</Text>
               </Pressable>
             </View>

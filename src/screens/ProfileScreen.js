@@ -78,7 +78,12 @@ function ProfileScreen() {
   const flash = setter => { setter(true); setTimeout(() => setter(false), 1500); };
 
   return (
-    <ScrollView contentContainerStyle={[s.scroll, { paddingTop: SB_H + 16 }]} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={[s.scroll, { paddingTop: SB_H + 16 }]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+    >
       <View style={s.headerRow}>
         <View>
           <Text style={s.screenTitle}>PROFILE</Text>
@@ -267,8 +272,8 @@ function ProfileScreen() {
                     onPress={() => item.set(v)}
                     hitSlop={{ top: 16, bottom: 16, left: 2, right: 2 }}
                     style={s.moodPipTouch}
-                    accessibilityRole="adjustable"
-                    accessibilityLabel={`${item.label} ${v} of 10`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Set ${item.label.toLowerCase()} to ${v} of 10`}
                     accessibilityState={{ selected: v <= item.val }}
                   >
                     <View style={[s.moodPip, { backgroundColor: v <= item.val ? item.color : 'rgba(255,255,255,0.1)' }]} />
@@ -368,6 +373,8 @@ function ProfileScreen() {
               <Pressable
                 key={meal.id}
                 style={s.mealPill}
+                accessibilityRole="button"
+                accessibilityLabel={`Log ${meal.name}, ${meal.kcal} calories`}
                 onPress={() => {
                   if (meal.kcal === 0) return;
                   const dayMeals = progress.foodLog?.[today] || [];
