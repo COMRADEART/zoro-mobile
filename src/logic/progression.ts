@@ -5,6 +5,7 @@
  * recovery, skill trees, and boss challenges.
  */
 import { SWORDS, RANKS, REWARDS, TITLE_PATHS, SKILL_TREES, BOSS_CHALLENGES, BOUNTY_MISSIONS, TRAINING_ARCS, getExerciseById } from '../data/gameData';
+import { getBossChallenge } from './bossTiers';
 import type { Progress, Discipline, Session, LoggedExercise, BountyMission } from '../types';
 import { DISCIPLINES } from '../types';
 
@@ -1026,6 +1027,27 @@ export function getActiveBossChallenge(progress: Progress, date: string) {
 }
 
 /**
+ * Pure view of the weekly boss board for the UI: this week's challenge record
+ * (if one was started), which boss is next in rotation, and whether the user
+ * meets its completed-weeks gate.
+ */
+export function getBossBoardState(progress: Progress, date: string) {
+  const weekOf = weekOfYear(date);
+  const entry = (progress.bossChallenges || []).find(b => b.weekOf === weekOf) || null;
+  const idx = (progress.bossChallenges || []).length % BOSS_CHALLENGES.length;
+  const nextBoss = BOSS_CHALLENGES[idx];
+  const haveWeeks = (progress.completedWeeks || []).filter(w => w.path === nextBoss.discipline).length;
+  return {
+    weekOf,
+    entry,
+    nextBossId: entry ? null : nextBoss.id,
+    eligible: !entry && haveWeeks >= nextBoss.weeksRequired,
+    haveWeeks,
+    needWeeks: nextBoss.weeksRequired,
+  };
+}
+
+/**
  * Evaluates if a boss challenge is completed.
  * @param progress - current progress object
  * @param bossId - the boss challenge ID
@@ -1043,12 +1065,26 @@ export function evaluateBossCompletion(progress: Progress, bossId: string, date:
   const challenge = progress.bossChallenges[challengeIdx];
   if (challenge.completedAt) return { progress, events: [] }; // already done
 
-  // Verify all exercises were done today
-  const todayExercises = progress.completedByDate[date] || {};
-  const allDone = boss.exercises.every(ex => {
-    const dayEntries = Object.keys(todayExercises);
-    // For simplicity, check if any session in the last 24h covered this
-    return dayEntries.some(k => k.includes(ex.name));
+  // Enforce the tier-scaled requirements the boss card displays: sum the
+  // amounts actually logged today per exercise (exact name match — a
+  // substring check would let 'Endurance Run' satisfy 'Run') and compare
+  // against the scaled targets. timeLimit stays display-only: sessions
+  // carry no per-exercise timing to enforce it against.
+  const history = progress.bossAttemptHistory?.[bossId] ?? [];
+  const lastFailed = history.length > 0 && !history[history.length - 1].success;
+  const scaled = getBossChallenge(boss, { totalXP: progress.totalXP, lastFailed });
+
+  const loggedToday: Record<string, number> = {};
+  for (const s of progress.sessions || []) {
+    if (!s.endedAt || toDateKey(new Date(s.endedAt)) !== date) continue;
+    for (const ex of s.exercises || []) {
+      loggedToday[ex.name] = (loggedToday[ex.name] || 0) + (ex.amount || 0);
+    }
+  }
+
+  const allDone = scaled.exercises.every((ex: { name: string; reps?: number; km?: number; min?: number }) => {
+    const required = ex.reps ?? ex.km ?? ex.min ?? 0;
+    return (loggedToday[ex.name] || 0) >= required;
   });
 
   if (!allDone) return { progress, events: [] };
@@ -1056,10 +1092,10 @@ export function evaluateBossCompletion(progress: Progress, bossId: string, date:
   const next = { ...progress };
   next.bossChallenges = [...progress.bossChallenges];
   next.bossChallenges[challengeIdx] = { ...challenge, completedAt: date };
-  next.totalXP = progress.totalXP + boss.xpReward;
+  next.totalXP = progress.totalXP + scaled.xpReward;
   next.peakXP = Math.max(next.peakXP, next.totalXP);
 
-  const events = [{ type: 'boss_completed' as const, boss }];
+  const events = [{ type: 'boss_completed' as const, boss: { ...boss, xpReward: scaled.xpReward } }];
 
   if (boss.techniqueReward && !next.unlocked.includes(boss.techniqueReward)) {
     next.unlocked = [...next.unlocked, boss.techniqueReward];
