@@ -191,6 +191,28 @@ export function rankIndexFor(xp: number): number {
   return i === -1 ? RANKS.length - 1 : i;
 }
 
+// Per-date logs are retained for this many most-recent dates (~13 months).
+// The whole Progress object is a single AsyncStorage row; on Android a row
+// past SQLite's ~2MB CursorWindow fails to read, which recovery treats as
+// corruption — so unbounded per-date growth eventually destroys the account.
+export const LOG_RETENTION_DATES = 400;
+
+// Date-keyed logs subject to retention. dayLog is deliberately EXEMPT:
+// disciplineXPFor iterates all of it as skill-tree spend currency and it
+// costs ~50 bytes/day; trimming it would stall unlocks for long-time users.
+const RETAINED_DATE_LOGS = [
+  'sleepLog', 'moodLog', 'hydrationLog', 'foodLog', 'breathingLog',
+  'swordSharpnessLog', 'dreamArchetypeLog', 'stepLog', 'vitalsLog',
+] as const;
+
+function trimDateLog<T>(log: Record<string, T>): Record<string, T> {
+  const dates = Object.keys(log);
+  if (dates.length <= LOG_RETENTION_DATES) return log;
+  const trimmed: Record<string, T> = {};
+  for (const d of dates.sort().slice(-LOG_RETENTION_DATES)) trimmed[d] = log[d];
+  return trimmed;
+}
+
 /**
  * Normalizes and validates raw progress data, migrating from older schemas.
  * @param raw - raw progress object from storage
@@ -517,6 +539,10 @@ export function normalizeProgress(raw: any): Progress {
       stepGoal:         typeof raw.settings.stepGoal === 'number' && raw.settings.stepGoal > 0 ? Math.min(100000, Math.floor(raw.settings.stepGoal)) : def.stepGoal,
       gender:           raw.settings.gender === 'female' ? 'female' : 'male',
     };
+  }
+
+  for (const key of RETAINED_DATE_LOGS) {
+    (out as any)[key] = trimDateLog((out as any)[key] || {});
   }
 
   return out;
