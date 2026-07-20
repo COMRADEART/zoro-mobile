@@ -19,7 +19,7 @@ A React Native (Expo) mobile fitness app that turns daily training into a progre
 Three disciplines each have their own exercise pool, calorie rates, daily ring targets, and skill tree. Disciplines are deliberately asymmetric: Wado targets minutes of mind work, Sandai targets rep counts, Shusui targets endurance minutes. This asymmetry forces training across all three disciplines rather than grinding a single mode.
 
 ### XP & Rank Progression
-Six ranks from *East Blue Rookie* to *King of Hell*, each with an XP threshold and color token. Rank-up emits a `ProgressionEvent` that `useSessionEvaluator` translates into a rank-up modal. Because rank logic lives in a pure function, it is unit-testable without mounting any component.
+Six ranks from *East Blue Rookie* to *King of Hell*, each with an XP threshold and color token. Rank-up emits a `ProgressionEvent` that `Dojo` translates into a rank-up modal. Because rank logic lives in a pure function, it is unit-testable without mounting any component.
 
 ### Recovery System
 Recovery is a 0–100 resource. Training costs 15 points per hour; sleep restores 20 points per hour scaled by logged quality. Falling below 20 triggers a "rest recommended" flag on the Home screen. This creates a real tension between grinding XP and protecting recovery — the core game loop.
@@ -39,7 +39,7 @@ Progress is derived at read time from the session and breathing logs. Nothing is
 Per-discipline branches gated on XP *spent in that discipline*, not XP total. Spend-gating forces active use of each sword rather than passive accumulation — a player who only trains Sandai can't unlock Wado nodes by accident. Unlocked nodes override an exercise's base target or add new exercises to the training pool. Evaluated in `evaluateSkillUnlock` after every session commit.
 
 ### Boss Challenges, Training Arcs & Bounty Missions
-All three are long-horizon systems evaluated on session end by `useSessionEvaluator`. Boss Challenges are weekly events with technique rewards. Training Arcs are multi-week story beats with per-week targets. Bounty Missions are achievement missions with six requirement types: `streak`, `all_disciplines`, `weekly_kcal`, `discipline_streak`, `sharpness_streak`, and `hydration_streak`.
+All three are long-horizon systems evaluated on session end by `ProgressContext.handleSessionEnd`. Boss Challenges are weekly events with technique rewards. Training Arcs are multi-week story beats with per-week targets. Bounty Missions are achievement missions with six requirement types: `streak`, `all_disciplines`, `weekly_kcal`, `discipline_streak`, `sharpness_streak`, and `hydration_streak`.
 
 ## Architecture
 
@@ -49,7 +49,7 @@ App.js → <Dojo />                Root orchestrator, tab navigation, toast/moda
   progressStore.ts               AsyncStorage read/write — debounced, versioned
   progression.ts                 Pure game logic — no React, no side effects
   gameData.ts                    Single source of truth for all constants
-  useSessionEvaluator            Post-session hook: arc, bounty, skill evaluation
+  handleSessionEnd               Post-session pipeline: boss, bounty, arc, theme evaluation
   src/screens/                   6 screens, each reads from ProgressContext
   src/components/shared/         Reusable chart, animation, and UI primitives
 ```
@@ -61,11 +61,11 @@ The app has a single `Progress` object that is read and written atomically. Ther
 All game mechanics live in one file with zero React or AsyncStorage imports. This makes the entire game loop unit-testable without mounting components, portable to a web version, and auditable — the source of any XP or recovery value traces through a plain call stack with no mocked dependencies.
 
 **State flow:**
-`applySessionStart` (opens session) → user logs exercises → `applySessionEnd` (calculates calories, XP, recovery cost, rank check, reward check, week completion, skill unlock) → `useSessionEvaluator` receives `ProgressionEvent[]` and triggers toasts/modals.
+`applySessionStart` (opens session) → user logs exercises → `applySessionEnd` (calculates calories, XP, recovery cost, rank check, reward check, week completion, skill unlock) → `ProgressContext.handleSessionEnd` (boss, bounty, arc, and theme evaluation) → `Dojo` receives `ProgressionEvent[]` and triggers toasts/modals.
 
 ## Persistence & Data Migration
 
-Saves are debounced at 500 ms to avoid write-thrashing during rapid state updates. On load, `progressStore.ts` checks for a `v4` key first, then falls back to migrating a `v3` record — adding 9 new fields (`hydrationLog`, `foodLog`, `bodyComposition`, `breathingLog`, `arcProgress`, `bountyMissions`, `swordSharpnessLog`, `dreamArchetypeLog`, `voyageChronicles`). After migration the v3 key is deleted. `normalizeProgress` then fills any remaining gaps from `defaultProgress`, so the app always operates on a fully-shaped object regardless of save age.
+Saves are debounced at 500 ms to avoid write-thrashing during rapid state updates, flushed immediately when the app is backgrounded, and written without debounce at session end. On load, `progressStore.ts` walks a sequential migration ladder (`MIGRATIONS`) from the stored `schemaVersion` up to the current one — the v3→v4 step adds 9 fields (`hydrationLog`, `foodLog`, `bodyComposition`, `breathingLog`, `arcProgress`, `bountyMissions`, `swordSharpnessLog`, `dreamArchetypeLog`, `voyageChronicles`) and deletes the legacy key. Corrupt blobs (unparseable or invalid) are backed up before a clean reset with a user-facing warning; data written by a *newer* schema than the running build understands is preserved untouched with saves disabled. `normalizeProgress` then fills any remaining gaps from `defaultProgress` and applies retention caps to the per-date logs, so the app always operates on a fully-shaped, bounded object regardless of save age.
 
 ### Optional cloud backup (Android Auto Backup)
 

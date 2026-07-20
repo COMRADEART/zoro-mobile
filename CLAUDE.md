@@ -26,18 +26,23 @@ npm run lint           # Run ESLint (eslint-config-expo)
 
 ### Dojo.js — Central Hub
 `src/screens/Dojo.js` is the single root component. It:
-- Owns all global state via `ProgressContext`
-- Manages tab navigation (Home, Train, Skill, Profile, Voyage, Config)
+- Hosts `ProgressProvider` and the tab pager (Home, Train, Skill, Profile, Voyage, Config)
 - Handles theme auto-switching, toast notifications, rank-up modals
-- Runs `evaluateBountyMissions` and `evaluateArcWeekCompletion` on every session end
+- Translates `_pendingEvents` (`ProgressionEvent[]`) into toasts/haptics/modals via `EVENT_HANDLERS`
 
 ### State & Persistence
-- `src/storage/progressStore.js` — AsyncStorage read/write with v3→v4 migration
-- `src/context/ProgressContext.js` — React context exposing `{ progress, today, theme, t, handleUpdate, showToast, handleSessionEnd, setTab, onReset }`
-- `src/logic/progression.js` — Pure functions, no React. Handles all game logic.
+- `src/storage/progressStore.ts` — AsyncStorage read/write; sequential `MIGRATIONS` ladder keyed by `schemaVersion`; corrupt blobs are backed up before reset; newer-schema blobs are preserved with saves disabled; debounced saves with background flush (`flushSave`)
+- `src/context/ProgressContext.tsx` — React context exposing `{ progress, today, theme, t, handleUpdate, showToast, handleSessionEnd, setTab, onReset, clearPendingEvents }` (memoized; active tab lives in a separate `TabContext` via `useTab`). `handleSessionEnd` runs the post-session pipeline: boss evaluation/expiry, bounty assignment + evaluation, arc weeks, theme unlocks.
+- `src/logic/progression.ts` — Pure functions, no React. Handles all game logic.
+- `src/types.ts` — Shared TypeScript types (`Progress`, `ProgressionEvent`, …)
+
+### Services & Hooks
+- `src/services/aiService.ts` — On-device Gemini Nano (ML Kit) wrapper with deterministic fallbacks; capability lifecycle via `getCapability`/`ensureModel`
+- `src/services/notificationService.js` — Typed-trigger reminders with stable identifiers
+- `src/services/audioService.js`, `src/utils/haptics.js`, `src/hooks/useStepCounter.js`, `src/hooks/useAutoTheme.js`, `src/hooks/useReducedMotion.js`
 
 ### Game Data
-`src/data/gameData.js` — Single source of truth for all game constants:
+`src/data/gameData.ts` — Single source of truth for all game constants:
 - `SWORDS` — Three disciplines, each with exercises (id, name, unit, calorie rates)
 - `RANKS` — XP thresholds and colors
 - `REWARDS` — XP-gated technique unlocks
@@ -48,21 +53,23 @@ npm run lint           # Run ESLint (eslint-config-expo)
 - `BREATHING_PROGRAMS`, `POWER_MEALS`, `SENSEI_PHRASES`
 
 ### Theming
-- `src/theme/tokens.js` — Surface colors, text colors, layout constants
+- `src/theme/tokens.ts` — Surface colors, text colors, layout constants
 - `src/theme/themes.js` — Six themes (wado, sandai, shusui, hollow, solar, abyss) with bg/accent/particle colors
+- `src/theme/designSystem.js` — `DS` type presets, spacing, dividers
 
 ### Screens (in `src/screens/`)
-- `HomeScreen.js` — Daily recommendation, sword sharpness, week view, rings
-- `TrainScreen.js` — Session logging with exercise tracking
-- `SkillScreen.js` — Discipline skill trees with XP-gated unlocks
-- `ProfileScreen.js` — User stats, ranks, unlocked rewards
+- `HomeScreen.js` — Daily recommendation, sword sharpness, week view, rings, sensei chat entry
+- `TrainScreen.js` — Session logging with exercise tracking; NL session hint; arcs sub-screen
+- `TrainingArcsScreen.js` — Multi-week story arcs (start/track)
+- `SkillScreen.js` — Discipline skill trees, boss challenge board, bounty board
+- `ProfileScreen.js` — User stats, ranks, unlocked rewards, body/vitals logging
 - `VoyageLogScreen.js` — Monthly narrative summaries
-- `ConfigScreen.js` — Settings (theme, auto-theme, reminders, reset)
+- `ConfigScreen.js` — Settings (theme, auto-theme, reminders, on-device AI status, reset)
 
 ### Shared Components (`src/components/shared/`)
-Charts (BarChart, LineChart, SparkLine), BreathingOrb, BreathingGuide, ThreeSwordRings, CircularProgress, GlassCard, ShimmerXPBar, RankUpModal, Toast, AmbientBG, SectionLabel.
+Charts (BarChart, LineChart, SparkLine, SleepStagesChart), BreathingOrb, BreathingGuide, ThreeSwordRings, ActivityRings, CircularProgress, GlassCard, XPBar, RankUpModal, BossHintModal, SenseiChatModal, Toast, AmbientBG, SectionLabel, TabIcons.
 
-### Key Systems in progression.js
+### Key Systems in progression.ts
 
 **Session flow:** `applySessionStart` → `applySessionEnd` (calories, XP, recovery cost, rank check, reward check, week completion, skill unlock)
 
@@ -74,4 +81,10 @@ Charts (BarChart, LineChart, SparkLine), BreathingOrb, BreathingGuide, ThreeSwor
 
 **Skill unlocks:** XP spent in discipline (via dayLog) unlocks branch nodes that override exercise base targets or add new exercises.
 
-**Arc/Bounty evaluation:** Called in `Dojo.js` after every session end; mutates progress and emits toast events.
+**Week completion:** Non-overlapping 7-day windows — a new week needs 7+ days since the last credited one. Arc weeks are anchored to the arc's `startedAt` timeline.
+
+**Boss/Arc/Bounty evaluation:** Runs in `ProgressContext.handleSessionEnd` after every session end; emits `ProgressionEvent`s that `Dojo.js` renders as toasts/modals.
+
+## Verification
+
+`npm run lint`, `npm run typecheck` (strict), and `npm test` must all pass; CI (.github/workflows/ci.yml) enforces them on every push/PR.
