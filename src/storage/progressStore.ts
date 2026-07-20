@@ -7,8 +7,11 @@ import { THEME_KEYS } from '../theme/themes';
 const KEY_V4 = 'santoryu:progress:v4';
 const KEY_V3 = 'santoryu:progress:v3';
 const KEY_CORRUPTED = 'santoryu:progress:v4_corrupted_backup';
+const KEY_CORRUPTED_LATEST = 'santoryu:progress:v4_corrupted_backup_latest';
 
 // ─── MIGRATION ───────────────────────────────────────────────────────────────
+
+export const CURRENT_SCHEMA_VERSION = 4;
 
 function migrateV3ToV4(v3: Record<string, unknown>): Record<string, unknown> {
   return {
@@ -33,6 +36,62 @@ function migrateV3ToV4(v3: Record<string, unknown>): Record<string, unknown> {
     dreamArchetypeLog: {},
     voyageChronicles: [],
   };
+}
+
+// Sequential ladder: MIGRATIONS[v] lifts a version-v blob to v+1 (each step
+// must bump schemaVersion). Adding v5 later means one entry here plus a bump
+// of CURRENT_SCHEMA_VERSION — no restructuring of loadProgress.
+const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string, unknown>> = {
+  3: migrateV3ToV4,
+};
+
+// Walks the ladder up to CURRENT_SCHEMA_VERSION. Returns 'newer' for blobs
+// from a future app version; a missing step or one that fails to advance
+// the version stops the walk, and the un-lifted blob then fails validation
+// downstream. assumeVersion covers blobs that predate the schemaVersion
+// field (the legacy storage key implies v3).
+function runMigrations(
+  blob: Record<string, unknown>,
+  assumeVersion: number | null,
+): Record<string, unknown> | 'newer' {
+  let working = blob;
+  let version = typeof working.schemaVersion === 'number' ? working.schemaVersion : assumeVersion;
+  if (version !== null && version > CURRENT_SCHEMA_VERSION) return 'newer';
+  while (version !== null && version < CURRENT_SCHEMA_VERSION) {
+    const step = MIGRATIONS[version];
+    if (!step) break;
+    working = { ...step(working) };
+    if (working.schemaVersion == null) working.schemaVersion = version + 1;
+    const nextVersion = working.schemaVersion;
+    if (typeof nextVersion !== 'number' || nextVersion <= version) break;
+    version = nextVersion;
+  }
+  return working;
+}
+
+/**
+ * Validates a pasted/shared progress export. Runs the same migration ladder
+ * and validation as loadProgress, so any historical export version imports
+ * cleanly. Never touches storage — the caller decides whether to apply.
+ */
+export function parseProgressExport(raw: string): { ok: true; progress: Progress } | { ok: false; error: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, error: 'That is not valid JSON.' };
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, error: 'That is not a progress export.' };
+  }
+  const working = runMigrations(parsed as Record<string, unknown>, null);
+  if (working === 'newer') {
+    return { ok: false, error: 'This export was made by a newer app version.' };
+  }
+  if (!validateV4State(working)) {
+    return { ok: false, error: 'This is not a valid progress export.' };
+  }
+  return { ok: true, progress: normalizeProgress(working) };
 }
 
 // ─── VALIDATION ──────────────────────────────────────────────────────────────
@@ -93,6 +152,15 @@ export function checkThemeUnlocks(prev: Progress, next: Progress): string[] {
 // ─── PERSISTENCE ─────────────────────────────────────────────────────────────
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingProgress: Progress | null = null;
+let pendingResolvers: (() => void)[] = [];
+
+// Set when the stored data must not be written over: the native read failed
+// (blob may be perfectly intact), or the blob carries a NEWER schemaVersion
+// than this build understands (e.g. restored from a device running a newer
+// app). In either state saves are refused — otherwise a fresh default's
+// first save would permanently clobber the user's data.
+let savesDisabled = false;
 
 // Runs boss week-end expiry against the loaded state and rolls events into
 // _pendingEvents so the UI can surface them on next render.
@@ -103,70 +171,145 @@ function applyStartupExpiry(progress: Progress): Progress {
   return { ...next, _pendingEvents: [...existing, ...events] };
 }
 
+// Corrupt-blob evidence is two-slot: the FIRST corruption ever seen stays at
+// KEY_CORRUPTED forever (a later event must not destroy the only forensic
+// copy of the first), the most recent lands at KEY_CORRUPTED_LATEST.
+async function backupCorrupted(raw: string): Promise<void> {
+  const first = await AsyncStorage.getItem(KEY_CORRUPTED);
+  if (first == null) await AsyncStorage.setItem(KEY_CORRUPTED, raw);
+  else await AsyncStorage.setItem(KEY_CORRUPTED_LATEST, raw);
+}
+
+// Corrupt blob (unparseable, invalid, or unmigratable): preserve the raw
+// bytes, persist a clean default, and surface a data_reset warning to the UI.
+async function backupAndReset(raw: string): Promise<{ progress: Progress; wasReset: boolean }> {
+  await backupCorrupted(raw);
+  const fresh = defaultProgress();
+  fresh._pendingEvents = [{ type: 'data_reset' }];
+  await AsyncStorage.setItem(KEY_V4, JSON.stringify({ ...fresh, _pendingEvents: undefined }));
+  // Clear the legacy key so the next launch loads the clean v4 blob instead
+  // of re-entering recovery and re-emitting data_reset every cold start.
+  await AsyncStorage.removeItem(KEY_V3);
+  return { progress: fresh, wasReset: true };
+}
+
 export async function loadProgress(): Promise<{ progress: Progress; wasReset: boolean }> {
+  let raw: string | null = null;
+  let fromLegacyKey = false;
   try {
-    const raw4 = await AsyncStorage.getItem(KEY_V4);
-    if (raw4) {
-      const parsed = JSON.parse(raw4);
-      if (validateV4State(parsed)) {
-        return { progress: applyStartupExpiry(normalizeProgress(parsed)), wasReset: false };
-      }
-      console.error('[progressStore] v4 state failed validation; backing up and resetting');
-      await AsyncStorage.setItem(KEY_CORRUPTED, raw4);
-      const fresh = defaultProgress();
-      fresh._pendingEvents = [{ type: 'data_reset' }];
-      await AsyncStorage.setItem(KEY_V4, JSON.stringify({ ...fresh, _pendingEvents: undefined }));
-      return { progress: fresh, wasReset: true };
+    raw = await AsyncStorage.getItem(KEY_V4);
+    if (!raw) {
+      raw = await AsyncStorage.getItem(KEY_V3);
+      fromLegacyKey = raw != null;
     }
-
-    const raw3 = await AsyncStorage.getItem(KEY_V3);
-    if (raw3) {
-      const migratedRaw = migrateV3ToV4(JSON.parse(raw3));
-      // Validate the raw migration before normalize — normalize would otherwise
-      // fill in defaults for v3-required fields (totalXP, sessions, etc.) and
-      // mask a v3 payload that never had them.
-      if (!validateV4State(migratedRaw)) {
-        console.error('[progressStore] v3 migration failed validation; backing up and resetting');
-        await AsyncStorage.setItem(KEY_CORRUPTED, raw3);
-        const fresh = defaultProgress();
-        fresh._pendingEvents = [{ type: 'data_reset' }];
-        // Persist clean v4 (explicitly without the in-memory data_reset event)
-        // and clear the broken v3 so the next launch loads valid v4 instead of
-        // re-entering this branch and re-emitting data_reset every cold start.
-        // Mirrors the v4-corruption branch above — invariant holds regardless
-        // of statement order, not just because stringify precedes the mutation.
-        await AsyncStorage.setItem(KEY_V4, JSON.stringify({ ...fresh, _pendingEvents: undefined }));
-        await AsyncStorage.removeItem(KEY_V3);
-        return { progress: fresh, wasReset: true };
-      }
-      // Normalize after validation to fill v4-only fields the v3 schema lacks
-      // (unlockedThemes, bossAttemptHistory, stepLog, vitalsLog).
-      const migrated = normalizeProgress(migratedRaw);
-      await AsyncStorage.setItem(KEY_V4, JSON.stringify(migrated));
-      await AsyncStorage.removeItem(KEY_V3);
-      return { progress: applyStartupExpiry(migrated), wasReset: false };
-    }
-
+  } catch (e) {
+    // Transient native read failure — the blob may be fine. Serve defaults
+    // for this launch but refuse to save over the stored data.
+    console.error('[progressStore] read failed; saves disabled to protect stored data:', e);
+    savesDisabled = true;
     return { progress: defaultProgress(), wasReset: false };
-  } catch {
+  }
+  savesDisabled = false;
+
+  if (!raw) return { progress: defaultProgress(), wasReset: false };
+
+  try {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      // Syntactically broken JSON — the most likely shape of real-world
+      // corruption (app killed mid-write). Back up first, never silently
+      // discard.
+      console.error('[progressStore] stored state is not valid JSON; backing up and resetting');
+      return await backupAndReset(raw);
+    }
+
+    const working = runMigrations(
+      (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, unknown>,
+      // Legacy-key blobs predate the schemaVersion field; the key itself
+      // identifies them as v3.
+      fromLegacyKey ? 3 : null,
+    );
+
+    if (working === 'newer') {
+      // Data written by a NEWER app version (OTA rollback, device transfer).
+      // This build cannot understand it — and must never overwrite it.
+      console.error(`[progressStore] stored schemaVersion is newer than supported ${CURRENT_SCHEMA_VERSION}; saves disabled`);
+      savesDisabled = true;
+      return { progress: defaultProgress(), wasReset: false };
+    }
+
+    // Validate BEFORE normalize — normalize would otherwise fill defaults
+    // for required fields and mask a payload that never had them.
+    if (!validateV4State(working)) {
+      console.error('[progressStore] stored state failed validation; backing up and resetting');
+      return await backupAndReset(raw);
+    }
+
+    const normalized = normalizeProgress(working);
+    if (fromLegacyKey) {
+      await AsyncStorage.setItem(KEY_V4, JSON.stringify(normalized));
+      await AsyncStorage.removeItem(KEY_V3);
+    }
+    return { progress: applyStartupExpiry(normalized), wasReset: false };
+  } catch (e) {
+    // The backup/reset sequence itself failed part-way — state on disk is
+    // unknown, so keep saves disabled for this launch rather than risk
+    // overwriting whatever survived.
+    console.error('[progressStore] recovery failed; saves disabled:', e);
+    savesDisabled = true;
     return { progress: defaultProgress(), wasReset: false };
   }
 }
 
-export function saveProgress(progress: Progress): Promise<void> {
-  if (saveTimer) clearTimeout(saveTimer);
+/**
+ * Debounced by default (500ms) to coalesce bursts of small updates. Pass
+ * `immediate: true` for writes that must not sit in the debounce window
+ * (session end — losing it loses a whole workout). All superseded callers'
+ * promises resolve when the coalesced write lands.
+ */
+export function saveProgress(progress: Progress, { immediate = false }: { immediate?: boolean } = {}): Promise<void> {
+  if (savesDisabled) {
+    console.error('[progressStore] save refused: stored data is protected (failed read or newer schema)');
+    return Promise.resolve();
+  }
+  pendingProgress = progress;
   return new Promise((resolve) => {
-    saveTimer = setTimeout(async () => {
-      try {
-        const { _pendingEvents, ...toSave } = progress;
-        await AsyncStorage.setItem(KEY_V4, JSON.stringify(toSave));
-        resolve();
-      } catch (e) {
-        console.error('[progressStore] Failed to save progress:', e);
-        resolve();
-      }
-    }, 500);
+    pendingResolvers.push(resolve);
+    if (saveTimer) clearTimeout(saveTimer);
+    if (immediate) {
+      saveTimer = null;
+      void flushSave();
+    } else {
+      saveTimer = setTimeout(() => { void flushSave(); }, 500);
+    }
   });
+}
+
+/**
+ * Writes any pending debounced save immediately. Call when the app is
+ * backgrounded: RN timers don't fire while suspended, so without this the
+ * last debounce window of writes dies with the process.
+ */
+export async function flushSave(): Promise<void> {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  const progress = pendingProgress;
+  const resolvers = pendingResolvers;
+  pendingProgress = null;
+  pendingResolvers = [];
+  if (!progress) return;
+  try {
+    const { _pendingEvents, ...toSave } = progress;
+    await AsyncStorage.setItem(KEY_V4, JSON.stringify(toSave));
+  } catch (e) {
+    console.error('[progressStore] Failed to save progress:', e);
+  } finally {
+    resolvers.forEach(r => r());
+  }
 }
 
 export async function resetProgress(): Promise<void> {
@@ -175,6 +318,11 @@ export async function resetProgress(): Promise<void> {
     clearTimeout(saveTimer);
     saveTimer = null;
   }
+  pendingProgress = null;
+  const abandoned = pendingResolvers;
+  pendingResolvers = [];
+  abandoned.forEach(r => r());
+  savesDisabled = false; // deliberate wipe: the store is coherent again
   try {
     await AsyncStorage.multiRemove([KEY_V4, KEY_V3]);
   } catch (e) {

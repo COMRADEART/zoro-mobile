@@ -1,8 +1,7 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": false,
-    "noImplicitAny": false,
+    "strict": true,
     "jsx": "react-native",
     "moduleResolution": "bundler",
     "noEmit": true,

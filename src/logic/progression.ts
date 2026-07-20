@@ -5,7 +5,8 @@
  * recovery, skill trees, and boss challenges.
  */
 import { SWORDS, RANKS, REWARDS, TITLE_PATHS, SKILL_TREES, BOSS_CHALLENGES, BOUNTY_MISSIONS, TRAINING_ARCS, getExerciseById } from '../data/gameData';
-import type { Progress, Discipline, Session, LoggedExercise } from '../types';
+import { getBossChallenge } from './bossTiers';
+import type { Progress, Discipline, Session, LoggedExercise, BountyMission } from '../types';
 import { DISCIPLINES } from '../types';
 
 export const BOSS_HINT_FAIL_THRESHOLD = 3;
@@ -156,6 +157,7 @@ export function defaultProgress(): Progress {
       restReminder: false,
       stepGoal: 10000,
       gender: 'male',
+      onboarded: false,
     },
 
     unlockedThemes: [...DISCIPLINES],
@@ -188,6 +190,28 @@ export function defaultProgress(): Progress {
 export function rankIndexFor(xp: number): number {
   const i = RANKS.findIndex(r => xp >= r.min && xp < r.max);
   return i === -1 ? RANKS.length - 1 : i;
+}
+
+// Per-date logs are retained for this many most-recent dates (~13 months).
+// The whole Progress object is a single AsyncStorage row; on Android a row
+// past SQLite's ~2MB CursorWindow fails to read, which recovery treats as
+// corruption — so unbounded per-date growth eventually destroys the account.
+export const LOG_RETENTION_DATES = 400;
+
+// Date-keyed logs subject to retention. dayLog is deliberately EXEMPT:
+// disciplineXPFor iterates all of it as skill-tree spend currency and it
+// costs ~50 bytes/day; trimming it would stall unlocks for long-time users.
+const RETAINED_DATE_LOGS = [
+  'sleepLog', 'moodLog', 'hydrationLog', 'foodLog', 'breathingLog',
+  'swordSharpnessLog', 'dreamArchetypeLog', 'stepLog', 'vitalsLog',
+] as const;
+
+function trimDateLog<T>(log: Record<string, T>): Record<string, T> {
+  const dates = Object.keys(log);
+  if (dates.length <= LOG_RETENTION_DATES) return log;
+  const trimmed: Record<string, T> = {};
+  for (const d of dates.sort().slice(-LOG_RETENTION_DATES)) trimmed[d] = log[d];
+  return trimmed;
 }
 
 /**
@@ -515,7 +539,12 @@ export function normalizeProgress(raw: any): Progress {
       restReminder:     typeof raw.settings.restReminder === 'boolean'  ? raw.settings.restReminder  : def.restReminder,
       stepGoal:         typeof raw.settings.stepGoal === 'number' && raw.settings.stepGoal > 0 ? Math.min(100000, Math.floor(raw.settings.stepGoal)) : def.stepGoal,
       gender:           raw.settings.gender === 'female' ? 'female' : 'male',
+      onboarded:        typeof raw.settings.onboarded === 'boolean' ? raw.settings.onboarded : def.onboarded,
     };
+  }
+
+  for (const key of RETAINED_DATE_LOGS) {
+    (out as any)[key] = trimDateLog((out as any)[key] || {});
   }
 
   return out;
@@ -710,8 +739,18 @@ export function applyToggle(progress: Progress, action: { sword: Discipline; exe
 
 // ─── WEEK COMPLETION ─────────────────────────────────────────────────────────
 
-function evaluateWeekCompletion(progress, date) {
+export function evaluateWeekCompletion(progress, date) {
   const end = parseDateKey(date);
+
+  // Non-overlapping windows: a completed week is 7 NEW trained days. Without
+  // this gate, day 8 of a streak re-counts days 2-8 and mints another week —
+  // one per consecutive training day, inflating titles and boss gates ~7x.
+  const lastWeek = progress.completedWeeks[progress.completedWeeks.length - 1];
+  if (lastWeek?.completedAt) {
+    const last = parseDateKey(lastWeek.completedAt);
+    if (Math.round((end.getTime() - last.getTime()) / 86400000) < 7) return null;
+  }
+
   const days = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(end);
@@ -1026,6 +1065,27 @@ export function getActiveBossChallenge(progress: Progress, date: string) {
 }
 
 /**
+ * Pure view of the weekly boss board for the UI: this week's challenge record
+ * (if one was started), which boss is next in rotation, and whether the user
+ * meets its completed-weeks gate.
+ */
+export function getBossBoardState(progress: Progress, date: string) {
+  const weekOf = weekOfYear(date);
+  const entry = (progress.bossChallenges || []).find(b => b.weekOf === weekOf) || null;
+  const idx = (progress.bossChallenges || []).length % BOSS_CHALLENGES.length;
+  const nextBoss = BOSS_CHALLENGES[idx];
+  const haveWeeks = (progress.completedWeeks || []).filter(w => w.path === nextBoss.discipline).length;
+  return {
+    weekOf,
+    entry,
+    nextBossId: entry ? null : nextBoss.id,
+    eligible: !entry && haveWeeks >= nextBoss.weeksRequired,
+    haveWeeks,
+    needWeeks: nextBoss.weeksRequired,
+  };
+}
+
+/**
  * Evaluates if a boss challenge is completed.
  * @param progress - current progress object
  * @param bossId - the boss challenge ID
@@ -1043,12 +1103,26 @@ export function evaluateBossCompletion(progress: Progress, bossId: string, date:
   const challenge = progress.bossChallenges[challengeIdx];
   if (challenge.completedAt) return { progress, events: [] }; // already done
 
-  // Verify all exercises were done today
-  const todayExercises = progress.completedByDate[date] || {};
-  const allDone = boss.exercises.every(ex => {
-    const dayEntries = Object.keys(todayExercises);
-    // For simplicity, check if any session in the last 24h covered this
-    return dayEntries.some(k => k.includes(ex.name));
+  // Enforce the tier-scaled requirements the boss card displays: sum the
+  // amounts actually logged today per exercise (exact name match — a
+  // substring check would let 'Endurance Run' satisfy 'Run') and compare
+  // against the scaled targets. timeLimit stays display-only: sessions
+  // carry no per-exercise timing to enforce it against.
+  const history = progress.bossAttemptHistory?.[bossId] ?? [];
+  const lastFailed = history.length > 0 && !history[history.length - 1].success;
+  const scaled = getBossChallenge(boss, { totalXP: progress.totalXP, lastFailed });
+
+  const loggedToday: Record<string, number> = {};
+  for (const s of progress.sessions || []) {
+    if (!s.endedAt || toDateKey(new Date(s.endedAt)) !== date) continue;
+    for (const ex of s.exercises || []) {
+      loggedToday[ex.name] = (loggedToday[ex.name] || 0) + (ex.amount || 0);
+    }
+  }
+
+  const allDone = scaled.exercises.every((ex: { name: string; reps?: number; km?: number; min?: number }) => {
+    const required = ex.reps ?? ex.km ?? ex.min ?? 0;
+    return (loggedToday[ex.name] || 0) >= required;
   });
 
   if (!allDone) return { progress, events: [] };
@@ -1056,10 +1130,10 @@ export function evaluateBossCompletion(progress: Progress, bossId: string, date:
   const next = { ...progress };
   next.bossChallenges = [...progress.bossChallenges];
   next.bossChallenges[challengeIdx] = { ...challenge, completedAt: date };
-  next.totalXP = progress.totalXP + boss.xpReward;
+  next.totalXP = progress.totalXP + scaled.xpReward;
   next.peakXP = Math.max(next.peakXP, next.totalXP);
 
-  const events = [{ type: 'boss_completed' as const, boss }];
+  const events = [{ type: 'boss_completed' as const, boss: { ...boss, xpReward: scaled.xpReward } }];
 
   if (boss.techniqueReward && !next.unlocked.includes(boss.techniqueReward)) {
     next.unlocked = [...next.unlocked, boss.techniqueReward];
@@ -1570,7 +1644,7 @@ export function generateVoyageChronicle(progress: Progress, monthKey: string) {
  * @param date - current date string
  * @returns array of active bounty missions
  */
-export function getActiveBountyMissions(progress: Progress, date: string) {
+export function getActiveBountyMissions(progress: Progress, date: string): BountyMission[] {
   const activeMissions = (progress.bountyMissions || []).filter(m => m.status === 'active');
   if (activeMissions.length >= 3) return activeMissions;
 
@@ -1581,16 +1655,30 @@ export function getActiveBountyMissions(progress: Progress, date: string) {
     m => !completedIds.has(m.id) && !activeMissions.find(am => am.id === m.id)
   );
 
-  const newMissions = available.slice(0, 3 - activeMissions.length).map(bm => ({
+  const newMissions: BountyMission[] = available.slice(0, 3 - activeMissions.length).map(bm => ({
     id: bm.id,
     type: bm.type,
-    status: 'active',
+    status: 'active' as const,
     assignedAt: date,
     completedAt: null,
     weekOf: weekOfYear(date),
   }));
 
   return [...activeMissions, ...newMissions];
+}
+
+/**
+ * Persists the bounty board: tops the active set up to 3 and returns progress
+ * with those assignments stored, preserving completed mission records so they
+ * are never re-assigned. Without this step no bounty ever exists in progress,
+ * so evaluateBountyMissions has nothing to complete.
+ */
+export function assignBountyMissions(progress: Progress, date: string): Progress {
+  const all = progress.bountyMissions || [];
+  const active = getActiveBountyMissions(progress, date);
+  if (active.length === all.filter(m => m.status === 'active').length) return progress;
+  const completed = all.filter(m => m.status !== 'active');
+  return { ...progress, bountyMissions: [...completed, ...active] };
 }
 
 /**
@@ -1698,6 +1786,17 @@ export function evaluateArcWeekCompletion(progress: Progress, arcId: string, wee
   const targets = weekDef.targets;
 
   const end = parseDateKey(date);
+
+  // Anchor week N to the arc's own timeline: it can complete no earlier than
+  // the last day of its week window (startedAt + N*7 - 1). Otherwise one
+  // trailing 7-day burst of sessions satisfies every week's target at once
+  // and a "4-week" arc finishes in a single evaluation pass.
+  if (arcData.startedAt) {
+    const started = parseDateKey(arcData.startedAt);
+    const earliest = new Date(started);
+    earliest.setDate(started.getDate() + weekNum * 7 - 1);
+    if (end < earliest) return { progress, events: [] };
+  }
   let weekSessions = 0;
   for (let i = 6; i >= 0; i--) {
     const d = new Date(end); d.setDate(end.getDate() - i);

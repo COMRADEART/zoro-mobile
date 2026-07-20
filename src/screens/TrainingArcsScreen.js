@@ -18,13 +18,13 @@ export default function TrainingArcsScreen({ onBack }) {
 
   const startArc = (arc) => {
     if ((progress.arcProgress?.[arc.id]?.status) === 'active') return;
-    handleUpdate({
-      ...progress,
+    handleUpdate(prev => ({
+      ...prev,
       arcProgress: {
-        ...progress.arcProgress,
+        ...prev.arcProgress,
         [arc.id]: { startedAt: today, completedWeeks: [], status: 'active' },
       },
-    });
+    }));
     showToast({ title: 'ARC STARTED', body: `${arc.name} — ${arc.durationWeeks} weeks` });
   };
 

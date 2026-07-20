@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, Pressable, Animated, TextInput, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, Animated, TextInput, ScrollView, StyleSheet, BackHandler } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import { THEMES, DEFAULT_THEME } from '../theme/themes';
 import { SURF, BORD, TXT1, TXT2, TXT3, DANGER, SB_H, TAB_BAR_H } from '../theme/tokens';
@@ -14,7 +14,7 @@ import * as ai from '../services/aiService';
 
 const SWORD_ORDER = ['wado', 'sandai', 'shusui'];
 
-export default function TrainScreen() {
+function TrainScreen() {
   const { progress, today, theme, handleSessionEnd, showToast, handleUpdate } = useProgress();
 
   const [activeSword, setActiveSword] = useState(progress.activeSword || 'sandai');
@@ -31,6 +31,8 @@ export default function TrainScreen() {
   const [nlBusy, setNlBusy] = useState(false);
   const timerRef = useRef(null);
   const sessionRef = useRef(null);
+  // Mirrors completedExercises for closure-safe reads in endSession.
+  const completedRef = useRef([]);
   const pulse = useRef(new Animated.Value(1)).current;
   const fadeSlide = useRef(new Animated.Value(0)).current;
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
@@ -54,15 +56,15 @@ export default function TrainScreen() {
     if (hint) {
       switchSword(hint.discipline);
       setNlText('');
-      showToast && showToast(`Sensei set ${SWORDS[hint.discipline].name} — ${hint.note}`);
+      showToast && showToast({ title: 'SENSEI', body: `${SWORDS[hint.discipline].name} — ${hint.note}` });
     } else {
-      showToast && showToast('Could not read that — choose a discipline below.');
+      showToast && showToast({ title: 'SENSEI', body: 'Could not read that — choose a discipline below.' });
     }
   };
 
   const switchSword = (sw) => {
     setActiveSword(sw);
-    handleUpdate({ ...progress, activeSword: sw });
+    handleUpdate(prev => ({ ...prev, activeSword: sw }));
     heavyImpact();
     playClick();
   };
@@ -70,9 +72,14 @@ export default function TrainScreen() {
   const startSession = () => {
     const { progress: p } = applySessionStart(progress, { discipline: activeSword });
     sessionRef.current = p.currentSession;
+    // Persist the active session — kept only in the ref, an app death
+    // mid-workout silently lost it. Functional merge so a concurrent
+    // update (sharpness effect, config change) isn't clobbered.
+    handleUpdate(prev => ({ ...prev, currentSession: p.currentSession }));
     setSessionId(p.currentSession.id);
     setElapsed(0); setPhase('active');
     setExerciseIndex(0); setCompletedExercises([]);
+    completedRef.current = [];
     setCurrentAmount('');
     fadeSlide.setValue(0);
     timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
@@ -82,7 +89,11 @@ export default function TrainScreen() {
 
   const endSession = () => {
     clearInterval(timerRef.current);
-    const payload = completedExercises.map(ex => ({ id: ex.id, name: ex.name, unit: ex.unit, amount: ex.amount || ex.base }));
+    // Read exercises from the ref, not state: the LOG-on-last-exercise path
+    // reaches here via a setTimeout whose closure captured the previous
+    // render's completedExercises — the final exercise (its calories, ring
+    // credit, and stored record) was silently dropped.
+    const payload = completedRef.current.map(ex => ({ id: ex.id, name: ex.name, unit: ex.unit, amount: ex.amount || ex.base }));
     const { progress: next, events } = applySessionEnd(
       { ...progress, currentSession: sessionRef.current },
       { sessionId, exercises: payload, intensity, endedAt: Date.now() }
@@ -98,7 +109,8 @@ export default function TrainScreen() {
   const logExercise = () => {
     if (!currentEx) return;
     const amount = currentAmount ? parseFloat(currentAmount) : currentEx.base;
-    setCompletedExercises(prev => [...prev, { ...currentEx, amount }]);
+    completedRef.current = [...completedRef.current, { ...currentEx, amount }];
+    setCompletedExercises(completedRef.current);
     setCurrentAmount('');
     mediumImpact();
     playClick();
@@ -114,6 +126,16 @@ export default function TrainScreen() {
   };
 
   useEffect(() => { return () => clearInterval(timerRef.current); }, []);
+
+  // Hardware back should leave the arcs sub-screen, not exit the app.
+  useEffect(() => {
+    if (!showArcs) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setShowArcs(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [showArcs]);
 
   const fmt = sec => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
 
@@ -155,6 +177,8 @@ export default function TrainScreen() {
           contentContainerStyle={[s.trainIdle, { paddingTop: SB_H + 90, paddingHorizontal: DS.space.md }]}
           showsVerticalScrollIndicator={false}
           bounces={true}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
         >
           <View style={[s.nlCard, { borderColor: t.accent + '30' }]}>
             <Text style={s.nlLabel}>DESCRIBE YOUR SESSION · 任意</Text>
@@ -212,7 +236,12 @@ export default function TrainScreen() {
                   </Text>
                 </View>
               </Pressable>
-              <Pressable style={s.arcsBtn} onPress={() => setShowArcs(true)}>
+              <Pressable
+                style={s.arcsBtn}
+                onPress={() => setShowArcs(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Open training arcs"
+              >
                 <Text style={s.arcsBtnTxt}>TRAINING ARCS · 修行 ›</Text>
               </Pressable>
             </View>
@@ -572,3 +601,6 @@ const s = StyleSheet.create({
   breathDur: { fontSize: 20, fontWeight: '900' },
   breathXP: { ...DS.type.micro, color: TXT2, letterSpacing: 1 },
 });
+// Prop-less pager screen: memo stops parent re-renders (toasts, tab
+// animation state in Dojo) from cascading into all six mounted screens.
+export default React.memo(TrainScreen);

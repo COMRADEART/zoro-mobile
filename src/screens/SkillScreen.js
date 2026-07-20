@@ -6,7 +6,7 @@ import SectionLabel from '../components/shared/SectionLabel';
 import { Icon } from '../components/shared/TabIcons';
 import { SURF, TXT1, TXT2, TXT3, BORD, SB_H, TAB_BAR_H } from '../theme/tokens';
 import { DS } from '../theme/designSystem';
-import { rankIndexFor, weeklyVolume, getActiveBountyMissions, disciplineXPFor } from '../logic/progression';
+import { rankIndexFor, weeklyVolume, getActiveBountyMissions, disciplineXPFor, getActiveBossChallenge, getBossBoardState } from '../logic/progression';
 import { resolveTier, getBossChallenge } from '../logic/bossTiers';
 import { SWORDS, RANKS, RARITY, REWARDS, TITLE_PATHS, BOSS_CHALLENGES, BOUNTY_MISSIONS, SKILL_TREES } from '../data/gameData';
 import { playClick } from '../services/audioService';
@@ -21,8 +21,8 @@ function HeroCard({ accent, children, style }) {
   );
 }
 
-export default function SkillScreen() {
-  const { progress, today } = useProgress();
+function SkillScreen() {
+  const { progress, today, handleUpdate, showToast } = useProgress();
 
   const rankIdx = rankIndexFor(progress.totalXP);
   const rank = RANKS[rankIdx];
@@ -32,6 +32,21 @@ export default function SkillScreen() {
 
   const activeBounties = getActiveBountyMissions(progress, today);
   const bountyDefs = activeBounties.map(ab => BOUNTY_MISSIONS.find(b => b.id === ab.id)).filter(Boolean);
+
+  const bossBoard = useMemo(
+    () => getBossBoardState(progress, today),
+    [progress, today]
+  );
+
+  const startBossTrial = () => {
+    const { challenge } = getActiveBossChallenge(progress, today);
+    if (!challenge) return;
+    playClick();
+    // Functional: re-derives against the latest state, so a concurrent
+    // update can't be clobbered by this render's snapshot.
+    handleUpdate(prev => getActiveBossChallenge(prev, today).progress);
+    showToast({ title: 'TRIAL BEGUN', body: 'Log the drills in Train before the week ends.' });
+  };
 
   const bossTier = useMemo(() => resolveTier(progress.totalXP), [progress.totalXP]);
   const bossCards = useMemo(() => BOSS_CHALLENGES.map(boss => {
@@ -254,6 +269,30 @@ export default function SkillScreen() {
             {lastFailed && (
               <Text style={s.bossFailNote}>↘ Requirements reduced 10% for this attempt</Text>
             )}
+            {bossBoard.entry?.id === boss.id && (
+              <Text style={[s.bossStatus, { color: bossBoard.entry.completedAt ? '#27AE60' : bossBoard.entry.failed ? '#FF6666' : '#DC143C' }]}>
+                {bossBoard.entry.completedAt
+                  ? 'DEFEATED THIS WEEK'
+                  : bossBoard.entry.failed
+                    ? 'FAILED THIS WEEK'
+                    : 'ACTIVE — log every drill in one day before the week ends'}
+              </Text>
+            )}
+            {bossBoard.nextBossId === boss.id && bossBoard.eligible && (
+              <Pressable
+                style={s.bossStartBtn}
+                onPress={startBossTrial}
+                accessibilityRole="button"
+                accessibilityLabel={`Begin ${boss.name}`}
+              >
+                <Text style={s.bossStartTxt}>BEGIN TRIAL</Text>
+              </Pressable>
+            )}
+            {bossBoard.nextBossId === boss.id && !bossBoard.eligible && (
+              <Text style={s.bossStatus}>
+                Requires {bossBoard.needWeeks} completed {SWORDS[boss.discipline].name} weeks · {bossBoard.haveWeeks}/{bossBoard.needWeeks}
+              </Text>
+            )}
           </View>
         </HeroCard>
       ))}
@@ -308,6 +347,13 @@ const s = StyleSheet.create({
   bossExList: { marginTop: 10, gap: 3 },
   bossExLine: { ...DS.type.caption, color: TXT2, letterSpacing: 0.2 },
   bossFailNote: { ...DS.type.micro, color: '#FF9966', marginTop: 8, letterSpacing: 0.2 },
+  bossStatus: { ...DS.type.micro, color: TXT3, marginTop: 10, letterSpacing: 0.4 },
+  bossStartBtn: {
+    marginTop: 12, alignSelf: 'flex-start', paddingHorizontal: 18, paddingVertical: 10,
+    borderRadius: 10, borderWidth: 1, borderColor: '#DC143C', backgroundColor: '#DC143C14',
+    minHeight: 44, justifyContent: 'center',
+  },
+  bossStartTxt: { ...DS.type.micro, color: '#DC143C', fontWeight: '800', letterSpacing: 2 },
   bossPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, borderWidth: StyleSheet.hairlineWidth },
   bossPillTxt: { ...DS.type.micro, fontWeight: '700', color: '#DC143C' },
   treeContainer: { flexDirection: 'row', gap: 8, marginBottom: 8 },
@@ -329,3 +375,6 @@ const s = StyleSheet.create({
   treeNodeOverride: { ...DS.type.micro, color: TXT3, marginTop: 3 },
   treeNodeCheck: { position: 'absolute', top: 7, right: 7 },
 });
+// Prop-less pager screen: memo stops parent re-renders (toasts, tab
+// animation state in Dojo) from cascading into all six mounted screens.
+export default React.memo(SkillScreen);

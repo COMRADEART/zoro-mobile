@@ -1,14 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { AppState } from 'react-native';
 import type { Progress, ProgressionEvent } from '../types';
-import { loadProgress, saveProgress, resetProgress, checkThemeUnlocks, DEFAULT_UNLOCKED_THEMES } from '../storage/progressStore';
-import { evaluateBountyMissions, evaluateArcWeekCompletion, evaluateBossExpiry, evaluateAllActiveBossChallenges, toDateKey } from '../logic/progression';
+import { loadProgress, saveProgress, flushSave, resetProgress, checkThemeUnlocks, DEFAULT_UNLOCKED_THEMES } from '../storage/progressStore';
+import { assignBountyMissions, evaluateBountyMissions, evaluateArcWeekCompletion, evaluateBossExpiry, evaluateAllActiveBossChallenges, toDateKey } from '../logic/progression';
 import { TRAINING_ARCS } from '../data/gameData';
 
 export interface ProgressContextValue {
   progress: Progress;
   today: string;
   theme: string;
-  tab: string;
   t: (key: string) => string;
   handleUpdate: (updater: Progress | ((prev: Progress) => Progress)) => void;
   handleSessionEnd: (next: Progress, events: ProgressionEvent[]) => void;
@@ -20,10 +20,19 @@ export interface ProgressContextValue {
 
 export const ProgressContext = createContext<ProgressContextValue | null>(null);
 
+// The active tab lives in its own context: it changes on every swipe, and
+// bundling it with the data value would re-render every data consumer per
+// tab switch. setTab stays on the data context (it's referentially stable).
+export const TabContext = createContext<string>('home');
+
 export function useProgress(): ProgressContextValue {
   const ctx = useContext(ProgressContext);
   if (!ctx) throw new Error('useProgress must be used inside ProgressContext.Provider');
   return ctx;
+}
+
+export function useTab(): string {
+  return useContext(TabContext);
 }
 
 interface ProgressProviderProps {
@@ -67,6 +76,15 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
     });
   }, []);
 
+  // RN timers don't fire while suspended, so a debounced save pending when
+  // the user backgrounds the app dies with the process. Flush it eagerly.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background' || state === 'inactive') void flushSave();
+    });
+    return () => sub.remove();
+  }, []);
+
   const handleUpdate = useCallback((updater: Progress | ((prev: Progress) => Progress)) => {
     setProgress(prev => {
       const raw = typeof updater === 'function' ? updater(prev!) : updater;
@@ -103,6 +121,9 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
     finalProgress = afterExpiry;
     allEvents.push(...expiryEvents);
 
+    // Bounty assignments must be persisted before evaluation — the board is
+    // otherwise display-only and no mission could ever complete.
+    finalProgress = assignBountyMissions(finalProgress, date);
     const { progress: afterBounty, events: bountyEvents } = evaluateBountyMissions(finalProgress, date);
     finalProgress = afterBounty;
     allEvents.push(...bountyEvents);
@@ -126,7 +147,9 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
 
     finalProgress = { ...finalProgress, _pendingEvents: allEvents };
 
-    saveProgress(finalProgress);
+    // A session's results are the app's most valuable write — skip the
+    // debounce so backgrounding right after a workout can't lose it.
+    saveProgress(finalProgress, { immediate: true });
     setProgress(finalProgress);
     if (finalProgress.settings?.theme !== progressRef.current?.settings?.theme) {
       setTheme(finalProgress.settings?.theme || 'sandai');
@@ -146,13 +169,12 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
 
   const t = useCallback((key: string): string => key, []);
 
-  if (!progress) return null;
-
-  const value: ProgressContextValue = {
-    progress,
+  // Memoized so a provider re-render with unchanged inputs (e.g. a toast
+  // above it) doesn't invalidate the context for every consumer.
+  const value = React.useMemo<ProgressContextValue>(() => ({
+    progress: progress!,
     today,
     theme,
-    tab,
     t,
     handleUpdate,
     handleSessionEnd,
@@ -160,11 +182,15 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
     setTab,
     onReset,
     clearPendingEvents,
-  };
+  }), [progress, today, theme, t, handleUpdate, handleSessionEnd, showToast, onReset, clearPendingEvents]);
+
+  if (!progress) return null;
 
   return (
     <ProgressContext.Provider value={value}>
-      {children}
+      <TabContext.Provider value={tab}>
+        {children}
+      </TabContext.Provider>
     </ProgressContext.Provider>
   );
 }

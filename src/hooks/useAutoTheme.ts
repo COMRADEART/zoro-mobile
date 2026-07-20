@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { saveProgress } from '../storage/progressStore';
+import type { Progress } from '../types';
 
-export function useAutoTheme(progress, updateProgress) {
+type UpdateProgress = (updater: Progress | ((prev: Progress) => Progress)) => void;
+
+export function useAutoTheme(progress: Progress | null, updateProgress: UpdateProgress) {
   const lastThemeRef = useRef(progress?.settings?.theme);
   const updateProgressRef = useRef(updateProgress);
 
@@ -16,9 +18,14 @@ export function useAutoTheme(progress, updateProgress) {
     const nextTheme = (hour >= 6 && hour < 18) ? 'solar' : 'abyss';
     if (progress.settings.theme !== nextTheme && progress.settings.theme !== lastThemeRef.current) {
       lastThemeRef.current = nextTheme;
-      const next = { ...progress, settings: { ...progress.settings, theme: nextTheme } };
-      updateProgressRef.current(next);
-      saveProgress(next);
+      // Functional update built from the latest state — the old object-form
+      // write from this parent-level effect could erase a child's same-batch
+      // update (e.g. HomeScreen's sharpness log). handleUpdate persists, so
+      // no direct saveProgress call is needed.
+      updateProgressRef.current(prev => ({
+        ...prev,
+        settings: { ...prev.settings, theme: nextTheme },
+      }));
     }
   }, [progress?.settings?.autoTheme, progress?.settings?.theme, progress]);
 }

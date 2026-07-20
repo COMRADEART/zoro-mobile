@@ -96,12 +96,20 @@ describe('loadProgress corruption handling', () => {
     expect(stored.totalXP).toBe(0);
   });
 
-  test('garbled JSON in v4 returns defaultProgress (no crash)', async () => {
+  test('garbled JSON in v4 backs up the raw blob and resets with a warning', async () => {
     await AsyncStorage.setItem(KEY_V4, '}}}not json{{{');
     const { progress, wasReset } = await loadProgress();
-    // Throws inside try, caught by outer try/catch → return defaultProgress(), wasReset:false
-    expect(wasReset).toBe(false);
+    // Parse failure is the most likely real-world corruption (app killed
+    // mid-write) — it must get the same backup + data_reset treatment as a
+    // validation failure, never a silent default that clobbers on next save.
+    expect(wasReset).toBe(true);
     expect(progress.totalXP).toBe(0);
+    expect(progress._pendingEvents).toEqual([{ type: 'data_reset' }]);
+    expect(await AsyncStorage.getItem(KEY_BACKUP)).toBe('}}}not json{{{');
+    // Clean default persisted so the next launch doesn't reset again.
+    const stored = JSON.parse(await AsyncStorage.getItem(KEY_V4));
+    expect(stored.totalXP).toBe(0);
+    expect(stored._pendingEvents).toBeUndefined();
   });
 
   test('v3 migration that fails validation triggers backup + reset', async () => {

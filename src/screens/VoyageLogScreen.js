@@ -68,7 +68,7 @@ function HeroCard({ accent, children, style }) {
   );
 }
 
-export default function VoyageLogScreen() {
+function VoyageLogScreen() {
   const { progress, today, theme, handleUpdate } = useProgress();
   const [tab, setTab] = useState('log');
 const [view, setView] = useState('weekly');
@@ -152,12 +152,17 @@ const [view, setView] = useState('weekly');
     return trendDays.map(d => weights[d] ?? null);
   }, [progress, trendDays]);
 
+  // One rings pass per trend day, shared by the closure trend and the ring
+  // summary below — the summary previously recomputed this inline in JSX,
+  // trendDays × 3 rings per render (270 calls at the 90d range).
+  const trendRings = useMemo(() =>
+    trendDays.map(d => computeActivityRings(progress, d)), [progress, trendDays]);
+
   const trendRingClosure = useMemo(() =>
-    trendDays.map(d => {
-      const r = computeActivityRings(progress, d);
-      return (r.move.pct >= 1 && r.exercise.pct >= 1 && r.stand.pct >= 1) ? 100 :
-        Math.round(((r.move.pct + r.exercise.pct + r.stand.pct) / 3) * 100);
-    }), [progress, trendDays]);
+    trendRings.map(r =>
+      (r.move.pct >= 1 && r.exercise.pct >= 1 && r.stand.pct >= 1) ? 100 :
+        Math.round(((r.move.pct + r.exercise.pct + r.stand.pct) / 3) * 100)
+    ), [trendRings]);
 
   const now = new Date(today + 'T00:00:00Z');
   now.setUTCMonth(now.getUTCMonth() + monthOffset);
@@ -204,10 +209,11 @@ const [view, setView] = useState('weekly');
     // AI narration when AICore is present; otherwise the existing
     // templated narrative is returned unchanged.
     const narrative = await ai.narrate({ statsText, fallback: chronicle.narrative });
-    const existing = (progress.voyageChronicles || []).filter(c => c.monthKey !== currentMonthKey);
-    handleUpdate({
-      ...progress,
-      voyageChronicles: [...existing, { ...chronicle, narrative }].slice(-36),
+    // Functional: the await above is a multi-second window — spreading the
+    // render snapshot here would revert any update that landed meanwhile.
+    handleUpdate(prev => {
+      const existing = (prev.voyageChronicles || []).filter(c => c.monthKey !== currentMonthKey);
+      return { ...prev, voyageChronicles: [...existing, { ...chronicle, narrative }].slice(-36) };
     });
   };
 
@@ -566,10 +572,7 @@ const [view, setView] = useState('weekly');
           <SectionLabel label="ACTIVITY RINGS SUMMARY · アクティビティ環" style={{ marginTop: 20, marginBottom: 10 }} />
           <HeroCard accent="#FB7185">
             {['move', 'exercise', 'stand'].map(key => {
-              const total = trendDays.reduce((a, d) => {
-                const r = computeActivityRings(progress, d);
-                return a + (r[key]?.current ?? 0);
-              }, 0);
+              const total = trendRings.reduce((a, r) => a + (r[key]?.current ?? 0), 0);
               const goalTotal = trendDays.length * (key === 'move' ? 500 : key === 'exercise' ? 60 : 8);
               const pct = Math.min(1, total / goalTotal);
               return (
@@ -670,3 +673,6 @@ const s = StyleSheet.create({
   ringTrendFill: { height: 6, borderRadius: 3 },
   ringTrendVal: { fontSize: 12, fontWeight: '800', color: TXT1, width: 38, textAlign: 'right' },
 });
+// Prop-less pager screen: memo stops parent re-renders (toasts, tab
+// animation state in Dojo) from cascading into all six mounted screens.
+export default React.memo(VoyageLogScreen);

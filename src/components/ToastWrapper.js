@@ -1,6 +1,5 @@
 import React, { useRef, useCallback } from 'react';
 import { Animated } from 'react-native';
-import Toast from '../components/shared/Toast';
 
 export function useToast() {
   const toastOpacity = useRef(new Animated.Value(0)).current;
@@ -18,8 +17,4 @@ export function useToast() {
   }, [toastOpacity, toastTimer]);
 
   return { toast, toastOpacity, showToast };
-}
-
-export default function ToastWrapper({ toast, toastOpacity }) {
-  return <Toast toast={toast} toastAnim={toastOpacity} />;
 }

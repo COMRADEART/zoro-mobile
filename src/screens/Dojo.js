@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, StatusBar, StyleSheet, Dimensions, ScrollView } from 'react-native';
-import { ProgressProvider, useProgress } from '../context/ProgressContext';
+import { ProgressProvider, useProgress, useTab } from '../context/ProgressContext';
 import { AmbientBG, FloatingParticles } from '../components/shared/AmbientBG';
 import Toast from '../components/shared/Toast';
 import RankUpModal from '../components/shared/RankUpModal';
@@ -16,10 +16,12 @@ import ProfileScreen from './ProfileScreen';
 import ConfigScreen from './ConfigScreen';
 import VoyageLogScreen from './VoyageLogScreen';
 import DojoTabBar, { TABS } from '../components/DojoTabBar';
+import OnboardingIntro from '../components/OnboardingIntro';
 import { useToast } from '../components/ToastWrapper';
 import { setHapticsEnabled, rankUp, bossDefeat, bossFail, themeUnlock } from '../utils/haptics';
 import { scheduleRestReminder } from '../services/notificationService';
 import { initAudio, playRankUp, setSoundEnabled } from '../services/audioService';
+import { ensureModel } from '../services/aiService';
 import { useAutoTheme } from '../hooks/useAutoTheme';
 import useReducedMotion from '../hooks/useReducedMotion';
 
@@ -85,7 +87,8 @@ const EVENT_HANDLERS = {
 };
 
 function DojoInner({ toast, toastOpacity }) {
-  const { progress, tab, setTab, handleUpdate, clearPendingEvents, showToast } = useProgress();
+  const { progress, today, setTab, handleUpdate, clearPendingEvents, showToast } = useProgress();
+  const tab = useTab();
   const [pendingRankUp, setPendingRankUp] = useState(null);
   const [bossHint, setBossHint] = useState(null);
   const [themeFlash, setThemeFlash] = useState(null);
@@ -95,6 +98,10 @@ function DojoInner({ toast, toastOpacity }) {
   const reducedMotion = useReducedMotion();
 
   useAutoTheme(progress, handleUpdate);
+
+  // Kick the one-time AICore model download early so on-device AI is ready
+  // by the time a feature calls it. No-ops on devices without AICore.
+  useEffect(() => { ensureModel().catch(() => {}); }, []);
 
   useEffect(() => {
     if (progress?.settings) {
@@ -123,12 +130,18 @@ function DojoInner({ toast, toastOpacity }) {
     }
   }, [tab, reducedMotion]);
 
+  // At most one rest nudge per day: this effect re-runs on every progress
+  // change while recovery is low, and re-scheduling each time would reset
+  // the pending notification.
+  const restReminderDay = useRef(null);
   useEffect(() => {
     if (!progress) return;
     if ((progress.recoveryScore ?? 100) < 20 && progress.settings?.morningReminder) {
-      scheduleRestReminder(progress.settings.reminderTime || '20:00');
+      if (restReminderDay.current === today) return;
+      restReminderDay.current = today;
+      scheduleRestReminder().catch(() => {});
     }
-  }, [progress]);
+  }, [progress, today]);
 
   useEffect(() => {
     if (!progress) return;
@@ -209,6 +222,12 @@ function DojoInner({ toast, toastOpacity }) {
       <Toast toast={toast} toastAnim={toastOpacity} />
       <RankUpModal rank={pendingRankUp} visible={!!pendingRankUp} onDismiss={() => setPendingRankUp(null)} />
       <BossHintModal visible={!!bossHint} bossName={bossHint} onDismiss={() => setBossHint(null)} />
+      {progress.settings?.onboarded !== true && (
+        <OnboardingIntro
+          accent={themeData.accent}
+          onDone={() => handleUpdate(prev => ({ ...prev, settings: { ...prev.settings, onboarded: true } }))}
+        />
+      )}
     </View>
   );
 }

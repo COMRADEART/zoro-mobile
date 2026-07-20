@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 
 let hapticsEnabled = true;
 
-export function setHapticsEnabled(value) {
+export function setHapticsEnabled(value: boolean) {
   hapticsEnabled = value;
 }
 
