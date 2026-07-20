@@ -85,7 +85,7 @@ const EVENT_HANDLERS = {
 };
 
 function DojoInner({ toast, toastOpacity }) {
-  const { progress, tab, setTab, handleUpdate, clearPendingEvents, showToast } = useProgress();
+  const { progress, today, tab, setTab, handleUpdate, clearPendingEvents, showToast } = useProgress();
   const [pendingRankUp, setPendingRankUp] = useState(null);
   const [bossHint, setBossHint] = useState(null);
   const [themeFlash, setThemeFlash] = useState(null);
@@ -123,12 +123,18 @@ function DojoInner({ toast, toastOpacity }) {
     }
   }, [tab, reducedMotion]);
 
+  // At most one rest nudge per day: this effect re-runs on every progress
+  // change while recovery is low, and re-scheduling each time would reset
+  // the pending notification.
+  const restReminderDay = useRef(null);
   useEffect(() => {
     if (!progress) return;
     if ((progress.recoveryScore ?? 100) < 20 && progress.settings?.morningReminder) {
-      scheduleRestReminder(progress.settings.reminderTime || '20:00');
+      if (restReminderDay.current === today) return;
+      restReminderDay.current = today;
+      scheduleRestReminder().catch(() => {});
     }
-  }, [progress]);
+  }, [progress, today]);
 
   useEffect(() => {
     if (!progress) return;

@@ -9,7 +9,7 @@ import { DS } from '../theme/designSystem';
 import { lightImpact, setHapticsEnabled } from '../utils/haptics';
 import { getUnlockedThemes, THEME_UNLOCK_HINTS } from '../storage/progressStore';
 import { setSoundEnabled } from '../services/audioService';
-import { scheduleTrainingReminder, cancelAllReminders } from '../services/notificationService';
+import { scheduleTrainingReminder, cancelTrainingReminder } from '../services/notificationService';
 
 const { width: W } = Dimensions.get('window');
 
@@ -221,11 +221,13 @@ export default function ConfigScreen() {
             onPress={async () => {
               const next = !settings.morningReminder;
               set('morningReminder', next);
-              if (next) {
-                await scheduleTrainingReminder(settings.reminderTime || '7:00');
-              } else {
-                await cancelAllReminders();
-              }
+              try {
+                if (next) {
+                  await scheduleTrainingReminder(settings.reminderTime || '7:00');
+                } else {
+                  await cancelTrainingReminder();
+                }
+              } catch {}
               lightImpact();
             }}
             accessibilityRole="switch"
@@ -246,7 +248,9 @@ export default function ConfigScreen() {
                   style={[s.timeBtn, settings.reminderTime === time && { backgroundColor: '#27AE60', borderColor: '#27AE60' }]}
                   onPress={async () => {
                     set('reminderTime', time);
-                    await scheduleTrainingReminder(time);
+                    try {
+                      await scheduleTrainingReminder(time);
+                    } catch {}
                     lightImpact();
                   }}
                   accessibilityRole="button"

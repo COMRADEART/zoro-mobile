@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { Progress, ProgressionEvent } from '../types';
 import { loadProgress, saveProgress, resetProgress, checkThemeUnlocks, DEFAULT_UNLOCKED_THEMES } from '../storage/progressStore';
-import { evaluateBountyMissions, evaluateArcWeekCompletion, evaluateBossExpiry, evaluateAllActiveBossChallenges, toDateKey } from '../logic/progression';
+import { assignBountyMissions, evaluateBountyMissions, evaluateArcWeekCompletion, evaluateBossExpiry, evaluateAllActiveBossChallenges, toDateKey } from '../logic/progression';
 import { TRAINING_ARCS } from '../data/gameData';
 
 export interface ProgressContextValue {
@@ -103,6 +103,9 @@ export function ProgressProvider({ children, toastCallback }: ProgressProviderPr
     finalProgress = afterExpiry;
     allEvents.push(...expiryEvents);
 
+    // Bounty assignments must be persisted before evaluation — the board is
+    // otherwise display-only and no mission could ever complete.
+    finalProgress = assignBountyMissions(finalProgress, date);
     const { progress: afterBounty, events: bountyEvents } = evaluateBountyMissions(finalProgress, date);
     finalProgress = afterBounty;
     allEvents.push(...bountyEvents);

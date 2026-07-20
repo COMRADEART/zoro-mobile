@@ -5,7 +5,7 @@
  * recovery, skill trees, and boss challenges.
  */
 import { SWORDS, RANKS, REWARDS, TITLE_PATHS, SKILL_TREES, BOSS_CHALLENGES, BOUNTY_MISSIONS, TRAINING_ARCS, getExerciseById } from '../data/gameData';
-import type { Progress, Discipline, Session, LoggedExercise } from '../types';
+import type { Progress, Discipline, Session, LoggedExercise, BountyMission } from '../types';
 import { DISCIPLINES } from '../types';
 
 export const BOSS_HINT_FAIL_THRESHOLD = 3;
@@ -1570,7 +1570,7 @@ export function generateVoyageChronicle(progress: Progress, monthKey: string) {
  * @param date - current date string
  * @returns array of active bounty missions
  */
-export function getActiveBountyMissions(progress: Progress, date: string) {
+export function getActiveBountyMissions(progress: Progress, date: string): BountyMission[] {
   const activeMissions = (progress.bountyMissions || []).filter(m => m.status === 'active');
   if (activeMissions.length >= 3) return activeMissions;
 
@@ -1581,16 +1581,30 @@ export function getActiveBountyMissions(progress: Progress, date: string) {
     m => !completedIds.has(m.id) && !activeMissions.find(am => am.id === m.id)
   );
 
-  const newMissions = available.slice(0, 3 - activeMissions.length).map(bm => ({
+  const newMissions: BountyMission[] = available.slice(0, 3 - activeMissions.length).map(bm => ({
     id: bm.id,
     type: bm.type,
-    status: 'active',
+    status: 'active' as const,
     assignedAt: date,
     completedAt: null,
     weekOf: weekOfYear(date),
   }));
 
   return [...activeMissions, ...newMissions];
+}
+
+/**
+ * Persists the bounty board: tops the active set up to 3 and returns progress
+ * with those assignments stored, preserving completed mission records so they
+ * are never re-assigned. Without this step no bounty ever exists in progress,
+ * so evaluateBountyMissions has nothing to complete.
+ */
+export function assignBountyMissions(progress: Progress, date: string): Progress {
+  const all = progress.bountyMissions || [];
+  const active = getActiveBountyMissions(progress, date);
+  if (active.length === all.filter(m => m.status === 'active').length) return progress;
+  const completed = all.filter(m => m.status !== 'active');
+  return { ...progress, bountyMissions: [...completed, ...active] };
 }
 
 /**

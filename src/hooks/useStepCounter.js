@@ -36,21 +36,26 @@ export default function useStepCounter() {
           }
         }
 
-        // Get steps from start of today
-        const start = new Date();
-        start.setHours(0, 0, 0, 0);
-        const end = new Date();
-
-        const result = await Pedometer.getStepCountAsync(start, end);
-        if (!mounted) return;
-        if (result) {
-          setSteps(result.steps);
+        // Baseline: steps already taken today before the live subscription
+        // began. getStepCountAsync is iOS-only — expo-sensors' Android module
+        // throws NotSupportedException — so on Android the baseline stays 0
+        // and the chip counts steps since the app opened.
+        let baseline = 0;
+        if (Platform.OS === 'ios') {
+          const start = new Date();
+          start.setHours(0, 0, 0, 0);
+          const result = await Pedometer.getStepCountAsync(start, new Date());
+          if (!mounted) return;
+          baseline = result?.steps ?? 0;
+          setSteps(baseline);
         }
 
-        // Start live subscription
+        // watchStepCount reports a CUMULATIVE count since subscription start
+        // (CMPedometer semantics), so render baseline + latest — accumulating
+        // each event would double-count every prior step.
         subscriptionRef.current = Pedometer.watchStepCount(result => {
           if (!mounted) return;
-          setSteps(prev => prev + result.steps);
+          setSteps(baseline + result.steps);
           setPaceActive(result.steps > 0);
         });
       } catch (e) {
