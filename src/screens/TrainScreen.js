@@ -31,6 +31,8 @@ function TrainScreen() {
   const [nlBusy, setNlBusy] = useState(false);
   const timerRef = useRef(null);
   const sessionRef = useRef(null);
+  // Mirrors completedExercises for closure-safe reads in endSession.
+  const completedRef = useRef([]);
   const pulse = useRef(new Animated.Value(1)).current;
   const fadeSlide = useRef(new Animated.Value(0)).current;
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
@@ -70,9 +72,13 @@ function TrainScreen() {
   const startSession = () => {
     const { progress: p } = applySessionStart(progress, { discipline: activeSword });
     sessionRef.current = p.currentSession;
+    // Persist the active session — kept only in the ref, an app death
+    // mid-workout silently lost it.
+    handleUpdate(p);
     setSessionId(p.currentSession.id);
     setElapsed(0); setPhase('active');
     setExerciseIndex(0); setCompletedExercises([]);
+    completedRef.current = [];
     setCurrentAmount('');
     fadeSlide.setValue(0);
     timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
@@ -82,7 +88,11 @@ function TrainScreen() {
 
   const endSession = () => {
     clearInterval(timerRef.current);
-    const payload = completedExercises.map(ex => ({ id: ex.id, name: ex.name, unit: ex.unit, amount: ex.amount || ex.base }));
+    // Read exercises from the ref, not state: the LOG-on-last-exercise path
+    // reaches here via a setTimeout whose closure captured the previous
+    // render's completedExercises — the final exercise (its calories, ring
+    // credit, and stored record) was silently dropped.
+    const payload = completedRef.current.map(ex => ({ id: ex.id, name: ex.name, unit: ex.unit, amount: ex.amount || ex.base }));
     const { progress: next, events } = applySessionEnd(
       { ...progress, currentSession: sessionRef.current },
       { sessionId, exercises: payload, intensity, endedAt: Date.now() }
@@ -98,7 +108,8 @@ function TrainScreen() {
   const logExercise = () => {
     if (!currentEx) return;
     const amount = currentAmount ? parseFloat(currentAmount) : currentEx.base;
-    setCompletedExercises(prev => [...prev, { ...currentEx, amount }]);
+    completedRef.current = [...completedRef.current, { ...currentEx, amount }];
+    setCompletedExercises(completedRef.current);
     setCurrentAmount('');
     mediumImpact();
     playClick();
