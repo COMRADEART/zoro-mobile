@@ -401,7 +401,10 @@ describe('evaluateArcWeekCompletion', () => {
       sessions,
       arcProgress: {
         'arc-east-blue': {
-          startedAt: '2024-01-13',
+          // Week 1 is anchored to the arc timeline: it can complete no
+          // earlier than startedAt+6, so the arc must have started a week
+          // before the evaluation date.
+          startedAt: '2024-01-09',
           completedWeeks: [],
           status: 'active',
         },

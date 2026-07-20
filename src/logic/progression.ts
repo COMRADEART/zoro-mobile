@@ -711,8 +711,18 @@ export function applyToggle(progress: Progress, action: { sword: Discipline; exe
 
 // ─── WEEK COMPLETION ─────────────────────────────────────────────────────────
 
-function evaluateWeekCompletion(progress, date) {
+export function evaluateWeekCompletion(progress, date) {
   const end = parseDateKey(date);
+
+  // Non-overlapping windows: a completed week is 7 NEW trained days. Without
+  // this gate, day 8 of a streak re-counts days 2-8 and mints another week —
+  // one per consecutive training day, inflating titles and boss gates ~7x.
+  const lastWeek = progress.completedWeeks[progress.completedWeeks.length - 1];
+  if (lastWeek?.completedAt) {
+    const last = parseDateKey(lastWeek.completedAt);
+    if (Math.round((end.getTime() - last.getTime()) / 86400000) < 7) return null;
+  }
+
   const days = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(end);
@@ -1748,6 +1758,17 @@ export function evaluateArcWeekCompletion(progress: Progress, arcId: string, wee
   const targets = weekDef.targets;
 
   const end = parseDateKey(date);
+
+  // Anchor week N to the arc's own timeline: it can complete no earlier than
+  // the last day of its week window (startedAt + N*7 - 1). Otherwise one
+  // trailing 7-day burst of sessions satisfies every week's target at once
+  // and a "4-week" arc finishes in a single evaluation pass.
+  if (arcData.startedAt) {
+    const started = parseDateKey(arcData.startedAt);
+    const earliest = new Date(started);
+    earliest.setDate(started.getDate() + weekNum * 7 - 1);
+    if (end < earliest) return { progress, events: [] };
+  }
   let weekSessions = 0;
   for (let i = 6; i >= 0; i--) {
     const d = new Date(end); d.setDate(end.getDate() - i);
