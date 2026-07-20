@@ -7,7 +7,7 @@ const KEY_V4 = 'santoryu:progress:v4';
 const KEY_V3 = 'santoryu:progress:v3';
 
 function migrateV3ToV4(v3: Record<string, unknown>): Progress {
-  return {
+  return normalizeProgress({
     ...v3,
     schemaVersion: 4,
     hydrationLog: {},
@@ -28,7 +28,7 @@ function migrateV3ToV4(v3: Record<string, unknown>): Progress {
     swordSharpnessLog: {},
     dreamArchetypeLog: {},
     voyageChronicles: [],
-  } as Progress;
+  });
 }
 
 export class AsyncStorageProgressRepository implements IProgressRepository {

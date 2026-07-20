@@ -198,6 +198,19 @@ export interface BountyMission {
   weekOf: string;
 }
 
+/** Static mission definition from gameData's BOUNTY_MISSIONS (not the runtime BountyMission record). */
+export interface BountyMissionDef {
+  id: string;
+  type: string;
+  name: string;
+  kanji: string;
+  desc: string;
+  tier: string;
+  requirement: { type: string; value?: number; discipline?: string; days?: number; cups?: number };
+  xpReward: number;
+  color: string;
+}
+
 export interface VoyageChronicle {
   monthKey: string;
   stats: {
@@ -232,7 +245,7 @@ export interface ProgressionEvent {
   unlock?: { id: string; name: string; desc: string; xp: number };
   boss?: { id: string; name: string; kanji: string; desc: string; discipline: string; exercises: unknown[]; xpReward: number; techniqueReward?: string; weeksRequired: number };
   themeKey?: string;
-  bounty?: BountyMission;
+  bounty?: BountyMissionDef;
   arcId?: string;
   arc?: { id: string; name: string; kanji: string; xpReward: number; techniqueReward?: string };
   programId?: string;

@@ -54,9 +54,9 @@ export default function TrainScreen() {
     if (hint) {
       switchSword(hint.discipline);
       setNlText('');
-      showToast && showToast(`Sensei set ${SWORDS[hint.discipline].name} — ${hint.note}`);
+      showToast && showToast({ title: 'SENSEI', body: `${SWORDS[hint.discipline].name} — ${hint.note}` });
     } else {
-      showToast && showToast('Could not read that — choose a discipline below.');
+      showToast && showToast({ title: 'SENSEI', body: 'Could not read that — choose a discipline below.' });
     }
   };
 

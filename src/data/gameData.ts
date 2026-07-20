@@ -372,8 +372,8 @@ export const QUOTES = [
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
-export function getExerciseById(id) {
-  for (const swordKey of Object.keys(SWORDS)) {
+export function getExerciseById(id: string) {
+  for (const swordKey of Object.keys(SWORDS) as (keyof typeof SWORDS)[]) {
     const sword = SWORDS[swordKey];
     const found = sword.exercises.find(e => e.id === id);
     if (found) return { ...found, discipline: swordKey };
@@ -382,16 +382,19 @@ export function getExerciseById(id) {
 }
 
 export function getSwordExercises(swordKey: string, skillUnlocks: Record<string, Record<string, string[]>> = {}) {
-  const sword = SWORDS[swordKey];
+  const sword = SWORDS[swordKey as keyof typeof SWORDS];
   if (!sword) return [];
-  const tree = SKILL_TREES[swordKey];
+  const tree = SKILL_TREES[swordKey as keyof typeof SKILL_TREES];
 
   // Start from base exercises, cloned so we can mutate base targets per skill unlock
   const baseExercises = sword.exercises
     .filter(e => (sword.baseExerciseIds || []).includes(e.id))
     .map(e => ({ ...e }));
 
-  const newExercises = [];
+  const newExercises: {
+    id: string; name: string; unit: string; base: number;
+    caloriePerUnit?: number; caloriePerRep?: number; discipline: string;
+  }[] = [];
 
   if (tree) {
     const disciplineUnlocks = skillUnlocks[swordKey] || {};
@@ -425,13 +428,9 @@ export function getSwordExercises(swordKey: string, skillUnlocks: Record<string,
   return [...baseExercises, ...newExercises];
 }
 
-export function senseiPhrase(category, subcategory = null, ctx = {}) {
-  let pool;
-  if (subcategory) {
-    pool = SENSEI_PHRASES[`${category}_${subcategory}`];
-  } else {
-    pool = SENSEI_PHRASES[category];
-  }
+export function senseiPhrase(category: string, subcategory: string | null = null, ctx = {}) {
+  const phrases: Record<string, string | string[] | undefined> = SENSEI_PHRASES;
+  const pool = subcategory ? phrases[`${category}_${subcategory}`] : phrases[category];
   if (!pool || pool.length === 0) return SENSEI_PHRASES.idle[0];
   if (typeof pool === 'string') return pool;
   return pool[Math.floor(Math.random() * pool.length)];

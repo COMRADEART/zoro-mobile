@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useProgress } from '../context/ProgressContext';
 import XPBar from '../components/shared/XPBar';
@@ -41,6 +41,7 @@ export default function HomeScreen() {
   const { steps } = useStepCounter();
   const [aiLine, setAiLine] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(false);
 
   const t = THEMES[theme] || THEMES[DEFAULT_THEME];
 
@@ -82,6 +83,24 @@ export default function HomeScreen() {
   } = d;
   const sharpLabel = getSharpnessLabel(sharpness);
   const sharpColor = getSharpnessColor(sharpness);
+
+  // Optional on-device AI enhancement of the sensei line. The static
+  // `sensei` renders instantly and stays unless/until AI returns a
+  // different line. No-op on every device without AICore.
+  const aiCtx = `${rec.type}/${rec.discipline || 'none'} readiness:${readiness} streak:${streak} sharp:${sharpness}`;
+  useEffect(() => {
+    let on = true;
+    ai.recommend({ context: aiCtx, fallback: sensei }).then(line => {
+      if (on && line && line !== sensei) setAiLine(line);
+    });
+    return () => { on = false; };
+  }, [aiCtx, sensei]);
+
+  useEffect(() => {
+    let on = true;
+    ai.isAIReady().then(ready => { if (on) setAiEnabled(ready); });
+    return () => { on = false; };
+  }, []);
 
   const loggedSharpness = progress.swordSharpnessLog?.[today];
   useEffect(() => {
@@ -185,6 +204,7 @@ export default function HomeScreen() {
         onClose={() => setChatOpen(false)}
         context={aiCtx}
         fallbackPhrase={sensei}
+        aiEnabled={aiEnabled}
       />
 
 
@@ -226,11 +246,19 @@ export default function HomeScreen() {
         </GlassCard>
       )}
 
-      <View style={s.senseiBlock}>
+      <Pressable
+        style={s.senseiBlock}
+        onPress={() => setChatOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Ask the sensei a question"
+      >
         <Text style={[s.senseiMark, { color: t.accent }]}>“</Text>
-        <Text style={s.senseiText}>{sensei}</Text>
-        <Text style={[s.senseiAttr, { color: t.accent }]}>— SENSEI</Text>
-      </View>
+        <Text style={s.senseiText}>{aiLine || sensei}</Text>
+        <View style={s.senseiFooter}>
+          <Text style={[s.senseiAttr, { color: t.accent }]}>— SENSEI</Text>
+          <Text style={[s.senseiAsk, { color: t.accent }]}>ASK ›</Text>
+        </View>
+      </Pressable>
 
       <View style={s.groupedSection}>
         <SectionLabel
@@ -387,7 +415,9 @@ const s = StyleSheet.create({
   senseiBlock: { marginTop: DS.space.xs, marginBottom: DS.space.xl, paddingHorizontal: DS.space.sm },
   senseiMark: { fontFamily: DS.font.display, fontSize: 44, lineHeight: 40, opacity: 0.5 },
   senseiText: { ...DS.type.body, fontFamily: DS.font.display, fontSize: 17, lineHeight: 27, color: TXT1, fontStyle: 'italic', marginTop: 2 },
-  senseiAttr: { ...DS.type.micro, marginTop: DS.space.md, letterSpacing: 2 },
+  senseiAttr: { ...DS.type.micro, letterSpacing: 2 },
+  senseiFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: DS.space.md },
+  senseiAsk: { ...DS.type.micro, letterSpacing: 2, opacity: 0.8 },
 
   /* Grouped sections */
   groupedSection: {
