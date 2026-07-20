@@ -20,6 +20,7 @@ import { useToast } from '../components/ToastWrapper';
 import { setHapticsEnabled, rankUp, bossDefeat, bossFail, themeUnlock } from '../utils/haptics';
 import { scheduleRestReminder } from '../services/notificationService';
 import { initAudio, playRankUp, setSoundEnabled } from '../services/audioService';
+import { ensureModel } from '../services/aiService';
 import { useAutoTheme } from '../hooks/useAutoTheme';
 import useReducedMotion from '../hooks/useReducedMotion';
 
@@ -95,6 +96,10 @@ function DojoInner({ toast, toastOpacity }) {
   const reducedMotion = useReducedMotion();
 
   useAutoTheme(progress, handleUpdate);
+
+  // Kick the one-time AICore model download early so on-device AI is ready
+  // by the time a feature calls it. No-ops on devices without AICore.
+  useEffect(() => { ensureModel().catch(() => {}); }, []);
 
   useEffect(() => {
     if (progress?.settings) {
